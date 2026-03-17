@@ -61,3 +61,8 @@ mvn spring-boot:run
 ## Package
 
 Base package: `com.yuyu.workflow`
+
+## Docs
+
+- 文档入口：`doc/README.md`
+- 审批工作流设计拆分目录：`doc/审批工作流设计/`

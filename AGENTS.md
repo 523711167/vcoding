@@ -12,7 +12,7 @@
 - 日志配置：`src/main/resources/log/logback-spring.xml`
 - 测试代码：`src/test/java`
 - 初始化 SQL：`sql/`
-- 设计与说明文档：`README.md`、`审批工作流设计.md`
+- 设计与说明文档：`README.md`、`doc/README.md`、`doc/审批工作流设计/`
 - 构建产物：`target/`，禁止手工修改
 
 ## 构建、测试与开发命令
