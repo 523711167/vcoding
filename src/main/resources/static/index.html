@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>审批工作流后台管理</title>
+    <style>
+        :root {
+            --bg: #f5f7fb;
+            --surface: #ffffff;
+            --surface-soft: #f8fafc;
+            --line: #e5e7eb;
+            --text: #1f2937;
+            --muted: #6b7280;
+            --primary: #2563eb;
+            --primary-soft: #eff6ff;
+            --success: #059669;
+            --success-soft: #ecfdf5;
+            --warning: #d97706;
+            --danger: #dc2626;
+            --sidebar: #111827;
+            --sidebar-muted: #94a3b8;
+            --sidebar-active: #1d4ed8;
+            --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+            --radius: 14px;
+            --header-height: 72px;
+            --footer-height: 56px;
+            --sidebar-width: 248px;
+            --font: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html, body {
+            margin: 0;
+            min-height: 100%;
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--font);
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .app-header {
+            height: var(--header-height);
+            background: var(--surface);
+            border-bottom: 1px solid var(--line);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            gap: 16px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            min-width: 0;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+
+        .brand-logo {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #2563eb, #0f766e);
+            color: #fff;
+            display: grid;
+            place-items: center;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+        }
+
+        .brand-text strong {
+            display: block;
+            font-size: 16px;
+            line-height: 1.2;
+        }
+
+        .brand-text span {
+            display: block;
+            color: var(--muted);
+            font-size: 12px;
+            margin-top: 2px;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .customer-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            background: var(--surface-soft);
+        }
+
+        .customer-avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+            color: #fff;
+            display: grid;
+            place-items: center;
+            font-weight: 700;
+            font-size: 14px;
+        }
+
+        .customer-info strong {
+            display: block;
+            font-size: 14px;
+            line-height: 1.2;
+        }
+
+        .customer-info span {
+            display: block;
+            color: var(--muted);
+            font-size: 12px;
+            margin-top: 2px;
+        }
+
+        .header-tag {
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: var(--primary-soft);
+            color: var(--primary);
+            font-size: 12px;
+            font-weight: 700;
+            border: 1px solid #dbeafe;
+        }
+
+        .layout {
+            flex: 1;
+            display: grid;
+            grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+            min-height: calc(100vh - var(--header-height) - var(--footer-height));
+        }
+
+        .sidebar {
+            background: var(--sidebar);
+            color: #fff;
+            padding: 20px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .nav-group-title {
+            color: var(--sidebar-muted);
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 0 10px;
+        }
+
+        .nav-list {
+            display: grid;
+            gap: 6px;
+        }
+
+        .nav-item {
+            border: 0;
+            background: transparent;
+            color: #e5e7eb;
+            width: 100%;
+            text-align: left;
+            padding: 12px 14px;
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: background .2s ease, color .2s ease;
+            font-size: 14px;
+        }
+
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .nav-item.active {
+            background: var(--sidebar-active);
+            color: #fff;
+        }
+
+        .nav-icon {
+            width: 18px;
+            text-align: center;
+            font-weight: 700;
+            color: inherit;
+        }
+
+        .sidebar-foot {
+            margin-top: auto;
+            padding: 14px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--sidebar-muted);
+            font-size: 12px;
+            line-height: 1.8;
+        }
+
+        .content-wrap {
+            padding: 20px;
+            overflow: auto;
+        }
+
+        .content-panel {
+            display: none;
+        }
+
+        .content-panel.active {
+            display: block;
+        }
+
+        .page-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+
+        .page-head h1 {
+            margin: 0 0 6px;
+            font-size: 26px;
+        }
+
+        .page-head p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            min-height: 40px;
+            padding: 0 14px;
+            border-radius: 10px;
+            border: 1px solid transparent;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: #fff;
+        }
+
+        .btn-default {
+            background: #fff;
+            border-color: var(--line);
+            color: var(--text);
+        }
+
+        .grid {
+            display: grid;
+            gap: 16px;
+        }
+
+        .grid-4 {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+
+        .grid-2 {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 18px;
+        }
+
+        .stat-card strong {
+            display: block;
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+
+        .stat-card span {
+            display: block;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .stat-trend {
+            margin-top: 10px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .stat-trend.good {
+            color: var(--success);
+        }
+
+        .stat-trend.warn {
+            color: var(--warning);
+        }
+
+        .section-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .section-head h2 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .section-head span {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .table-wrap {
+            overflow: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 12px 10px;
+            border-bottom: 1px solid var(--line);
+            vertical-align: top;
+        }
+
+        th {
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+
+        .status-chip {
+            display: inline-flex;
+            align-items: center;
+            min-height: 28px;
+            padding: 0 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .status-chip.online {
+            background: var(--success-soft);
+            color: var(--success);
+        }
+
+        .status-chip.pending {
+            background: #fff7ed;
+            color: var(--warning);
+        }
+
+        .status-chip.offline {
+            background: #fef2f2;
+            color: var(--danger);
+        }
+
+        .list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .list-item {
+            padding: 14px;
+            border-radius: 12px;
+            background: var(--surface-soft);
+            border: 1px solid var(--line);
+        }
+
+        .list-item strong {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 14px;
+        }
+
+        .list-item span {
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.7;
+        }
+
+        .app-footer {
+            height: var(--footer-height);
+            border-top: 1px solid var(--line);
+            background: var(--surface);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 0 24px;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+
+        .footer-links a {
+            color: var(--muted);
+            text-decoration: none;
+        }
+
+        .mobile-nav-toggle {
+            display: none;
+        }
+
+        @media (max-width: 1100px) {
+            .grid-4 {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 860px) {
+            .layout {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                display: none;
+            }
+
+            .sidebar.open {
+                display: flex;
+                position: fixed;
+                inset: var(--header-height) 12px var(--footer-height) 12px;
+                z-index: 20;
+                border-radius: 16px;
+                box-shadow: 0 20px 40px rgba(15, 23, 42, 0.24);
+            }
+
+            .mobile-nav-toggle {
+                display: inline-flex;
+                min-height: 38px;
+                padding: 0 12px;
+                border-radius: 10px;
+                border: 1px solid var(--line);
+                background: #fff;
+                color: var(--text);
+                font-weight: 600;
+            }
+
+            .app-header {
+                padding: 0 14px;
+            }
+
+            .content-wrap {
+                padding: 14px;
+            }
+
+            .app-footer {
+                height: auto;
+                padding: 10px 14px;
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .header-right {
+                display: none;
+            }
+
+            .grid-4 {
+                grid-template-columns: 1fr;
+            }
+
+            .page-head {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+<header class="app-header">
+    <div class="header-left">
+        <button class="mobile-nav-toggle" id="mobileNavToggle" type="button">菜单</button>
+        <div class="brand">
+            <div class="brand-logo">WF</div>
+            <div class="brand-text">
+                <strong>审批工作流后台管理</strong>
+                <span>传统后台布局 / 顶部客户信息 / 左侧导航 / 中间内容 / 底部页脚</span>
+            </div>
+        </div>
+    </div>
+    <div class="header-right">
+        <span class="header-tag">环境：<strong id="profileText">dev</strong></span>
+        <div class="customer-card">
+            <div class="customer-avatar">YX</div>
+            <div class="customer-info">
+                <strong>演示客户：宇信科技集团</strong>
+                <span>客户经理：王晓宇 / 套餐：企业旗舰版</span>
+            </div>
+        </div>
+    </div>
+</header>
+
+<div class="layout">
+    <aside class="sidebar" id="sidebar">
+        <div>
+            <div class="nav-group-title">主导航</div>
+            <div class="nav-list">
+                <button class="nav-item active" data-panel="dashboardPanel" type="button">
+                    <span class="nav-icon">1</span>
+                    <span>工作台首页</span>
+                </button>
+                <button class="nav-item" data-panel="customerPanel" type="button">
+                    <span class="nav-icon">2</span>
+                    <span>客户中心</span>
+                </button>
+                <button class="nav-item" data-panel="systemPanel" type="button">
+                    <span class="nav-icon">3</span>
+                    <span>系统管理</span>
+                </button>
+                <button class="nav-item" data-panel="workflowPanel" type="button">
+                    <span class="nav-icon">4</span>
+                    <span>流程中心</span>
+                </button>
+                <button class="nav-item" data-panel="opsPanel" type="button">
+                    <span class="nav-icon">5</span>
+                    <span>接口与运维</span>
+                </button>
+            </div>
+        </div>
+
+        <div>
+            <div class="nav-group-title">快捷入口</div>
+            <div class="nav-list">
+                <button class="nav-item" type="button" onclick="window.open('/swagger-ui/index.html', '_blank')">
+                    <span class="nav-icon">S</span>
+                    <span>Swagger 文档</span>
+                </button>
+                <button class="nav-item" type="button" onclick="window.open('/api/health/ping', '_blank')">
+                    <span class="nav-icon">H</span>
+                    <span>健康检查</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="sidebar-foot">
+            统一规范：QTO 仅用于查询，ETO 用于新增和修改。<br>
+            数据表统一使用 <code>tb_</code> 前缀。
+        </div>
+    </aside>
+
+    <main class="content-wrap">
+        <section class="content-panel active" id="dashboardPanel">
+            <div class="page-head">
+                <div>
+                    <h1>工作台首页</h1>
+                    <p>传统后台管理首页，适合作为审批系统、客户中心和基础权限模块的统一入口。</p>
+                </div>
+                <div class="toolbar">
+                    <a class="btn btn-primary" href="/swagger-ui/index.html" target="_blank" rel="noreferrer">接口文档</a>
+                    <a class="btn btn-default" href="/v3/api-docs" target="_blank" rel="noreferrer">OpenAPI</a>
+                </div>
+            </div>
+
+            <div class="grid grid-4">
+                <div class="card stat-card">
+                    <strong>04</strong>
+                    <span>已完成基础模块</span>
+                    <div class="stat-trend good">用户 / 角色 / 组织 / 菜单</div>
+                </div>
+                <div class="card stat-card">
+                    <strong id="serviceState">检测中</strong>
+                    <span>服务运行状态</span>
+                    <div class="stat-trend good" id="serviceTime">等待健康检查</div>
+                </div>
+                <div class="card stat-card">
+                    <strong>JDK 17</strong>
+                    <span>标准运行环境</span>
+                    <div class="stat-trend good">Corretto 17.0.12</div>
+                </div>
+                <div class="card stat-card">
+                    <strong>tb_</strong>
+                    <span>统一数据命名</span>
+                    <div class="stat-trend warn">SQL / 文档 / 代码一致</div>
+                </div>
+            </div>
+
+            <div class="grid grid-2" style="margin-top:16px;">
+                <div class="card">
+                    <div class="section-head">
+                        <h2>当前建设内容</h2>
+                        <span>基础后台</span>
+                    </div>
+                    <div class="list">
+                        <div class="list-item">
+                            <strong>用户管理</strong>
+                            <span>支持用户查询、分页、详情、状态管理、角色与组织分配。</span>
+                        </div>
+                        <div class="list-item">
+                            <strong>角色管理</strong>
+                            <span>支持角色分页、数据权限设置、菜单授权和角色下用户查询。</span>
+                        </div>
+                        <div class="list-item">
+                            <strong>菜单管理</strong>
+                            <span>支持目录、菜单、按钮统一管理，角色菜单关联和基础数据初始化。</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="section-head">
+                        <h2>待办建议</h2>
+                        <span>下一阶段</span>
+                    </div>
+                    <div class="list">
+                        <div class="list-item">
+                            <strong>补客户真实信息</strong>
+                            <span>将顶部客户信息替换为登录客户、租户、套餐、联系人等真实数据。</span>
+                        </div>
+                        <div class="list-item">
+                            <strong>接左侧真实菜单树</strong>
+                            <span>后续可以把左侧导航改成读取 `/sys/menu/tree` 的真实菜单。</span>
+                        </div>
+                        <div class="list-item">
+                            <strong>接内容区真实页面</strong>
+                            <span>将中间内容拆成 iframe、服务端模板或前端路由页面。</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="content-panel" id="customerPanel">
+            <div class="page-head">
+                <div>
+                    <h1>客户中心</h1>
+                    <p>展示客户基础资料、合同状态、联系人信息和服务情况。</p>
+                </div>
+            </div>
+
+            <div class="grid grid-2">
+                <div class="card">
+                    <div class="section-head">
+                        <h2>客户信息</h2>
+                        <span>示例数据</span>
+                    </div>
+                    <div class="list">
+                        <div class="list-item">
+                            <strong>客户名称</strong>
+                            <span>宇信科技集团有限公司</span>
+                        </div>
+                        <div class="list-item">
+                            <strong>客户编号</strong>
+                            <span>CUST-2026-001</span>
+                        </div>
+                        <div class="list-item">
+                            <strong>当前套餐</strong>
+                            <span>企业旗舰版 / 500 并发用户 / 独立审批配置</span>
+                        </div>
+                        <div class="list-item">
+                            <strong>服务截止时间</strong>
+                            <span>2027-03-31</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="section-head">
+                        <h2>联系人</h2>
+                        <span>客户信息头部可对接</span>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                            <tr>
+                                <th>姓名</th>
+                                <th>角色</th>
+                                <th>电话</th>
+                                <th>状态</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr>
+                                <td>王晓宇</td>
+                                <td>客户经理</td>
+                                <td>13800000001</td>
+                                <td><span class="status-chip online">正常</span></td>
+                            </tr>
+                            <tr>
+                                <td>李文静</td>
+                                <td>财务接口人</td>
+                                <td>13800000002</td>
+                                <td><span class="status-chip online">正常</span></td>
+                            </tr>
+                            <tr>
+                                <td>周子航</td>
+                                <td>IT 管理员</td>
+                                <td>13800000003</td>
+                                <td><span class="status-chip pending">待确认</span></td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="content-panel" id="systemPanel">
+            <div class="page-head">
+                <div>
+                    <h1>系统管理</h1>
+                    <p>当前已完成用户、角色、组织、菜单基础模块，可作为传统后台主工作区。</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="section-head">
+                    <h2>基础管理模块</h2>
+                    <span>已落地</span>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                        <tr>
+                            <th>模块</th>
+                            <th>接口前缀</th>
+                            <th>说明</th>
+                            <th>状态</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr>
+                            <td>用户管理</td>
+                            <td><code>/sys/user</code></td>
+                            <td>用户信息、状态、密码、角色、组织</td>
+                            <td><span class="status-chip online">已完成</span></td>
+                        </tr>
+                        <tr>
+                            <td>角色管理</td>
+                            <td><code>/sys/role</code></td>
+                            <td>角色信息、菜单授权、数据权限</td>
+                            <td><span class="status-chip online">已完成</span></td>
+                        </tr>
+                        <tr>
+                            <td>组织管理</td>
+                            <td><code>/sys/dept</code></td>
+                            <td>组织树、主管、组织移动</td>
+                            <td><span class="status-chip online">已完成</span></td>
+                        </tr>
+                        <tr>
+                            <td>菜单管理</td>
+                            <td><code>/sys/menu</code></td>
+                            <td>目录、菜单、按钮和角色菜单关联</td>
+                            <td><span class="status-chip online">已完成</span></td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section class="content-panel" id="workflowPanel">
+            <div class="page-head">
+                <div>
+                    <h1>流程中心</h1>
+                    <p>这里适合作为后续业务类型、流程定义、审批监控和待办入口的主区域。</p>
+                </div>
+            </div>
+
+            <div class="grid grid-2">
+                <div class="card">
+                    <div class="section-head">
+                        <h2>建议补充模块</h2>
+                        <span>规划中</span>
+                    </div>
+                    <div class="list">
+                        <div class="list-item">
+                            <strong>业务类型管理</strong>
+                            <span>维护 `tb_biz_type` 和 `tb_biz_type_initiator`，控制业务发起口径。</span>
+                        </div>
+                        <div class="list-item">
+                            <strong>流程定义管理</strong>
+                            <span>提供定义列表、版本管理、发布、归档和设计器入口。</span>
+                        </div>
+                        <div class="list-item">
+                            <strong>审批待办中心</strong>
+                            <span>展示待审批、已审批、抄送、超时催办等业务入口。</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="section-head">
+                        <h2>首页延展方向</h2>
+                        <span>传统后台风格</span>
+                    </div>
+                    <div class="list">
+                        <div class="list-item">
+                            <strong>顶部</strong>
+                            <span>可增加客户切换、当前用户、消息通知和退出登录。</span>
+                        </div>
+                        <div class="list-item">
+                            <strong>左侧</strong>
+                            <span>可改为二级菜单结构，支持工作流和系统管理分组折叠。</span>
+                        </div>
+                        <div class="list-item">
+                            <strong>中间</strong>
+                            <span>可接入真实图表、审批趋势、流程耗时和业务统计卡片。</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="content-panel" id="opsPanel">
+            <div class="page-head">
+                <div>
+                    <h1>接口与运维</h1>
+                    <p>面向联调、验收和环境确认的辅助页面。</p>
+                </div>
+                <div class="toolbar">
+                    <a class="btn btn-primary" href="/api/health/ping" target="_blank" rel="noreferrer">健康检查</a>
+                    <a class="btn btn-default" href="/swagger-ui/index.html" target="_blank" rel="noreferrer">Swagger</a>
+                </div>
+            </div>
+
+            <div class="grid grid-2">
+                <div class="card">
+                    <div class="section-head">
+                        <h2>运行环境</h2>
+                        <span>JDK 17</span>
+                    </div>
+                    <div class="list">
+                        <div class="list-item">
+                            <strong>应用名称</strong>
+                            <span id="serviceName">approval-workflow</span>
+                        </div>
+                        <div class="list-item">
+                            <strong>服务状态</strong>
+                            <span id="opsStatus">等待检查</span>
+                        </div>
+                        <div class="list-item">
+                            <strong>最近响应时间</strong>
+                            <span id="opsTime">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="section-head">
+                        <h2>统一规范</h2>
+                        <span>开发口径</span>
+                    </div>
+                    <div class="list">
+                        <div class="list-item">
+                            <strong>参数规范</strong>
+                            <span>查询统一使用 QTO，新增和修改统一使用 ETO。</span>
+                        </div>
+                        <div class="list-item">
+                            <strong>响应规范</strong>
+                            <span>所有接口统一使用 Resp&lt;T&gt;，返回对象统一使用 VO。</span>
+                        </div>
+                        <div class="list-item">
+                            <strong>命名规范</strong>
+                            <span>所有数据库表统一使用 `tb_` 前缀，代码与文档保持一致。</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+
+<footer class="app-footer">
+    <div>Approval Workflow Admin Console</div>
+    <div class="footer-links">
+        <a href="/swagger-ui/index.html" target="_blank" rel="noreferrer">Swagger</a>
+        <a href="/v3/api-docs" target="_blank" rel="noreferrer">OpenAPI</a>
+        <a href="/api/health/ping" target="_blank" rel="noreferrer">Health</a>
+    </div>
+</footer>
+
+<script>
+    (function () {
+        var navItems = Array.prototype.slice.call(document.querySelectorAll(".nav-item[data-panel]"));
+        var panels = Array.prototype.slice.call(document.querySelectorAll(".content-panel"));
+        var sidebar = document.getElementById("sidebar");
+        var mobileNavToggle = document.getElementById("mobileNavToggle");
+        var profileText = document.getElementById("profileText");
+        var serviceName = document.getElementById("serviceName");
+        var serviceState = document.getElementById("serviceState");
+        var serviceTime = document.getElementById("serviceTime");
+        var opsStatus = document.getElementById("opsStatus");
+        var opsTime = document.getElementById("opsTime");
+
+        function activate(panelId) {
+            navItems.forEach(function (item) {
+                item.classList.toggle("active", item.getAttribute("data-panel") === panelId);
+            });
+            panels.forEach(function (panel) {
+                panel.classList.toggle("active", panel.id === panelId);
+            });
+            if (window.innerWidth <= 860) {
+                sidebar.classList.remove("open");
+            }
+        }
+
+        navItems.forEach(function (item) {
+            item.addEventListener("click", function () {
+                activate(item.getAttribute("data-panel"));
+            });
+        });
+
+        if (mobileNavToggle) {
+            mobileNavToggle.addEventListener("click", function () {
+                sidebar.classList.toggle("open");
+            });
+        }
+
+        fetch("/api/health/ping", { headers: { "Accept": "application/json" } })
+            .then(function (response) {
+                if (!response.ok) {
+                    throw new Error("HTTP " + response.status);
+                }
+                return response.json();
+            })
+            .then(function (resp) {
+                var data = resp && resp.data ? resp.data : {};
+                serviceName.textContent = data.service || "approval-workflow";
+                serviceState.textContent = data.status || "ok";
+                serviceTime.textContent = data.time || "--";
+                opsStatus.textContent = data.status || "ok";
+                opsTime.textContent = data.time || "--";
+            })
+            .catch(function (error) {
+                serviceState.textContent = "服务不可用";
+                serviceTime.textContent = "健康检查失败";
+                opsStatus.textContent = "健康检查失败：" + error.message;
+            });
+
+        fetch("/v3/api-docs", { headers: { "Accept": "application/json" } })
+            .then(function (response) {
+                if (!response.ok) {
+                    throw new Error();
+                }
+                profileText.textContent = "dev";
+            })
+            .catch(function () {
+                profileText.textContent = "unknown";
+            });
+    })();
+</script>
+</body>
+</html>

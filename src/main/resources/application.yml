@@ -1,0 +1,15 @@
+server:
+  port: 8080
+
+logging:
+  config: classpath:log/logback-spring.xml
+
+spring:
+  application:
+    name: approval-workflow
+  profiles:
+    active: dev
+
+workflow:
+  security:
+    token-expire-seconds: 7200

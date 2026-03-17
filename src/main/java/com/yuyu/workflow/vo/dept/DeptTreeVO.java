@@ -1,0 +1,37 @@
+package com.yuyu.workflow.vo.dept;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.Data;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@Data
+@Schema(description = "部门树节点返回对象")
+public class DeptTreeVO {
+
+    @Schema(description = "部门ID")
+    private Long id;
+    @Schema(description = "父部门ID")
+    private Long parentId;
+    @Schema(description = "部门名称")
+    private String name;
+    @Schema(description = "部门编码")
+    private String code;
+    @Schema(description = "组织路径")
+    private String path;
+    @Schema(description = "层级")
+    private Integer level;
+    @Schema(description = "排序值")
+    private Integer sortOrder;
+    @Schema(description = "主管用户ID")
+    private Long leaderId;
+    @Schema(description = "主管姓名")
+    private String leaderName;
+    @Schema(description = "状态")
+    private Integer status;
+    @Schema(description = "状态说明")
+    private String statusMsg;
+    @Schema(description = "子节点")
+    private List<DeptTreeVO> children = new ArrayList<>();
+}

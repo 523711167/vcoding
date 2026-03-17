@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="false">
+
+    <!--
+        Logback 配置策略说明
+
+        1. 本文件使用 logback-spring.xml 而不是 logback.xml：
+           这样可以使用 Spring Profile，根据 dev / prod 环境切换不同日志策略。
+
+        2. 当前策略分为两层：
+           - dev：面向本地开发，强调可读性和调试效率，只输出控制台
+           - prod：面向生产运行，强调留痕、归档和问题追踪，输出控制台和滚动文件
+
+        3. 为什么不把日志策略写在 application.yml：
+           application 更适合放简单日志级别和业务配置；
+           像 appender、滚动归档、错误日志拆分这类复杂策略，更适合集中放在 Logback 文件中维护。
+
+        4. 当前文件的设计目标：
+           - 默认配置足够简单，适合项目初始阶段
+           - dev 和 prod 的职责边界清晰
+           - 生产环境具备基础归档能力
+           - 后续可平滑扩展为按模块、按级别、按链路追踪输出
+    -->
+
+    <!-- 应用名称，用于日志文件命名 -->
+    <property name="APP_NAME" value="approval-workflow"/>
+    <!-- 日志根目录，可通过环境变量 LOG_HOME 覆盖 -->
+    <property name="LOG_HOME" value="${LOG_HOME:-logs}"/>
+    <!--
+        统一日志输出格式。
+        当前保留时间、线程、级别、Logger 名称和消息体，已经能满足大多数开发和排障场景。
+        如果后续接入 traceId / requestId / userId，可在这里统一扩展 pattern。
+    -->
+    <property name="LOG_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"/>
+
+    <!--
+        通用控制台输出。
+        dev 和 prod 都保留控制台输出，原因是：
+        - dev 环境主要依赖控制台快速调试
+        - prod 环境在容器化部署时，控制台日志通常会被宿主机、容器平台或日志采集系统接管
+    -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!--
+        开发环境策略：
+        1. 仅输出控制台，不落盘，避免本地开发产生大量日志文件
+        2. 项目包 com.yuyu.workflow 使用 DEBUG，便于查看调试信息
+        3. root 级别保持 INFO，避免第三方框架输出过多噪音
+        4. 如果本地排查 SQL 或框架细节，再按需单独抬高具体包的日志级别
+    -->
+    <springProfile name="dev">
+        <logger name="com.yuyu.workflow" level="DEBUG"/>
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <!--
+        生产环境策略：
+        1. 保留控制台输出，兼容容器标准输出采集
+        2. 同时写入本地滚动文件，避免仅依赖外部采集导致排障受限
+        3. 普通日志和错误日志拆分：
+           - 普通日志用于保留完整运行轨迹
+           - 错误日志用于快速聚焦异常问题
+        4. 生产环境项目包默认 INFO，避免 DEBUG 级别放大日志量
+    -->
+    <springProfile name="prod">
+        <!--
+            普通业务日志文件。
+            这里采用 SizeAndTimeBasedRollingPolicy，含义是：
+            - 按天切分，便于按日期归档和检索
+            - 单日内如果文件过大，再按序号继续切分
+            这样比单纯按天切分更稳妥，可以避免单文件过大。
+        -->
+        <appender name="INFO_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>${LOG_HOME}/${APP_NAME}.log</file>
+            <encoder>
+                <pattern>${LOG_PATTERN}</pattern>
+                <charset>UTF-8</charset>
+            </encoder>
+            <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+                <!--
+                    归档文件命名规则：
+                    archive/approval-workflow.2026-03-16.0.log.gz
+                    archive/approval-workflow.2026-03-16.1.log.gz
+                    ...
+                -->
+                <fileNamePattern>${LOG_HOME}/archive/${APP_NAME}.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+                <!-- 单个归档文件最大 100MB，超过后自动切分新文件 -->
+                <maxFileSize>100MB</maxFileSize>
+                <!-- 最多保留 30 天历史日志 -->
+                <maxHistory>30</maxHistory>
+                <!-- 所有归档日志总容量上限 5GB，超过后由 Logback 清理更旧文件 -->
+                <totalSizeCap>5GB</totalSizeCap>
+            </rollingPolicy>
+        </appender>
+
+        <!--
+            错误日志文件。
+            通过 ThresholdFilter 仅保留 ERROR 及以上日志。
+            这样做的目的不是替代普通日志，而是给线上问题排查提供一个更聚焦的入口。
+        -->
+        <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>${LOG_HOME}/${APP_NAME}-error.log</file>
+            <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+                <level>ERROR</level>
+            </filter>
+            <encoder>
+                <pattern>${LOG_PATTERN}</pattern>
+                <charset>UTF-8</charset>
+            </encoder>
+            <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+                <fileNamePattern>${LOG_HOME}/archive/${APP_NAME}-error.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+                <maxFileSize>100MB</maxFileSize>
+                <maxHistory>30</maxHistory>
+                <totalSizeCap>5GB</totalSizeCap>
+            </rollingPolicy>
+        </appender>
+
+        <!-- 项目主包日志级别：生产环境默认 INFO，控制日志量和性能成本 -->
+        <logger name="com.yuyu.workflow" level="INFO"/>
+
+        <!--
+            根日志策略：
+            - 级别 INFO：绝大多数生产系统的基础默认值
+            - 输出到 CONSOLE：便于容器或平台采集
+            - 输出到 INFO_FILE：保留完整运行日志
+            - 输出到 ERROR_FILE：保留高优先级错误日志
+
+            如果后续接入 ELK、Loki、Splunk 或云日志平台，可按需要决定是否保留文件输出。
+        -->
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="INFO_FILE"/>
+            <appender-ref ref="ERROR_FILE"/>
+        </root>
+    </springProfile>
+
+    <!--
+        后续扩展建议：
+        1. 如果系统接入网关或链路追踪，优先把 traceId 放入 LOG_PATTERN
+        2. 如果模块增多，可按包名拆分独立 appender
+        3. 如果生产日志量很大，可只保留 ERROR 文件，把普通日志交给外部采集系统
+        4. 如果涉及审计场景，业务审计日志建议单独建 appender，不要混在普通应用日志里
+    -->
+
+</configuration>
