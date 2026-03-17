@@ -4,7 +4,3 @@ spring:
     url: jdbc:mysql://localhost:3306/yuyu?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
     username: user
     password: user
-
-workflow:
-  security:
-    token-secret: ${WORKFLOW_SECURITY_TOKEN_SECRET:dev-token-secret-change-this-before-prod}

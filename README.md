@@ -1,6 +1,8 @@
 # approval-workflow
 
-Spring Boot basic project skeleton for the approval workflow system.
+Spring Boot backend service for the approval workflow system.
+
+This repository follows a front-end/back-end separation architecture and only contains backend APIs, security, persistence, and related configuration. It does not carry HTML pages, template-engine views, or front-end static site assets.
 
 ## Stack
 

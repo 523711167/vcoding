@@ -12,4 +12,9 @@ spring:
 
 workflow:
   security:
+    issuer: ${WORKFLOW_SECURITY_ISSUER:http://127.0.0.1:8080}
     token-expire-seconds: 7200
+    client-id: ${WORKFLOW_SECURITY_CLIENT_ID:workflow-client}
+    client-secret: ${WORKFLOW_SECURITY_CLIENT_SECRET:workflow-client-secret}
+    client-name: ${WORKFLOW_SECURITY_CLIENT_NAME:Workflow Client}
+    client-redirect-uri: ${WORKFLOW_SECURITY_CLIENT_REDIRECT_URI:http://127.0.0.1:8080/swagger-ui/oauth2-redirect.html}

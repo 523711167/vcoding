@@ -3,6 +3,8 @@
 ## 项目结构与模块组织
 本仓库是基于 Spring Boot 3.2.5、JDK 17 的审批工作流后端项目。
 
+项目采用前后端分离模式，当前仓库仅承载后端 API、认证鉴权、持久化与相关配置，不承载 HTML 页面、模板引擎页面或前端静态资源。
+
 - 业务代码：`src/main/java/com/yuyu/workflow`
 - 主要分层：`controller`、`service`、`service/impl`、`mapper`、`entity`、`qto`、`eto`、`vo`、`convert`、`config`、`common`
 - 配置文件：`src/main/resources`
@@ -30,6 +32,7 @@ Swagger 地址：
 ### 分层职责
 - 统一使用 4 空格缩进，包路径保持在 `com.yuyu.workflow` 下。
 - 所有数据库表统一使用 `tb_` 前缀；实体映射、注解 SQL、初始化 SQL、迁移 SQL、设计文档必须保持一致。
+- 当前仓库仅维护后端服务代码，禁止继续在本仓库内新增 HTML 页面、模板文件或前端静态资源。
 - `Controller` 只负责参数接收、参数校验、调用 `Service`、返回结果，禁止编写业务逻辑。
 - `Service` 负责完整业务逻辑、事务控制和业务规则校验。
 - `Mapper` 只负责数据访问，禁止承载业务分支逻辑。
@@ -100,7 +103,9 @@ Swagger 地址：
 ## 安全与配置说明
 - 环境相关配置统一放在 `application-*.yml` 中。
 - 禁止将数据库账号、密码或其他密钥硬编码到 Java 代码中。
-- 登录认证统一使用 `Spring Security + Bearer Token`。
-- Token 相关配置统一使用 `workflow.security.token-secret` 与 `workflow.security.token-expire-seconds`，禁止将签名规则散落在业务代码中。
+- 登录认证统一使用“认证服务端 + 资源服务端”架构，两者可以部署在同一个 Jar 内，但职责必须清晰分离。
+- 资源鉴权优先使用可内省的 `Bearer Token`；当业务要求“撤销后立即失效”时，优先采用 `opaque token + introspection` 方案，禁止默认使用无法即时失效的本地 JWT 验签方案。
+- 令牌签发、刷新、撤销优先使用认证服务端标准端点，如 `/oauth2/token`、`/oauth2/revoke`、`/oauth2/introspect`；如需账号密码登录，优先通过 `/oauth2/token` 扩展自定义 grant_type，而不是新增平行登录发 token 接口。
+- 认证相关配置统一使用 `workflow.security.issuer`、`workflow.security.token-expire-seconds`、`workflow.security.client-id`、`workflow.security.client-secret`，禁止将签名和客户端规则散落在业务代码中。
 - `dev` 与 `prod` 在数据库、日志和运行行为上可能不同，修改配置时需分别检查两个环境。
 - 若当前终端缺少 Maven，无法完成本地验证时，应在 PR 或变更说明中明确标注未验证项。
