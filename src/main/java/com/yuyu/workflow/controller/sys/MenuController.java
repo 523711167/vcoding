@@ -66,7 +66,7 @@ public class MenuController {
     @PostMapping("/delete")
     public Resp<Void> delete(@Valid @RequestBody BaseIdETO eto) {
         menuService.delete(resolveDeleteIds(eto));
-        return Resp.success(null);
+        return Resp.success();
     }
 
     /**

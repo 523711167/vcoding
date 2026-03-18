@@ -69,7 +69,7 @@ public class RoleController {
     @PostMapping("/delete")
     public Resp<Void> delete(@Valid @RequestBody BaseIdETO eto) {
         roleService.delete(resolveDeleteIds(eto));
-        return Resp.success(null);
+        return Resp.success();
     }
 
     /**
@@ -106,7 +106,7 @@ public class RoleController {
     @PostMapping("/status/update")
     public Resp<Void> updateStatus(@Valid @RequestBody RoleStatusUpdateETO eto) {
         roleService.updateStatus(eto);
-        return Resp.success(null);
+        return Resp.success();
     }
 
     /**
@@ -116,7 +116,7 @@ public class RoleController {
     @PostMapping("/menus/update")
     public Resp<Void> updateMenus(@Valid @RequestBody RoleMenusUpdateETO eto) {
         roleService.updateMenus(eto);
-        return Resp.success(null);
+        return Resp.success();
     }
 
     /**
@@ -135,7 +135,7 @@ public class RoleController {
     @PostMapping("/data-scope/update")
     public Resp<Void> updateDataScope(@Valid @RequestBody RoleDataScopeUpdateETO eto) {
         roleService.updateDataScope(eto);
-        return Resp.success(null);
+        return Resp.success();
     }
 
     /**

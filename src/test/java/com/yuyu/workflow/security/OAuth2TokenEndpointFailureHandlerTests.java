@@ -115,7 +115,8 @@ class OAuth2TokenEndpointFailureHandlerTests {
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.code").value(401))
                 .andExpect(jsonPath("$.msg").value("用户名或密码错误"))
-                .andExpect(jsonPath("$.data").doesNotExist());
+                .andExpect(jsonPath("$.data").isMap())
+                .andExpect(jsonPath("$.data").isEmpty());
     }
 
     /**
@@ -135,6 +136,7 @@ class OAuth2TokenEndpointFailureHandlerTests {
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.code").value(401))
                 .andExpect(jsonPath("$.msg").value("用户名或密码错误"))
-                .andExpect(jsonPath("$.data").doesNotExist());
+                .andExpect(jsonPath("$.data").isMap())
+                .andExpect(jsonPath("$.data").isEmpty());
     }
 }

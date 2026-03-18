@@ -70,7 +70,7 @@ public class UserController {
     @PostMapping("/delete")
     public Resp<Void> delete(@Valid @RequestBody BaseIdETO eto) {
         userService.delete(resolveDeleteIds(eto));
-        return Resp.success(null);
+        return Resp.success();
     }
 
     /**
@@ -107,7 +107,7 @@ public class UserController {
     @PostMapping("/password/reset")
     public Resp<Void> resetPassword(@Valid @RequestBody UserPasswordResetETO eto) {
         userService.resetPassword(eto);
-        return Resp.success(null);
+        return Resp.success();
     }
 
     /**
@@ -117,7 +117,7 @@ public class UserController {
     @PostMapping("/status/update")
     public Resp<Void> updateStatus(@Valid @RequestBody UserStatusUpdateETO eto) {
         userService.updateStatus(eto);
-        return Resp.success(null);
+        return Resp.success();
     }
 
     /**
@@ -127,7 +127,7 @@ public class UserController {
     @PostMapping("/roles/update")
     public Resp<Void> updateRoles(@Valid @RequestBody UserRolesUpdateETO eto) {
         userService.updateRoles(eto);
-        return Resp.success(null);
+        return Resp.success();
     }
 
     /**
@@ -146,7 +146,7 @@ public class UserController {
     @PostMapping("/depts/update")
     public Resp<Void> updateDepts(@Valid @RequestBody UserDeptsUpdateETO eto) {
         userService.updateDepts(eto);
-        return Resp.success(null);
+        return Resp.success();
     }
 
     /**

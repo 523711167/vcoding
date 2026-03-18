@@ -3,6 +3,9 @@ package com.yuyu.workflow.common;
 import com.yuyu.workflow.common.enums.RespCodeEnum;
 import io.swagger.v3.oas.annotations.media.Schema;
 
+import java.util.Collections;
+import java.util.Map;
+
 /**
  * 统一接口返回对象。
  *
@@ -23,17 +26,29 @@ public record Resp<T>(
         @Schema(description = "响应消息", example = "success") String msg,
         @Schema(description = "业务数据") T data) {
 
+    private static final Map<String, Object> EMPTY_DATA = Collections.emptyMap();
+
     /**
      * 构造成功响应。
      */
+    @SuppressWarnings("unchecked")
+    public static <T> Resp<T> success() {
+        return new Resp<>(RespCodeEnum.SUCCESS.getId(), RespCodeEnum.SUCCESS.getMsg(), (T) EMPTY_DATA);
+    }
+
+    /**
+     * 构造成功响应。
+     */
+    @SuppressWarnings("unchecked")
     public static <T> Resp<T> success(T data) {
-        return new Resp<>(RespCodeEnum.SUCCESS.getId(), RespCodeEnum.SUCCESS.getMsg(), data);
+        return data == null ? success() : new Resp<>(RespCodeEnum.SUCCESS.getId(), RespCodeEnum.SUCCESS.getMsg(), data);
     }
 
     /**
      * 构造失败响应。
      */
+    @SuppressWarnings("unchecked")
     public static <T> Resp<T> fail(int code, String msg) {
-        return new Resp<>(code, msg, null);
+        return new Resp<>(code, msg, (T) EMPTY_DATA);
     }
 }

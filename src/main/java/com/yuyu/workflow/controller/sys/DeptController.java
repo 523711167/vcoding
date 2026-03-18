@@ -65,7 +65,7 @@ public class DeptController {
     @PostMapping("/move")
     public Resp<Void> move(@Valid @RequestBody DeptMoveETO eto) {
         deptService.move(eto);
-        return Resp.success(null);
+        return Resp.success();
     }
 
     /**
@@ -75,7 +75,7 @@ public class DeptController {
     @PostMapping("/delete")
     public Resp<Void> delete(@Valid @RequestBody BaseIdETO eto) {
         deptService.delete(resolveDeleteIds(eto));
-        return Resp.success(null);
+        return Resp.success();
     }
 
     /**
