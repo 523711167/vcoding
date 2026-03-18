@@ -1,6 +1,7 @@
 package com.yuyu.workflow.config;
 
 import com.yuyu.workflow.security.AuthUserDetailsService;
+import com.yuyu.workflow.security.OAuth2TokenEndpointFailureHandler;
 import com.yuyu.workflow.security.password.PasswordLoginGrantAuthenticationConverter;
 import com.yuyu.workflow.security.password.PasswordLoginGrantAuthenticationProvider;
 import com.yuyu.workflow.security.password.PasswordLoginGrantAuthenticationToken;
@@ -68,7 +69,8 @@ public class AuthenticationServerSecurityConfig {
     public SecurityFilterChain authorizationServerSecurityFilterChain(
             HttpSecurity http,
             PasswordLoginGrantAuthenticationConverter passwordLoginGrantAuthenticationConverter,
-            PasswordLoginGrantAuthenticationProvider passwordLoginGrantAuthenticationProvider) throws Exception {
+            PasswordLoginGrantAuthenticationProvider passwordLoginGrantAuthenticationProvider,
+            OAuth2TokenEndpointFailureHandler oAuth2TokenEndpointFailureHandler) throws Exception {
         OAuth2AuthorizationServerConfigurer authorizationServerConfigurer = new OAuth2AuthorizationServerConfigurer();
 
         http
@@ -78,7 +80,8 @@ public class AuthenticationServerSecurityConfig {
                 .with(authorizationServerConfigurer, authorizationServer -> authorizationServer
                         .tokenEndpoint(tokenEndpoint -> tokenEndpoint
                                 .accessTokenRequestConverter(passwordLoginGrantAuthenticationConverter)
-                                .authenticationProvider(passwordLoginGrantAuthenticationProvider)));
+                                .authenticationProvider(passwordLoginGrantAuthenticationProvider)
+                                .errorResponseHandler(oAuth2TokenEndpointFailureHandler)));
         return http.build();
     }
 

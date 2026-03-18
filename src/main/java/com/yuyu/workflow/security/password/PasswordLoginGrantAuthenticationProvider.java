@@ -2,6 +2,7 @@ package com.yuyu.workflow.security.password;
 
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.ClaimAccessor;
@@ -71,12 +72,20 @@ public class PasswordLoginGrantAuthenticationProvider implements AuthenticationP
         }
 
         Set<String> authorizedScopes = resolveAuthorizedScopes(passwordLoginAuthentication.getScopes(), registeredClient);
-        Authentication userAuthentication = authenticationManager.authenticate(
-                UsernamePasswordAuthenticationToken.unauthenticated(
-                        passwordLoginAuthentication.getUsername(),
-                        passwordLoginAuthentication.getPassword()
-                )
-        );
+        Authentication userAuthentication;
+        try {
+            userAuthentication = authenticationManager.authenticate(
+                    UsernamePasswordAuthenticationToken.unauthenticated(
+                            passwordLoginAuthentication.getUsername(),
+                            passwordLoginAuthentication.getPassword()
+                    )
+            );
+        } catch (AuthenticationException ex) {
+            throw new OAuth2AuthenticationException(
+                    new OAuth2Error(OAuth2ErrorCodes.INVALID_GRANT, "用户名或密码错误", null),
+                    ex
+            );
+        }
 
         DefaultOAuth2TokenContext.Builder tokenContextBuilder = DefaultOAuth2TokenContext.builder()
                 .registeredClient(registeredClient)
