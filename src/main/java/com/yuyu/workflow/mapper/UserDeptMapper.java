@@ -13,7 +13,7 @@ public interface UserDeptMapper extends BaseMapper<UserDept> {
      * 按主键物理删除部门数据。
      */
     @Delete("DELETE FROM tb_user_dept WHERE id = #{id}")
-    int deleteById(Long id);
+    int removeById(Long id);
 
     /**
      * 按主键集合批量物理删除部门数据。
@@ -26,5 +26,5 @@ public interface UserDeptMapper extends BaseMapper<UserDept> {
             "</foreach>",
             "</script>"
     })
-    int deleteByIds(@Param("idList") List<Long> idList);
+    int removeByIds(@Param("idList") List<Long> idList);
 }

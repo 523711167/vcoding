@@ -14,7 +14,7 @@ public interface UserMapper extends BaseMapper<User> {
      * 按主键物理删除用户数据。
      */
     @Delete("DELETE FROM tb_user WHERE id = #{id}")
-    int deleteById(Long id);
+    int removeById(Long id);
 
     /**
      * 按主键集合批量物理删除用户数据。
@@ -27,7 +27,7 @@ public interface UserMapper extends BaseMapper<User> {
             "</foreach>",
             "</script>"
     })
-    int deleteByIds(@Param("idList") List<Long> idList);
+    int removeByIds(@Param("idList") List<Long> idList);
 
     /**
      * 忽略逻辑删除条件查询指定用户名。

@@ -118,7 +118,7 @@ public class RoleServiceImpl implements RoleService {
         }
         deleteRoleMenuRelations(roleIds);
         deleteRoleDeptRelations(roleIds);
-        userRoleMapper.deleteByIds(roleIds);
+        userRoleMapper.removeByIds(roleIds);
     }
 
     @Override
@@ -274,7 +274,7 @@ public class RoleServiceImpl implements RoleService {
         if (CollectionUtils.isEmpty(relationList)) {
             return;
         }
-        userRoleDeptMapper.deleteByIds(relationList.stream().map(UserRoleDept::getId).toList());
+        userRoleDeptMapper.removeByIds(relationList.stream().map(UserRoleDept::getId).toList());
     }
 
     /**
@@ -286,7 +286,7 @@ public class RoleServiceImpl implements RoleService {
         if (CollectionUtils.isEmpty(relationList)) {
             return;
         }
-        userRoleMenuMapper.deleteByIds(relationList.stream().map(UserRoleMenu::getId).toList());
+        userRoleMenuMapper.removeByIds(relationList.stream().map(UserRoleMenu::getId).toList());
     }
 
     /**

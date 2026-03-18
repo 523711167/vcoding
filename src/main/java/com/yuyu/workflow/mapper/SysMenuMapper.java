@@ -14,7 +14,7 @@ public interface SysMenuMapper extends BaseMapper<SysMenu> {
      * 按主键物理删除菜单数据。
      */
     @Delete("DELETE FROM tb_sys_menu WHERE id = #{id}")
-    int deleteById(Long id);
+    int removeById(Long id);
 
     /**
      * 按主键集合批量物理删除菜单数据。
@@ -27,7 +27,7 @@ public interface SysMenuMapper extends BaseMapper<SysMenu> {
             "</foreach>",
             "</script>"
     })
-    int deleteByIds(@Param("idList") List<Long> idList);
+    int removeByIds(@Param("idList") List<Long> idList);
 
     /**
      * 查询指定用户已启用的权限标识集合。

@@ -39,7 +39,7 @@
 - 所有删除接口都必须优先支持批量删除，单个删除仅作为批量删除的一种特例处理
 - `Service` 层负责承载完整业务逻辑、事务控制和业务规则校验，禁止将事务放在 `Controller` 层或 `Mapper` 层
 - `Mapper` 层只负责数据访问，禁止在 SQL 或持久层中编写与职责无关的业务分支逻辑
-- 所有 `Mapper` 都必须显式提供 `deleteById` 和 `deleteByIds` 方法，通过注解 SQL 分别执行按主键物理删除和按主键集合批量物理删除；关联表数据删除时，必须先查询关联记录主键，再直接调用对应 `Mapper.deleteById` 或 `Mapper.deleteByIds` 完成删除，禁止继续散落 `Wrapper.delete(...)` 删除写法
+- 所有 `Mapper` 都必须显式提供 `removeById` 和 `removeByIds` 方法，通过注解 SQL 分别执行按主键物理删除和按主键集合批量物理删除；关联表数据删除时，必须先查询关联记录主键，再直接调用对应 `Mapper.removeById` 或 `Mapper.removeByIds` 完成删除，禁止继续散落 `Wrapper.delete(...)` 删除写法
 - 所有 `StructMapper` 都必须遵循“传入旧对象，返回新对象”的使用规范，禁止通过 `@MappingTarget` 或其他方式直接修改传入对象；对象转换逻辑应尽可能收敛在对应的 `StructMapper` 中实现
 - `Entity` 只用于数据库持久化映射，禁止直接作为接口入参或出参
 - 所有持久化对象字段都必须添加清晰注释；对于 `id`、`createdAt`、`updatedAt`、`isDeleted` 等公共字段，应优先抽取到统一持久化基类中复用

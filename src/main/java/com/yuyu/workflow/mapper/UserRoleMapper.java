@@ -14,7 +14,7 @@ public interface UserRoleMapper extends BaseMapper<UserRole> {
      * 按主键物理删除角色数据。
      */
     @Delete("DELETE FROM tb_user_role WHERE id = #{id}")
-    int deleteById(Long id);
+    int removeById(Long id);
 
     /**
      * 按主键集合批量物理删除角色数据。
@@ -27,7 +27,7 @@ public interface UserRoleMapper extends BaseMapper<UserRole> {
             "</foreach>",
             "</script>"
     })
-    int deleteByIds(@Param("idList") List<Long> idList);
+    int removeByIds(@Param("idList") List<Long> idList);
 
     /**
      * 忽略逻辑删除条件查询指定角色编码。

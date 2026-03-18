@@ -99,7 +99,7 @@ public class MenuServiceImpl implements MenuService {
             throw new BizException("当前菜单存在未删除的子节点，无法删除");
         }
         deleteRoleMenuRelationsByMenuIds(menuIds);
-        sysMenuMapper.deleteByIds(menuIds);
+        sysMenuMapper.removeByIds(menuIds);
     }
 
     @Override
@@ -263,7 +263,7 @@ public class MenuServiceImpl implements MenuService {
         if (CollectionUtils.isEmpty(relationList)) {
             return;
         }
-        userRoleMenuMapper.deleteByIds(relationList.stream().map(UserRoleMenu::getId).toList());
+        userRoleMenuMapper.removeByIds(relationList.stream().map(UserRoleMenu::getId).toList());
     }
 
     /**

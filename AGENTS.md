@@ -66,11 +66,11 @@ Swagger 地址：
 - 所有删除接口都必须优先支持批量删除，单个删除仅作为批量删除的一种特例处理。
 
 ### Mapper 与 StructMapper
-- 所有 `Mapper` 都必须显式提供 `deleteById` 与 `deleteByIds` 方法。
-- `deleteById` 必须通过注解 SQL 执行按主键物理删除。
-- `deleteByIds` 必须通过注解 SQL 执行按主键集合批量物理删除。
-- 关联表删除时，必须先查出关联记录主键，再调用对应 `Mapper.deleteById` 删除。
-- 需要批量删除时，必须优先调用对应 `Mapper.deleteByIds`。
+- 所有 `Mapper` 都必须显式提供 `removeById` 与 `removeByIds` 方法。
+- `removeById` 必须通过注解 SQL 执行按主键物理删除。
+- `removeByIds` 必须通过注解 SQL 执行按主键集合批量物理删除。
+- 关联表删除时，必须先查出关联记录主键，再调用对应 `Mapper.removeById` 删除。
+- 需要批量删除时，必须优先调用对应 `Mapper.removeByIds`。
 - 禁止继续使用分散的 `Wrapper.delete(...)` 写法。
 - MapStruct 转换组件统一使用 `*StructMapper` 命名，禁止再使用 `*Convert` 命名。
 - 对象转换逻辑应尽可能收敛在对应的 `*StructMapper` 中实现。

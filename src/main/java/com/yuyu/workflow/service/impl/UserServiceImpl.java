@@ -114,7 +114,7 @@ public class UserServiceImpl implements UserService {
             User entity = getUserOrThrow(userId);
             validateNoRunningTasks(entity.getId());
         }
-        userMapper.deleteByIds(userIds);
+        userMapper.removeByIds(userIds);
         deleteUserRoleRelations(userIds);
         deleteUserDeptRelations(userIds);
     }
@@ -277,7 +277,7 @@ public class UserServiceImpl implements UserService {
         if (CollectionUtils.isEmpty(relationList)) {
             return;
         }
-        userRoleRelMapper.deleteByIds(relationList.stream().map(UserRoleRel::getId).toList());
+        userRoleRelMapper.removeByIds(relationList.stream().map(UserRoleRel::getId).toList());
     }
 
     /**
@@ -289,7 +289,7 @@ public class UserServiceImpl implements UserService {
         if (CollectionUtils.isEmpty(relationList)) {
             return;
         }
-        userDeptRelMapper.deleteByIds(relationList.stream().map(UserDeptRel::getId).toList());
+        userDeptRelMapper.removeByIds(relationList.stream().map(UserDeptRel::getId).toList());
     }
 
     /**

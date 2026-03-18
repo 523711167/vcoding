@@ -137,7 +137,7 @@ public class DeptServiceImpl implements DeptService {
         if (userCount > 0) {
             throw new BizException("当前部门已关联用户，无法删除");
         }
-        userDeptMapper.deleteByIds(deptIds);
+        userDeptMapper.removeByIds(deptIds);
     }
 
     @Override

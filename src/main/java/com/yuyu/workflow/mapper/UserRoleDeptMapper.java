@@ -13,7 +13,7 @@ public interface UserRoleDeptMapper extends BaseMapper<UserRoleDept> {
      * 按主键物理删除角色部门关联数据。
      */
     @Delete("DELETE FROM tb_user_role_dept WHERE id = #{id}")
-    int deleteById(Long id);
+    int removeById(Long id);
 
     /**
      * 按主键集合批量物理删除角色部门关联数据。
@@ -26,5 +26,5 @@ public interface UserRoleDeptMapper extends BaseMapper<UserRoleDept> {
             "</foreach>",
             "</script>"
     })
-    int deleteByIds(@Param("idList") List<Long> idList);
+    int removeByIds(@Param("idList") List<Long> idList);
 }

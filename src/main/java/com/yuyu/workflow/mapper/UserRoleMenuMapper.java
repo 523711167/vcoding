@@ -13,7 +13,7 @@ public interface UserRoleMenuMapper extends BaseMapper<UserRoleMenu> {
      * 按主键物理删除角色菜单关联数据。
      */
     @Delete("DELETE FROM tb_user_role_menu WHERE id = #{id}")
-    int deleteById(Long id);
+    int removeById(Long id);
 
     /**
      * 按主键集合批量物理删除角色菜单关联数据。
@@ -26,5 +26,5 @@ public interface UserRoleMenuMapper extends BaseMapper<UserRoleMenu> {
             "</foreach>",
             "</script>"
     })
-    int deleteByIds(@Param("idList") List<Long> idList);
+    int removeByIds(@Param("idList") List<Long> idList);
 }

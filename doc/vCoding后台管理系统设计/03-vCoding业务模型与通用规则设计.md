@@ -38,7 +38,7 @@
 - 私有方法的注释写在私有方法本身上。
 - 所有对外接口、`QTO`、`ETO`、`VO`、统一返回对象都必须补全 Swagger 注解。
 - MapStruct 组件统一使用 `*StructMapper` 命名，且只能“传入旧对象，返回新对象”。
-- 所有 `Mapper` 都必须显式提供 `deleteById` 与 `deleteByIds`。
+- 所有 `Mapper` 都必须显式提供 `removeById` 与 `removeByIds`。
 
 ## 4. 技术选型
 
