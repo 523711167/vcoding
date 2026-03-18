@@ -46,7 +46,6 @@ public interface SysMenuMapper extends BaseMapper<SysMenu> {
             "AND m.is_deleted = 0",
             "AND r.status = 1",
             "AND r.is_deleted = 0",
-            "ORDER BY m.sort_order ASC, m.id ASC",
             "</script>"
     })
     List<String> selectEnabledPermissionsByUserId(@Param("userId") Long userId);

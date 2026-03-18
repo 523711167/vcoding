@@ -4,17 +4,19 @@ import com.yuyu.workflow.security.AuthUserDetailsService;
 import com.yuyu.workflow.security.password.PasswordLoginGrantAuthenticationConverter;
 import com.yuyu.workflow.security.password.PasswordLoginGrantAuthenticationProvider;
 import com.yuyu.workflow.security.password.PasswordLoginGrantAuthenticationToken;
+import javax.sql.DataSource;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.oauth2.server.authorization.InMemoryOAuth2AuthorizationConsentService;
-import org.springframework.security.oauth2.server.authorization.InMemoryOAuth2AuthorizationService;
+import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationConsentService;
+import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.OAuth2Authorization;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationConsentService;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
@@ -32,9 +34,11 @@ import org.springframework.security.oauth2.server.authorization.token.OAuth2Toke
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenGenerator;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.util.StringUtils;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.UUID;
 
 /**
@@ -82,10 +86,10 @@ public class AuthenticationServerSecurityConfig {
      * 注册当前应用内置的 OAuth2 客户端。
      */
     @Bean
-    public RegisteredClientRepository registeredClientRepository() {
+    public RegisteredClientRepository registeredClientRepository(PasswordEncoder passwordEncoder) {
         RegisteredClient registeredClient = RegisteredClient.withId(UUID.randomUUID().toString())
                 .clientId(securityTokenProperties.getClientId())
-                .clientSecret("{noop}" + securityTokenProperties.getClientSecret())
+                .clientSecret(passwordEncoder.encode(securityTokenProperties.getClientSecret()))
                 .clientName(securityTokenProperties.getClientName())
                 .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
                 .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
@@ -105,16 +109,18 @@ public class AuthenticationServerSecurityConfig {
      * 注册 OAuth2 授权信息存储实现。
      */
     @Bean
-    public OAuth2AuthorizationService authorizationService() {
-        return new InMemoryOAuth2AuthorizationService();
+    public OAuth2AuthorizationService authorizationService(DataSource dataSource,
+                                                           RegisteredClientRepository registeredClientRepository) {
+        return new JdbcOAuth2AuthorizationService(new JdbcTemplate(dataSource), registeredClientRepository);
     }
 
     /**
      * 注册 OAuth2 授权确认信息存储实现。
      */
     @Bean
-    public OAuth2AuthorizationConsentService authorizationConsentService() {
-        return new InMemoryOAuth2AuthorizationConsentService();
+    public OAuth2AuthorizationConsentService authorizationConsentService(DataSource dataSource,
+                                                                         RegisteredClientRepository registeredClientRepository) {
+        return new JdbcOAuth2AuthorizationConsentService(new JdbcTemplate(dataSource), registeredClientRepository);
     }
 
     /**
@@ -173,11 +179,11 @@ public class AuthenticationServerSecurityConfig {
                 return;
             }
             var loginUser = authUserDetailsService.loadUserByUsername(username);
-            context.getClaims().claim("user_id", loginUser.getId());
+            context.getClaims().claim("user_id", String.valueOf(loginUser.getId()));
             context.getClaims().claim("real_name", loginUser.getRealName());
-            context.getClaims().claim("status", loginUser.getStatus());
-            context.getClaims().claim("roles", loginUser.getRoleCodes());
-            context.getClaims().claim("permissions", loginUser.getPermissions());
+            context.getClaims().claim("status", String.valueOf(loginUser.getStatus()));
+            context.getClaims().claim("roles", new ArrayList<>(loginUser.getRoleCodes()));
+            context.getClaims().claim("permissions", new ArrayList<>(loginUser.getPermissions()));
         };
     }
 

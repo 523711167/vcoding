@@ -1,3 +1,7 @@
+-- 变更原因：
+-- 1. 该文件调整为 `20000000.sql`，用于明确标识初始化基线 SQL。
+-- 2. 本文件承载用户、角色、组织、菜单及关联关系的初始化建表与初始数据。
+
 USE `yuyu`;
 
 CREATE TABLE IF NOT EXISTS `tb_user_dept` (

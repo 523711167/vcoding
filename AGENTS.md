@@ -12,16 +12,23 @@
 - 日志配置：`src/main/resources/log/logback-spring.xml`
 - 测试代码：`src/test/java`
 - 初始化 SQL：`sql/`
-- 设计与说明文档：`README.md`、`doc/README.md`、`doc/审批工作流设计/`
+- 设计与说明文档：`README.md`、`doc/README.md`、`doc/vCoding后台管理系统设计/`
 - 构建产物：`target/`，禁止手工修改
 
-## 构建、测试与开发命令
-在仓库根目录使用 Maven。执行前统一使用 JDK 17，当前本机可用路径为 `/Users/xixipeng/Library/Java/JavaVirtualMachines/corretto-17.0.12/Contents/Home`：
+## SQL 变更规则
+- 所有新增或调整数据库结构、初始化数据、迁移脚本时，统一在 `sql/` 目录下新增或维护对应 SQL 文件。
+- 新增 SQL 文件名必须使用日期格式命名，格式为 `yyyyMMdd.sql`，例如 `20260318.sql`。
+- SQL 文件按周归档维护，同一周内的 SQL 变更应尽量收敛到同一个日期文件中，不要为零散改动重复拆出多个文件。
+- 对已有业务 SQL 文件进行修改时，必须在 SQL 文件内补充本次修改原因说明。
+- 对新增 SQL 文件，也必须在文件内补充新增原因、适用范围或变更背景说明。
 
-- `JAVA_HOME=/Users/xixipeng/Library/Java/JavaVirtualMachines/corretto-17.0.12/Contents/Home PATH=$JAVA_HOME/bin:$PATH mvn clean package`：使用 JDK 17 构建可执行包并运行测试。
-- `JAVA_HOME=/Users/xixipeng/Library/Java/JavaVirtualMachines/corretto-17.0.12/Contents/Home PATH=$JAVA_HOME/bin:$PATH mvn test`：使用 JDK 17 执行测试。
-- `JAVA_HOME=/Users/xixipeng/Library/Java/JavaVirtualMachines/corretto-17.0.12/Contents/Home PATH=$JAVA_HOME/bin:$PATH mvn spring-boot:run`：使用 JDK 17 以默认 `dev` 环境启动服务。
-- `JAVA_HOME=/Users/xixipeng/Library/Java/JavaVirtualMachines/corretto-17.0.12/Contents/Home PATH=$JAVA_HOME/bin:$PATH mvn spring-boot:run -Dspring-boot.run.profiles=prod`：使用 JDK 17 以 `prod` 环境启动服务。
+## 构建、测试与开发命令
+在仓库根目录使用 Maven。当前终端已配置好 JDK 17 环境变量，默认可直接执行 `mvn` 命令；若本机环境后续变更，以当前 shell 中实际生效的 `JAVA_HOME` 为准。
+
+- `mvn clean package`：基于当前已配置的 JDK 17 构建可执行包并运行测试。
+- `mvn test`：基于当前已配置的 JDK 17 执行测试。
+- `mvn spring-boot:run`：基于当前已配置的 JDK 17 以默认 `dev` 环境启动服务。
+- `mvn spring-boot:run -Dspring-boot.run.profiles=prod`：基于当前已配置的 JDK 17 以 `prod` 环境启动服务。
 
 
 Swagger 地址：
@@ -31,7 +38,8 @@ Swagger 地址：
 ## 开发最高标准
 ### 分层职责
 - 统一使用 4 空格缩进，包路径保持在 `com.yuyu.workflow` 下。
-- 所有数据库表统一使用 `tb_` 前缀；实体映射、注解 SQL、初始化 SQL、迁移 SQL、设计文档必须保持一致。
+- 业务数据库表统一使用 `tb_` 前缀；实体映射、注解 SQL、初始化 SQL、迁移 SQL、设计文档必须保持一致。
+- Spring Authorization Server、Spring Security OAuth2 等框架内置表允许直接使用框架官方表名与官方表结构，不强制改为 `tb_` 前缀。
 - 当前仓库仅维护后端服务代码，禁止继续在本仓库内新增 HTML 页面、模板文件或前端静态资源。
 - `Controller` 只负责参数接收、参数校验、调用 `Service`、返回结果，禁止编写业务逻辑。
 - `Service` 负责完整业务逻辑、事务控制和业务规则校验。
@@ -91,6 +99,10 @@ Swagger 地址：
 - 重点覆盖：查询条件、参数校验、对象转换、枚举处理、异常捕获。
 - 测试环境配置放在 `src/test/resources/application.yml`。
 - 变更查询逻辑、全局异常、MapStruct 转换、枚举公共方法时，必须同步补充测试。
+- 所有人工接口测试或联调测试完成后，必须在仓库根目录 `local-test-output/` 下生成一份测试用例与实际返回结果记录，便于复核返回内容和进一步调整。
+- 测试记录中必须显式保存本次使用的 `curl` 命令，命令应可直接复用，便于后续继续联调或回归验证。
+- 测试记录中必须紧跟保存每条命令对应的原始返回结果；若接口返回 HTTP 状态码，也必须一并记录。
+- `local-test-output/` 仅用于本地测试留痕，不提交到 Git。
 
 ## 提交与合并请求规范
 - 当前工作区未提供可参考的 Git 提交历史，无法提炼仓库既有提交规范。

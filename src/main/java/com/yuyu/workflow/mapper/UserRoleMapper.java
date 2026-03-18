@@ -46,7 +46,6 @@ public interface UserRoleMapper extends BaseMapper<UserRole> {
             "WHERE rel.user_id = #{userId}",
             "AND r.status = 1",
             "AND r.is_deleted = 0",
-            "ORDER BY r.sort_order ASC, r.id ASC",
             "</script>"
     })
     List<String> selectEnabledCodesByUserId(@Param("userId") Long userId);

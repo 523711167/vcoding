@@ -32,3 +32,6 @@ application-secrets.yml
 *.swp
 *.swo
 *~
+
+# 本地测试用例与测试结果输出目录
+/local-test-output/

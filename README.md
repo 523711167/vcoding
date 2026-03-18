@@ -65,4 +65,4 @@ Base package: `com.yuyu.workflow`
 ## Docs
 
 - 文档入口：`doc/README.md`
-- 审批工作流设计拆分目录：`doc/审批工作流设计/`
+- 后台管理系统设计目录：`doc/vCoding后台管理系统设计/`

@@ -13,6 +13,7 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -28,12 +29,15 @@ import java.util.Set;
 public class OAuth2AuthorizationServiceOpaqueTokenIntrospector implements OpaqueTokenIntrospector {
 
     private final OAuth2AuthorizationService authorizationService;
+    private final AuthUserDetailsService authUserDetailsService;
 
     /**
      * 注入授权存储服务。
      */
-    public OAuth2AuthorizationServiceOpaqueTokenIntrospector(OAuth2AuthorizationService authorizationService) {
+    public OAuth2AuthorizationServiceOpaqueTokenIntrospector(OAuth2AuthorizationService authorizationService,
+                                                             AuthUserDetailsService authUserDetailsService) {
         this.authorizationService = authorizationService;
+        this.authUserDetailsService = authUserDetailsService;
     }
 
     /**
@@ -49,12 +53,27 @@ public class OAuth2AuthorizationServiceOpaqueTokenIntrospector implements Opaque
         if (accessToken == null || !accessToken.isActive()) {
             throw new BadOpaqueTokenException("Token已失效");
         }
-        Map<String, Object> attributes = accessToken.getClaims();
+        Map<String, Object> attributes = buildAttributes(authorization);
         return new DefaultOAuth2AuthenticatedPrincipal(
                 authorization.getPrincipalName(),
                 attributes,
                 buildAuthorities(attributes)
         );
+    }
+
+    /**
+     * 基于授权主体重新构造资源服务端所需属性，避免依赖 JDBC 序列化的复杂类型声明。
+     */
+    private Map<String, Object> buildAttributes(OAuth2Authorization authorization) {
+        LoginUserDetails loginUser = authUserDetailsService.loadUserByUsername(authorization.getPrincipalName());
+        Map<String, Object> attributes = new LinkedHashMap<>();
+        attributes.put("user_id", String.valueOf(loginUser.getId()));
+        attributes.put("real_name", loginUser.getRealName());
+        attributes.put("status", String.valueOf(loginUser.getStatus()));
+        attributes.put("roles", new ArrayList<>(loginUser.getRoleCodes()));
+        attributes.put("permissions", new ArrayList<>(loginUser.getPermissions()));
+        attributes.put("scope", new ArrayList<>(authorization.getAuthorizedScopes()));
+        return attributes;
     }
 
     /**

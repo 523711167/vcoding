@@ -23,7 +23,10 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import java.security.Principal;
+import java.lang.reflect.Array;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -83,17 +86,18 @@ public class PasswordLoginGrantAuthenticationProvider implements AuthenticationP
                 .authorizationGrantType(PasswordLoginGrantAuthenticationToken.PASSWORD_LOGIN_GRANT_TYPE)
                 .authorizationGrant(passwordLoginAuthentication);
 
-        OAuth2AccessToken accessToken = generateAccessToken(tokenContextBuilder);
+        OAuth2AccessToken generatedAccessToken = generateAccessToken(tokenContextBuilder);
+        OAuth2AccessToken accessToken = buildPersistedAccessToken(generatedAccessToken);
         OAuth2Authorization.Builder authorizationBuilder = OAuth2Authorization.withRegisteredClient(registeredClient)
                 .principalName(userAuthentication.getName())
                 .authorizationGrantType(PasswordLoginGrantAuthenticationToken.PASSWORD_LOGIN_GRANT_TYPE)
                 .authorizedScopes(authorizedScopes)
-                .attribute(Principal.class.getName(), userAuthentication);
-        authorizationBuilder.token(accessToken, metadata -> {
-            if (accessToken instanceof ClaimAccessor claimAccessor) {
-                metadata.put(OAuth2Authorization.Token.CLAIMS_METADATA_NAME, claimAccessor.getClaims());
-            }
-        });
+                .attribute(Principal.class.getName(), UsernamePasswordAuthenticationToken.authenticated(
+                        userAuthentication.getName(),
+                        null,
+                        new ArrayList<>(userAuthentication.getAuthorities())
+                ));
+        attachAccessToken(authorizationBuilder, accessToken, generatedAccessToken);
 
         OAuth2RefreshToken refreshToken = generateRefreshToken(tokenContextBuilder, authorizationBuilder);
         if (refreshToken != null) {
@@ -169,5 +173,60 @@ public class PasswordLoginGrantAuthenticationProvider implements AuthenticationP
                         .build()
         );
         return refreshToken;
+    }
+
+    /**
+     * 将带有扩展 claims 的 access token 包装为标准 OAuth2AccessToken，
+     * 避免 JDBC 按运行时子类类型存储后无法通过 getAccessToken() 读取。
+     */
+    private OAuth2AccessToken buildPersistedAccessToken(OAuth2AccessToken sourceAccessToken) {
+        return new OAuth2AccessToken(
+                sourceAccessToken.getTokenType(),
+                sourceAccessToken.getTokenValue(),
+                sourceAccessToken.getIssuedAt(),
+                sourceAccessToken.getExpiresAt(),
+                sourceAccessToken.getScopes()
+        );
+    }
+
+    /**
+     * 挂载 access token，并在存在 claims 时同步保存清洗后的元数据。
+     */
+    private void attachAccessToken(OAuth2Authorization.Builder authorizationBuilder,
+                                   OAuth2AccessToken accessToken,
+                                   OAuth2AccessToken sourceAccessToken) {
+        authorizationBuilder.token(accessToken, metadata -> {
+            if (sourceAccessToken instanceof ClaimAccessor claimAccessor) {
+                metadata.put(OAuth2Authorization.Token.CLAIMS_METADATA_NAME,
+                        sanitizeValue(claimAccessor.getClaims()));
+            }
+        });
+    }
+
+    /**
+     * 递归清洗 token 元数据中的集合实现，避免写入 JDBC 后触发 Jackson allowlist 反序列化异常。
+     */
+    private Object sanitizeValue(Object source) {
+        if (source instanceof Map<?, ?> sourceMap) {
+            Map<String, Object> sanitizedMap = new LinkedHashMap<>();
+            sourceMap.forEach((key, value) -> sanitizedMap.put(String.valueOf(key), sanitizeValue(value)));
+            return sanitizedMap;
+        }
+        if (source instanceof Iterable<?> iterable) {
+            ArrayList<Object> sanitizedList = new ArrayList<>();
+            for (Object item : iterable) {
+                sanitizedList.add(sanitizeValue(item));
+            }
+            return sanitizedList;
+        }
+        if (source != null && source.getClass().isArray()) {
+            int length = Array.getLength(source);
+            ArrayList<Object> sanitizedList = new ArrayList<>(length);
+            for (int index = 0; index < length; index++) {
+                sanitizedList.add(sanitizeValue(Array.get(source, index)));
+            }
+            return sanitizedList;
+        }
+        return source;
     }
 }

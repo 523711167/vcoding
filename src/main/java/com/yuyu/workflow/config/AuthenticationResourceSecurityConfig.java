@@ -3,6 +3,7 @@ package com.yuyu.workflow.config;
 import com.yuyu.workflow.security.OAuth2AuthorizationServiceOpaqueTokenIntrospector;
 import com.yuyu.workflow.security.JsonAccessDeniedHandler;
 import com.yuyu.workflow.security.JsonAuthenticationEntryPoint;
+import com.yuyu.workflow.security.AuthUserDetailsService;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -68,7 +69,8 @@ public class AuthenticationResourceSecurityConfig {
      * 注册基于授权存储的 opaque token 内省器。
      */
     @Bean
-    public OpaqueTokenIntrospector opaqueTokenIntrospector(OAuth2AuthorizationService authorizationService) {
-        return new OAuth2AuthorizationServiceOpaqueTokenIntrospector(authorizationService);
+    public OpaqueTokenIntrospector opaqueTokenIntrospector(OAuth2AuthorizationService authorizationService,
+                                                           AuthUserDetailsService authUserDetailsService) {
+        return new OAuth2AuthorizationServiceOpaqueTokenIntrospector(authorizationService, authUserDetailsService);
     }
 }
