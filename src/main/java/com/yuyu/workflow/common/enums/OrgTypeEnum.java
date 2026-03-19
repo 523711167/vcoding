@@ -10,6 +10,11 @@ public enum OrgTypeEnum implements BaseEnum {
     DEPT(3, "DEPT", "部门"),
     POST(4, "POST", "岗位");
 
+    /**
+     * 组织类型正则表达式，供注解校验复用。
+     */
+    public static final String REGEXP = "^(GROUP|COMPANY|DEPT|POST)$";
+
     private final Integer id;
     private final String code;
     private final String msg;

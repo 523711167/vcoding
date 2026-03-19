@@ -1,6 +1,7 @@
 package com.yuyu.workflow.eto.dept;
 
 import com.yuyu.workflow.common.enums.CommonStatusEnum;
+import com.yuyu.workflow.common.enums.OrgTypeEnum;
 import com.yuyu.workflow.common.validation.EnumIdValid;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
@@ -28,10 +29,7 @@ public class DeptUpdateETO {
 
     @Schema(description = "组织类型：GROUP/COMPANY/DEPT/POST", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "orgType不能为空")
-    @Pattern(
-            regexp = "^(" + OrgTypeEnumCode.GROUP + "|" + OrgTypeEnumCode.COMPANY + "|" + OrgTypeEnumCode.DEPT + "|" + OrgTypeEnumCode.POST + ")$",
-            message = "orgType不合法"
-    )
+    @Pattern(regexp = OrgTypeEnum.REGEXP, message = "orgType不合法")
     private String orgType;
 
     @Schema(description = "岗位类型，orgType=POST时必填")
@@ -48,14 +46,4 @@ public class DeptUpdateETO {
     @NotNull(message = "status不能为空")
     @EnumIdValid(enumClass = CommonStatusEnum.class, allowNull = false, message = "status不合法")
     private Integer status;
-
-    /**
-     * 为注解常量提供编译期常量表达式。
-     */
-    private interface OrgTypeEnumCode {
-        String GROUP = "GROUP";
-        String COMPANY = "COMPANY";
-        String DEPT = "DEPT";
-        String POST = "POST";
-    }
 }
