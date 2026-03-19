@@ -66,11 +66,13 @@ public class DeptServiceImpl implements DeptService {
         UserDept entity = userDeptStructMapper.toEntity(eto);
         entity.setParentId(parentId);
         entity.setPostType(normalizePostType(eto.getOrgType(), eto.getPostType()));
+        entity.setLevel(Objects.isNull(parent) ? 1 : parent.getLevel() + 1);
+        // 先写入占位 path，待主键生成后再回写真实路径。
+        entity.setPath("/");
         entity.setSortOrder(Objects.isNull(eto.getSortOrder()) ? 0 : eto.getSortOrder());
         entity.setLeaderName(getLeaderName(eto.getLeaderId()));
         userDeptMapper.insert(entity);
 
-        entity.setLevel(Objects.isNull(parent) ? 1 : parent.getLevel() + 1);
         entity.setPath(Objects.isNull(parent) ? "/" + entity.getId() + "/" : parent.getPath() + entity.getId() + "/");
         userDeptMapper.updateById(entity);
         return detail(entity.getId());

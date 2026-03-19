@@ -36,6 +36,11 @@ public class SecurityTokenProperties {
     private String clientName = "Workflow Client";
 
     /**
+     * OAuth2 客户端内部主键，必须保持稳定，避免历史 token 内省失败。
+     */
+    private String clientUuid = "f8f6c594-ce98-4eeb-b0a1-13222623e596";
+
+    /**
      * OAuth2 客户端回调地址。
      */
     private String clientRedirectUri = "http://127.0.0.1:8080/swagger-ui/oauth2-redirect.html";

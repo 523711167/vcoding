@@ -40,7 +40,6 @@ import org.springframework.util.StringUtils;
 
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.UUID;
 
 /**
  * 认证服务端安全配置。
@@ -90,7 +89,7 @@ public class AuthenticationServerSecurityConfig {
      */
     @Bean
     public RegisteredClientRepository registeredClientRepository(PasswordEncoder passwordEncoder) {
-        RegisteredClient registeredClient = RegisteredClient.withId(UUID.randomUUID().toString())
+        RegisteredClient registeredClient = RegisteredClient.withId(securityTokenProperties.getClientUuid())
                 .clientId(securityTokenProperties.getClientId())
                 .clientSecret(passwordEncoder.encode(securityTokenProperties.getClientSecret()))
                 .clientName(securityTokenProperties.getClientName())

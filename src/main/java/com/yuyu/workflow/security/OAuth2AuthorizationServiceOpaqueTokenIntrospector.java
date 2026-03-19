@@ -2,6 +2,7 @@ package com.yuyu.workflow.security;
 
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.dao.DataRetrievalFailureException;
 import org.springframework.security.oauth2.core.DefaultOAuth2AuthenticatedPrincipal;
 import org.springframework.security.oauth2.core.OAuth2AuthenticatedPrincipal;
 import org.springframework.security.oauth2.server.authorization.OAuth2Authorization;
@@ -45,7 +46,12 @@ public class OAuth2AuthorizationServiceOpaqueTokenIntrospector implements Opaque
      */
     @Override
     public OAuth2AuthenticatedPrincipal introspect(String token) {
-        OAuth2Authorization authorization = authorizationService.findByToken(token, OAuth2TokenType.ACCESS_TOKEN);
+        OAuth2Authorization authorization;
+        try {
+            authorization = authorizationService.findByToken(token, OAuth2TokenType.ACCESS_TOKEN);
+        } catch (DataRetrievalFailureException ex) {
+            throw new BadOpaqueTokenException("Token已失效", ex);
+        }
         if (authorization == null) {
             throw new BadOpaqueTokenException("Token不存在");
         }
