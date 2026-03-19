@@ -29,6 +29,16 @@ public class UserDept extends BaseAuditEntity {
     private String code;
 
     /**
+     * 组织类型。
+     */
+    private String orgType;
+
+    /**
+     * 岗位类型。
+     */
+    private String postType;
+
+    /**
      * 部门层级路径。
      */
     private String path;

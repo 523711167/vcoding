@@ -24,6 +24,16 @@ public class UserDeptRel extends BaseCreateEntity {
     private Long deptId;
 
     /**
+     * 组织类型。
+     */
+    private String orgType;
+
+    /**
+     * 岗位类型。
+     */
+    private String postType;
+
+    /**
      * 是否主部门。
      */
     private Integer isPrimary;

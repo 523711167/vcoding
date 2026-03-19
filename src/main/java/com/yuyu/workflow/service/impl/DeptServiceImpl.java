@@ -2,6 +2,7 @@ package com.yuyu.workflow.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.yuyu.workflow.common.enums.CommonStatusEnum;
+import com.yuyu.workflow.common.enums.OrgTypeEnum;
 import com.yuyu.workflow.common.enums.RespCodeEnum;
 import com.yuyu.workflow.common.exception.BizException;
 import com.yuyu.workflow.convert.UserDeptStructMapper;
@@ -57,11 +58,14 @@ public class DeptServiceImpl implements DeptService {
     public DeptVO create(DeptCreateETO eto) {
         Long parentId = Objects.isNull(eto.getParentId()) ? 0L : eto.getParentId();
         UserDept parent = getParentDept(parentId);
+        validateDeptTypeAndPostType(eto.getOrgType(), eto.getPostType());
+        validateParentChildRelation(parent, eto.getOrgType());
         validateLeader(eto.getLeaderId());
         assertDeptCodeUnique(parentId, eto.getCode(), null);
 
         UserDept entity = userDeptStructMapper.toEntity(eto);
         entity.setParentId(parentId);
+        entity.setPostType(normalizePostType(eto.getOrgType(), eto.getPostType()));
         entity.setSortOrder(Objects.isNull(eto.getSortOrder()) ? 0 : eto.getSortOrder());
         entity.setLeaderName(getLeaderName(eto.getLeaderId()));
         userDeptMapper.insert(entity);
@@ -76,9 +80,13 @@ public class DeptServiceImpl implements DeptService {
     @Transactional(rollbackFor = Exception.class)
     public DeptVO update(DeptUpdateETO eto) {
         UserDept entity = getDeptOrThrow(eto.getId());
+        validateDeptTypeAndPostType(eto.getOrgType(), eto.getPostType());
+        validateParentChildRelation(getParentDept(entity.getParentId()), eto.getOrgType());
+        validateChildOrgTypes(entity.getId(), eto.getOrgType());
         validateLeader(eto.getLeaderId());
         assertDeptCodeUnique(entity.getParentId(), eto.getCode(), entity.getId());
         entity = userDeptStructMapper.toUpdatedEntity(eto, entity);
+        entity.setPostType(normalizePostType(eto.getOrgType(), eto.getPostType()));
         entity.setSortOrder(Objects.isNull(eto.getSortOrder()) ? 0 : eto.getSortOrder());
         entity.setLeaderName(getLeaderName(eto.getLeaderId()));
         userDeptMapper.updateById(entity);
@@ -96,6 +104,8 @@ public class DeptServiceImpl implements DeptService {
         if (Objects.nonNull(targetParent) && targetParent.getPath().startsWith(entity.getPath())) {
             throw new BizException("目标父部门不能是当前部门或其子部门");
         }
+        validateParentChildRelation(targetParent, entity.getOrgType());
+        assertDeptCodeUnique(eto.getTargetParentId(), entity.getCode(), entity.getId());
 
         String oldPath = entity.getPath();
         int oldLevel = entity.getLevel();
@@ -154,6 +164,7 @@ public class DeptServiceImpl implements DeptService {
         for (UserDept dept : deptList) {
             DeptTreeVO node = userDeptStructMapper.toTreeVO(dept);
             node.setStatusMsg(CommonStatusEnum.getMsgById(dept.getStatus()));
+            node.setOrgTypeMsg(OrgTypeEnum.getMsgByCode(dept.getOrgType()));
             nodeMap.put(node.getId(), node);
         }
         for (DeptTreeVO node : nodeMap.values()) {
@@ -176,6 +187,7 @@ public class DeptServiceImpl implements DeptService {
         UserDept entity = getDeptOrThrow(id);
         DeptVO vo = userDeptStructMapper.toTarget(entity);
         vo.setStatusMsg(CommonStatusEnum.getMsgById(entity.getStatus()));
+        vo.setOrgTypeMsg(OrgTypeEnum.getMsgByCode(entity.getOrgType()));
         return vo;
     }
 
@@ -275,5 +287,84 @@ public class DeptServiceImpl implements DeptService {
         if (Objects.nonNull(exist)) {
             throw new BizException("同级部门编码已存在");
         }
+    }
+
+    /**
+     * 校验组织类型与岗位类型组合是否合法。
+     */
+    private void validateDeptTypeAndPostType(String orgType, String postType) {
+        if (!OrgTypeEnum.containsCode(orgType)) {
+            throw new BizException("orgType不合法");
+        }
+        if (OrgTypeEnum.POST.getCode().equals(orgType)) {
+            if (!StringUtils.hasText(postType)) {
+                throw new BizException("岗位类型不能为空");
+            }
+            return;
+        }
+        if (StringUtils.hasText(postType)) {
+            throw new BizException("非岗位组织不能设置岗位类型");
+        }
+    }
+
+    /**
+     * 校验父子组织层级关系是否合法。
+     */
+    private void validateParentChildRelation(UserDept parent, String childOrgType) {
+        if (Objects.isNull(parent)) {
+            if (!OrgTypeEnum.GROUP.getCode().equals(childOrgType)) {
+                throw new BizException("顶级组织只能是集团");
+            }
+            return;
+        }
+        if (OrgTypeEnum.POST.getCode().equals(parent.getOrgType())) {
+            throw new BizException("岗位下不允许新增子组织");
+        }
+        if (OrgTypeEnum.GROUP.getCode().equals(parent.getOrgType())
+                && !OrgTypeEnum.COMPANY.getCode().equals(childOrgType)) {
+            throw new BizException("集团下只能新增公司");
+        }
+        if (OrgTypeEnum.COMPANY.getCode().equals(parent.getOrgType())
+                && !OrgTypeEnum.DEPT.getCode().equals(childOrgType)) {
+            throw new BizException("公司下只能新增部门");
+        }
+        if (OrgTypeEnum.DEPT.getCode().equals(parent.getOrgType())
+                && !(OrgTypeEnum.DEPT.getCode().equals(childOrgType) || OrgTypeEnum.POST.getCode().equals(childOrgType))) {
+            throw new BizException("部门下只能新增子部门或岗位");
+        }
+    }
+
+    /**
+     * 校验当前组织的直接子节点是否与目标组织类型兼容。
+     */
+    private void validateChildOrgTypes(Long deptId, String targetOrgType) {
+        List<UserDept> childList = userDeptMapper.selectList(new LambdaQueryWrapper<UserDept>()
+                .eq(UserDept::getParentId, deptId));
+        for (UserDept child : childList) {
+            try {
+                validateParentChildRelation(buildParentForValidation(targetOrgType), child.getOrgType());
+            } catch (BizException ex) {
+                throw new BizException("当前组织类型与现有下级组织不匹配");
+            }
+        }
+    }
+
+    /**
+     * 构造仅用于层级校验的父节点快照。
+     */
+    private UserDept buildParentForValidation(String orgType) {
+        UserDept parent = new UserDept();
+        parent.setOrgType(orgType);
+        return parent;
+    }
+
+    /**
+     * 统一归一化岗位类型字段，非岗位节点固定清空。
+     */
+    private String normalizePostType(String orgType, String postType) {
+        if (!OrgTypeEnum.POST.getCode().equals(orgType)) {
+            return null;
+        }
+        return postType.trim();
     }
 }

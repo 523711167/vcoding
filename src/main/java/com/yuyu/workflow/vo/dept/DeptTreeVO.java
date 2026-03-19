@@ -18,6 +18,12 @@ public class DeptTreeVO {
     private String name;
     @Schema(description = "部门编码")
     private String code;
+    @Schema(description = "组织类型")
+    private String orgType;
+    @Schema(description = "组织类型说明")
+    private String orgTypeMsg;
+    @Schema(description = "岗位类型")
+    private String postType;
     @Schema(description = "组织路径")
     private String path;
     @Schema(description = "层级")

@@ -15,6 +15,12 @@ public class UserDeptVO {
     private String name;
     @Schema(description = "组织编码")
     private String code;
+    @Schema(description = "组织类型")
+    private String orgType;
+    @Schema(description = "组织类型说明")
+    private String orgTypeMsg;
+    @Schema(description = "岗位类型")
+    private String postType;
     @Schema(description = "主管用户ID")
     private Long leaderId;
     @Schema(description = "主管姓名")

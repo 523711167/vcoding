@@ -5,6 +5,7 @@ import com.yuyu.workflow.common.validation.EnumIdValid;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -25,6 +26,18 @@ public class DeptUpdateETO {
     @Size(max = 64, message = "code长度不能超过64")
     private String code;
 
+    @Schema(description = "组织类型：GROUP/COMPANY/DEPT/POST", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotBlank(message = "orgType不能为空")
+    @Pattern(
+            regexp = "^(" + OrgTypeEnumCode.GROUP + "|" + OrgTypeEnumCode.COMPANY + "|" + OrgTypeEnumCode.DEPT + "|" + OrgTypeEnumCode.POST + ")$",
+            message = "orgType不合法"
+    )
+    private String orgType;
+
+    @Schema(description = "岗位类型，orgType=POST时必填")
+    @Size(max = 64, message = "postType长度不能超过64")
+    private String postType;
+
     @Schema(description = "排序值")
     private Integer sortOrder;
 
@@ -35,4 +48,14 @@ public class DeptUpdateETO {
     @NotNull(message = "status不能为空")
     @EnumIdValid(enumClass = CommonStatusEnum.class, allowNull = false, message = "status不合法")
     private Integer status;
+
+    /**
+     * 为注解常量提供编译期常量表达式。
+     */
+    private interface OrgTypeEnumCode {
+        String GROUP = "GROUP";
+        String COMPANY = "COMPANY";
+        String DEPT = "DEPT";
+        String POST = "POST";
+    }
 }

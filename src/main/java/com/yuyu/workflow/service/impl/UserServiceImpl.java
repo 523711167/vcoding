@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.yuyu.workflow.common.PageVo;
 import com.yuyu.workflow.common.enums.CommonStatusEnum;
+import com.yuyu.workflow.common.enums.OrgTypeEnum;
 import com.yuyu.workflow.common.enums.RespCodeEnum;
 import com.yuyu.workflow.common.enums.YesNoEnum;
 import com.yuyu.workflow.common.exception.BizException;
@@ -195,12 +196,17 @@ public class UserServiceImpl implements UserService {
     @Transactional(rollbackFor = Exception.class)
     public void updateDepts(UserDeptsUpdateETO eto) {
         getUserOrThrow(eto.getUserId());
-        validateDeptItems(eto.getDepts());
+        Map<Long, UserDept> deptMap = validateDeptItems(eto.getDepts());
         deleteUserDeptRelations(List.of(eto.getUserId()));
         for (UserDeptItemETO item : eto.getDepts()) {
+            UserDept dept = deptMap.get(item.getDeptId());
             UserDeptRel relation = new UserDeptRel();
             relation.setUserId(eto.getUserId());
             relation.setDeptId(item.getDeptId());
+            relation.setOrgType(Objects.nonNull(dept) ? dept.getOrgType() : null);
+            relation.setPostType(Objects.nonNull(dept) && OrgTypeEnum.POST.getCode().equals(dept.getOrgType())
+                    ? dept.getPostType()
+                    : null);
             relation.setIsPrimary(item.getIsPrimary());
             userDeptRelMapper.insert(relation);
         }
@@ -328,7 +334,7 @@ public class UserServiceImpl implements UserService {
     /**
      * 校验用户组织关联参数，并保证唯一主组织。
      */
-    private void validateDeptItems(List<UserDeptItemETO> deptItems) {
+    private Map<Long, UserDept> validateDeptItems(List<UserDeptItemETO> deptItems) {
         if (CollectionUtils.isEmpty(deptItems)) {
             throw new BizException("用户至少需要关联一个组织");
         }
@@ -348,6 +354,7 @@ public class UserServiceImpl implements UserService {
         if (deptList.size() != deptIds.size()) {
             throw new BizException("存在无效组织");
         }
+        return deptList.stream().collect(Collectors.toMap(UserDept::getId, Function.identity()));
     }
 
     /**
@@ -403,6 +410,9 @@ public class UserServiceImpl implements UserService {
                 continue;
             }
             UserDeptVO vo = userDeptStructMapper.toUserDeptVO(dept);
+            vo.setOrgType(Objects.nonNull(relation.getOrgType()) ? relation.getOrgType() : dept.getOrgType());
+            vo.setOrgTypeMsg(OrgTypeEnum.getMsgByCode(vo.getOrgType()));
+            vo.setPostType(relation.getPostType());
             vo.setIsPrimary(relation.getIsPrimary());
             vo.setIsPrimaryMsg(YesNoEnum.getMsgById(relation.getIsPrimary()));
             result.computeIfAbsent(relation.getUserId(), key -> new ArrayList<>()).add(vo);
