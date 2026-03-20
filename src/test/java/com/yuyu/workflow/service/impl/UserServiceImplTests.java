@@ -15,6 +15,7 @@ import com.yuyu.workflow.mapper.UserDeptRelMapper;
 import com.yuyu.workflow.mapper.UserMapper;
 import com.yuyu.workflow.mapper.UserRoleMapper;
 import com.yuyu.workflow.mapper.UserRoleRelMapper;
+import com.yuyu.workflow.service.UserDeptRelExpandService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -64,6 +65,9 @@ class UserServiceImplTests {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private UserDeptRelExpandService userDeptRelExpandService;
+
     @InjectMocks
     private UserServiceImpl userService;
 
@@ -102,5 +106,6 @@ class UserServiceImplTests {
         assertEquals("BACKEND_ENGINEER", captor.getValue().getPostType());
         assertEquals(10L, captor.getValue().getDeptId());
         assertEquals(YesNoEnum.YES.getId(), captor.getValue().getIsPrimary());
+        verify(userDeptRelExpandService).rebuildByUserIds(List.of(1L));
     }
 }

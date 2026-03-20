@@ -12,12 +12,15 @@ import com.yuyu.workflow.eto.dept.DeptMoveETO;
 import com.yuyu.workflow.eto.dept.DeptUpdateETO;
 import com.yuyu.workflow.entity.User;
 import com.yuyu.workflow.entity.UserDeptRel;
+import com.yuyu.workflow.entity.UserDeptRelExpand;
 import com.yuyu.workflow.entity.UserDept;
+import com.yuyu.workflow.mapper.UserDeptRelExpandMapper;
 import com.yuyu.workflow.mapper.UserDeptRelMapper;
 import com.yuyu.workflow.mapper.UserMapper;
 import com.yuyu.workflow.mapper.UserDeptMapper;
 import com.yuyu.workflow.qto.dept.DeptTreeQTO;
 import com.yuyu.workflow.service.DeptService;
+import com.yuyu.workflow.service.UserDeptRelExpandService;
 import com.yuyu.workflow.vo.dept.DeptTreeVO;
 import com.yuyu.workflow.vo.dept.DeptVO;
 import com.yuyu.workflow.vo.role.UserSimpleVO;
@@ -35,8 +38,10 @@ public class DeptServiceImpl implements DeptService {
     private final UserDeptMapper userDeptMapper;
     private final UserMapper userMapper;
     private final UserDeptRelMapper userDeptRelMapper;
+    private final UserDeptRelExpandMapper userDeptRelExpandMapper;
     private final UserDeptStructMapper userDeptStructMapper;
     private final UserStructMapper userStructMapper;
+    private final UserDeptRelExpandService userDeptRelExpandService;
 
     /**
      * 注入部门模块依赖组件。
@@ -44,13 +49,17 @@ public class DeptServiceImpl implements DeptService {
     public DeptServiceImpl(UserDeptMapper userDeptMapper,
                            UserMapper userMapper,
                            UserDeptRelMapper userDeptRelMapper,
+                           UserDeptRelExpandMapper userDeptRelExpandMapper,
                            UserDeptStructMapper userDeptStructMapper,
-                           UserStructMapper userStructMapper) {
+                           UserStructMapper userStructMapper,
+                           UserDeptRelExpandService userDeptRelExpandService) {
         this.userDeptMapper = userDeptMapper;
         this.userMapper = userMapper;
         this.userDeptRelMapper = userDeptRelMapper;
+        this.userDeptRelExpandMapper = userDeptRelExpandMapper;
         this.userDeptStructMapper = userDeptStructMapper;
         this.userStructMapper = userStructMapper;
+        this.userDeptRelExpandService = userDeptRelExpandService;
     }
 
     @Override
@@ -75,6 +84,7 @@ public class DeptServiceImpl implements DeptService {
 
         entity.setPath(Objects.isNull(parent) ? "/" + entity.getId() + "/" : parent.getPath() + entity.getId() + "/");
         userDeptMapper.updateById(entity);
+        userDeptRelExpandService.rebuildByDeptPaths(List.of(entity.getPath()));
         return detail(entity.getId());
     }
 
@@ -87,11 +97,16 @@ public class DeptServiceImpl implements DeptService {
         validateChildOrgTypes(entity.getId(), entity.getOrgType());
         validateLeader(eto.getLeaderId());
         assertDeptCodeUnique(entity.getParentId(), eto.getCode(), entity.getId());
+        Integer oldStatus = entity.getStatus();
+        String oldPostType = entity.getPostType();
         entity = userDeptStructMapper.toUpdatedEntity(eto, entity);
         entity.setPostType(normalizePostType(entity.getOrgType(), eto.getPostType()));
         entity.setSortOrder(Objects.isNull(eto.getSortOrder()) ? 0 : eto.getSortOrder());
         entity.setLeaderName(getLeaderName(eto.getLeaderId()));
         userDeptMapper.updateById(entity);
+        if (!Objects.equals(oldStatus, entity.getStatus()) || !Objects.equals(oldPostType, entity.getPostType())) {
+            userDeptRelExpandService.rebuildByDeptPaths(List.of(entity.getPath()));
+        }
         return detail(entity.getId());
     }
 
@@ -130,14 +145,16 @@ public class DeptServiceImpl implements DeptService {
             dept.setLevel(newLevel + (dept.getLevel() - oldLevel));
             userDeptMapper.updateById(dept);
         }
+        userDeptRelExpandService.rebuildByDeptPaths(List.of(oldPath, newPath));
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void delete(List<Long> idList) {
         List<Long> deptIds = normalizeDeleteIds(idList);
+        List<String> deletedDeptPaths = new ArrayList<>();
         for (Long deptId : deptIds) {
-            getDeptOrThrow(deptId);
+            deletedDeptPaths.add(getDeptOrThrow(deptId).getPath());
         }
         long childCount = userDeptMapper.selectCount(new LambdaQueryWrapper<UserDept>()
                 .in(UserDept::getParentId, deptIds));
@@ -150,6 +167,7 @@ public class DeptServiceImpl implements DeptService {
             throw new BizException("当前部门已关联用户，无法删除");
         }
         userDeptMapper.removeByIds(deptIds);
+        userDeptRelExpandService.rebuildByDeptPaths(deletedDeptPaths);
     }
 
     @Override
@@ -196,10 +214,12 @@ public class DeptServiceImpl implements DeptService {
     @Override
     public List<UserSimpleVO> getUsers(Long deptId) {
         getDeptOrThrow(deptId);
-        List<Long> userIds = userDeptRelMapper.selectList(new LambdaQueryWrapper<UserDeptRel>()
-                        .eq(UserDeptRel::getDeptId, deptId))
+        List<Long> userIds = userDeptRelExpandMapper.selectList(new LambdaQueryWrapper<UserDeptRelExpand>()
+                        .eq(UserDeptRelExpand::getDeptId, deptId))
                 .stream()
-                .map(UserDeptRel::getUserId)
+                .map(UserDeptRelExpand::getUserId)
+                .filter(Objects::nonNull)
+                .distinct()
                 .toList();
         if (CollectionUtils.isEmpty(userIds)) {
             return Collections.emptyList();

@@ -7,11 +7,16 @@ import com.yuyu.workflow.convert.UserStructMapper;
 import com.yuyu.workflow.eto.dept.DeptCreateETO;
 import com.yuyu.workflow.eto.dept.DeptMoveETO;
 import com.yuyu.workflow.eto.dept.DeptUpdateETO;
+import com.yuyu.workflow.entity.User;
 import com.yuyu.workflow.entity.UserDept;
+import com.yuyu.workflow.entity.UserDeptRelExpand;
 import com.yuyu.workflow.mapper.UserDeptMapper;
+import com.yuyu.workflow.mapper.UserDeptRelExpandMapper;
 import com.yuyu.workflow.mapper.UserDeptRelMapper;
 import com.yuyu.workflow.mapper.UserMapper;
+import com.yuyu.workflow.service.UserDeptRelExpandService;
 import com.yuyu.workflow.vo.dept.DeptVO;
+import com.yuyu.workflow.vo.role.UserSimpleVO;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -20,6 +25,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -41,10 +47,16 @@ class DeptServiceImplTests {
     private UserDeptRelMapper userDeptRelMapper;
 
     @Mock
+    private UserDeptRelExpandMapper userDeptRelExpandMapper;
+
+    @Mock
     private UserDeptStructMapper userDeptStructMapper;
 
     @Mock
     private UserStructMapper userStructMapper;
+
+    @Mock
+    private UserDeptRelExpandService userDeptRelExpandService;
 
     @InjectMocks
     private DeptServiceImpl deptService;
@@ -194,6 +206,65 @@ class DeptServiceImplTests {
         deptService.update(eto);
 
         verify(userDeptMapper).updateById(argThat(dept -> "ARCHITECT".equals(dept.getPostType())));
+        verify(userDeptRelExpandService).rebuildByDeptPaths(java.util.List.of("/1/2/3/"));
+    }
+
+    /**
+     * 移动组织后需要重建旧父链与新父链下受影响用户的展开关系。
+     */
+    @Test
+    void shouldRebuildAffectedUsersWhenMovingDept() {
+        DeptMoveETO eto = new DeptMoveETO();
+        eto.setId(2L);
+        eto.setTargetParentId(9L);
+
+        UserDept currentDept = buildDept(2L, 1L, "DEPT", null, "/1/2/", 2);
+        UserDept targetParent = buildDept(9L, 8L, "DEPT", null, "/8/9/", 2);
+        UserDept childDept = buildDept(3L, 2L, "POST", "BACKEND_ENGINEER", "/1/2/3/", 3);
+
+        when(userDeptMapper.selectById(2L)).thenReturn(currentDept);
+        when(userDeptMapper.selectById(9L)).thenReturn(targetParent);
+        when(userDeptMapper.selectList(any())).thenReturn(java.util.List.of(currentDept, childDept));
+
+        deptService.move(eto);
+
+        verify(userDeptRelExpandService).rebuildByDeptPaths(java.util.List.of("/1/2/", "/8/9/2/"));
+    }
+
+    /**
+     * 查询组织下用户时应读取展开关系并按用户去重。
+     */
+    @Test
+    void shouldQueryDistinctUsersFromExpandedRelations() {
+        UserDept dept = buildDept(2L, 1L, "DEPT", null, "/1/2/", 2);
+        UserDeptRelExpand relation1 = new UserDeptRelExpand();
+        relation1.setDeptId(2L);
+        relation1.setUserId(11L);
+        UserDeptRelExpand relation2 = new UserDeptRelExpand();
+        relation2.setDeptId(2L);
+        relation2.setUserId(11L);
+        UserDeptRelExpand relation3 = new UserDeptRelExpand();
+        relation3.setDeptId(2L);
+        relation3.setUserId(12L);
+
+        User user1 = new User();
+        user1.setId(11L);
+        User user2 = new User();
+        user2.setId(12L);
+        UserSimpleVO userVO1 = new UserSimpleVO();
+        userVO1.setId(11L);
+        UserSimpleVO userVO2 = new UserSimpleVO();
+        userVO2.setId(12L);
+
+        when(userDeptMapper.selectById(2L)).thenReturn(dept);
+        when(userDeptRelExpandMapper.selectList(any())).thenReturn(java.util.List.of(relation1, relation2, relation3));
+        when(userMapper.selectBatchIds(java.util.List.of(11L, 12L))).thenReturn(java.util.List.of(user1, user2));
+        when(userStructMapper.toUserSimpleVO(user1)).thenReturn(userVO1);
+        when(userStructMapper.toUserSimpleVO(user2)).thenReturn(userVO2);
+
+        java.util.List<UserSimpleVO> result = deptService.getUsers(2L);
+
+        assertEquals(2, result.size());
     }
 
     /**

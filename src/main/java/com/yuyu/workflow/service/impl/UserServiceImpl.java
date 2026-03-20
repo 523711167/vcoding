@@ -31,6 +31,7 @@ import com.yuyu.workflow.mapper.UserDeptMapper;
 import com.yuyu.workflow.mapper.UserRoleMapper;
 import com.yuyu.workflow.qto.user.UserListQTO;
 import com.yuyu.workflow.qto.user.UserPageQTO;
+import com.yuyu.workflow.service.UserDeptRelExpandService;
 import com.yuyu.workflow.service.UserService;
 import com.yuyu.workflow.vo.user.RoleSimpleVO;
 import com.yuyu.workflow.vo.user.UserDeptVO;
@@ -64,6 +65,7 @@ public class UserServiceImpl implements UserService {
     private final UserRoleStructMapper userRoleStructMapper;
     private final UserDeptStructMapper userDeptStructMapper;
     private final PasswordEncoder passwordEncoder;
+    private final UserDeptRelExpandService userDeptRelExpandService;
 
     /**
      * 注入用户模块依赖组件。
@@ -76,7 +78,8 @@ public class UserServiceImpl implements UserService {
                            UserStructMapper userStructMapper,
                            UserRoleStructMapper userRoleStructMapper,
                            UserDeptStructMapper userDeptStructMapper,
-                           PasswordEncoder passwordEncoder) {
+                           PasswordEncoder passwordEncoder,
+                           UserDeptRelExpandService userDeptRelExpandService) {
         this.userMapper = userMapper;
         this.userRoleMapper = userRoleMapper;
         this.userDeptMapper = userDeptMapper;
@@ -86,6 +89,7 @@ public class UserServiceImpl implements UserService {
         this.userRoleStructMapper = userRoleStructMapper;
         this.userDeptStructMapper = userDeptStructMapper;
         this.passwordEncoder = passwordEncoder;
+        this.userDeptRelExpandService = userDeptRelExpandService;
     }
 
     @Override
@@ -118,6 +122,7 @@ public class UserServiceImpl implements UserService {
         userMapper.removeByIds(userIds);
         deleteUserRoleRelations(userIds);
         deleteUserDeptRelations(userIds);
+        userDeptRelExpandService.rebuildByUserIds(userIds);
     }
 
     @Override
@@ -210,6 +215,7 @@ public class UserServiceImpl implements UserService {
             relation.setIsPrimary(item.getIsPrimary());
             userDeptRelMapper.insert(relation);
         }
+        userDeptRelExpandService.rebuildByUserIds(List.of(eto.getUserId()));
     }
 
     @Override
