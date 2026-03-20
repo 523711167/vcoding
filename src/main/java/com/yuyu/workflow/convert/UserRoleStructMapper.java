@@ -14,6 +14,15 @@ import org.mapstruct.Mapping;
 public interface UserRoleStructMapper extends BaseMapper<UserRole, RoleVO> {
 
     /**
+     * 将角色实体转换为角色视图。
+     */
+    @Override
+    @Mapping(target = "statusMsg", ignore = true)
+    @Mapping(target = "dataScopeMsg", ignore = true)
+    @Mapping(target = "customDeptIds", ignore = true)
+    RoleVO toTarget(UserRole source);
+
+    /**
      * 将新增角色入参转换为角色实体。
      */
     @Mapping(target = "id", ignore = true)
@@ -33,7 +42,7 @@ public interface UserRoleStructMapper extends BaseMapper<UserRole, RoleVO> {
     @Mapping(target = "dataScope", source = "oldEntity.dataScope")
     @Mapping(target = "createdAt", source = "oldEntity.createdAt")
     @Mapping(target = "updatedAt", source = "oldEntity.updatedAt")
-    @Mapping(target = "isDeleted", source = "oldEntity.isDeleted")
+    @Mapping(target = "isDeleted", ignore = true)
     @Mapping(target = "name", source = "eto.name")
     @Mapping(target = "description", source = "eto.description")
     @Mapping(target = "sortOrder", source = "eto.sortOrder")

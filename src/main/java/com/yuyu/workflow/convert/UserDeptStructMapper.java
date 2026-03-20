@@ -15,6 +15,14 @@ import org.mapstruct.Mapping;
 public interface UserDeptStructMapper extends BaseMapper<UserDept, DeptVO> {
 
     /**
+     * 将部门实体转换为部门视图。
+     */
+    @Override
+    @Mapping(target = "orgTypeMsg", ignore = true)
+    @Mapping(target = "statusMsg", ignore = true)
+    DeptVO toTarget(UserDept source);
+
+    /**
      * 将新增部门入参转换为部门实体。
      */
     @Mapping(target = "id", ignore = true)
@@ -36,7 +44,7 @@ public interface UserDeptStructMapper extends BaseMapper<UserDept, DeptVO> {
     @Mapping(target = "leaderName", source = "oldEntity.leaderName")
     @Mapping(target = "createdAt", source = "oldEntity.createdAt")
     @Mapping(target = "updatedAt", source = "oldEntity.updatedAt")
-    @Mapping(target = "isDeleted", source = "oldEntity.isDeleted")
+    @Mapping(target = "isDeleted", ignore = true)
     @Mapping(target = "name", source = "eto.name")
     @Mapping(target = "code", source = "eto.code")
     @Mapping(target = "orgType", source = "oldEntity.orgType")
@@ -49,10 +57,16 @@ public interface UserDeptStructMapper extends BaseMapper<UserDept, DeptVO> {
     /**
      * 将部门实体转换为树节点视图。
      */
+    @Mapping(target = "orgTypeMsg", ignore = true)
+    @Mapping(target = "statusMsg", ignore = true)
+    @Mapping(target = "children", ignore = true)
     DeptTreeVO toTreeVO(UserDept entity);
 
     /**
      * 将部门实体转换为用户组织视图。
      */
+    @Mapping(target = "orgTypeMsg", ignore = true)
+    @Mapping(target = "isPrimary", ignore = true)
+    @Mapping(target = "isPrimaryMsg", ignore = true)
     UserDeptVO toUserDeptVO(UserDept entity);
 }

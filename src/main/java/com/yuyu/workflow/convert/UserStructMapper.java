@@ -22,6 +22,15 @@ import java.util.Objects;
 public interface UserStructMapper extends BaseMapper<User, UserVO> {
 
     /**
+     * 将用户实体转换为基础用户视图。
+     */
+    @Override
+    @Mapping(target = "statusMsg", ignore = true)
+    @Mapping(target = "roles", ignore = true)
+    @Mapping(target = "depts", ignore = true)
+    UserVO toTarget(User source);
+
+    /**
      * 将新增用户入参转换为用户实体。
      */
     @Mapping(target = "id", ignore = true)
@@ -43,7 +52,7 @@ public interface UserStructMapper extends BaseMapper<User, UserVO> {
     @Mapping(target = "lastLoginAt", source = "oldEntity.lastLoginAt")
     @Mapping(target = "createdAt", source = "oldEntity.createdAt")
     @Mapping(target = "updatedAt", source = "oldEntity.updatedAt")
-    @Mapping(target = "isDeleted", source = "oldEntity.isDeleted")
+    @Mapping(target = "isDeleted", ignore = true)
     @Mapping(target = "realName", source = "eto.realName")
     @Mapping(target = "email", source = "eto.email")
     @Mapping(target = "mobile", source = "eto.mobile")

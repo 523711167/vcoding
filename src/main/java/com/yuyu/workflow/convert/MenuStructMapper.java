@@ -17,6 +17,15 @@ import org.mapstruct.Mapping;
 public interface MenuStructMapper extends BaseMapper<SysMenu, MenuVO> {
 
     /**
+     * 将菜单实体转换为菜单视图。
+     */
+    @Override
+    @Mapping(target = "typeMsg", ignore = true)
+    @Mapping(target = "visibleMsg", ignore = true)
+    @Mapping(target = "statusMsg", ignore = true)
+    MenuVO toTarget(SysMenu source);
+
+    /**
      * 将新增菜单入参转换为菜单实体。
      */
     @Mapping(target = "id", ignore = true)
@@ -41,11 +50,15 @@ public interface MenuStructMapper extends BaseMapper<SysMenu, MenuVO> {
     @Mapping(target = "status", source = "eto.status")
     @Mapping(target = "createdAt", source = "oldEntity.createdAt")
     @Mapping(target = "updatedAt", source = "oldEntity.updatedAt")
-    @Mapping(target = "isDeleted", source = "oldEntity.isDeleted")
+    @Mapping(target = "isDeleted", ignore = true)
     SysMenu toUpdatedEntity(MenuUpdateETO eto, SysMenu oldEntity);
 
     /**
      * 将菜单实体转换为树节点对象。
      */
+    @Mapping(target = "typeMsg", ignore = true)
+    @Mapping(target = "visibleMsg", ignore = true)
+    @Mapping(target = "statusMsg", ignore = true)
+    @Mapping(target = "children", ignore = true)
     MenuTreeVO toTreeVO(SysMenu entity);
 }
