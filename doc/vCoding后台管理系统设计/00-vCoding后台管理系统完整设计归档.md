@@ -18,7 +18,7 @@
 以下命名规范为本文档最高标准，若与旧命名口径冲突，一律以本标准为准并同步修正文档内容：
 - 所有数据库表统一使用 `tb_` 前缀，禁止在同一项目内混用无前缀表名或其他前缀体系
 - 业务相关表统一命名为 `tb_biz_*`，如 `tb_biz_apply`、`tb_biz_type`、`tb_biz_type_initiator`
-- 用户、角色、组织及其关联表统一命名为 `tb_user*` 体系，如 `tb_user`、`tb_user_role`、`tb_user_dept`、`tb_user_role_rel`、`tb_user_dept_rel`
+- 用户、角色、组织及其关联表统一命名为 `tb_user*` 体系，如 `tb_user`、`tb_user_role`、`tb_user_dept`、`tb_user_role_rel`、`tb_user_dept_rel`、`tb_user_dept_rel_expand`
 - 工作流相关表统一命名为 `tb_workflow_*`，如 `tb_workflow_definition`、`tb_workflow_instance`、`tb_workflow_node`
 - 系统配置与权限相关表统一命名为 `tb_sys_*` 或 `tb_user_*` 体系，如 `tb_sys_menu`、`tb_sys_dict_type`、`tb_user_role_menu`
 - 代码中的实体映射、注解 SQL、初始化 SQL、迁移 SQL、设计文档必须与最终表名保持完全一致
@@ -232,6 +232,7 @@
 
 - 用户与角色必须通过 `tb_user_role_rel` 维护，不在 `tb_user` 上直接固化 `role_id`
 - 用户与组织必须通过 `tb_user_dept_rel` 维护，不在 `tb_user` 上直接固化 `dept_id`
+- 用户与组织的“直接绑定关系”和“展开生效关系”必须分表维护，禁止把两种语义混写到同一张关联表
 - 一个用户可关联多个角色、多个组织，但主组织有且仅有一个
 - 菜单权限、数据权限、业务发起权限、流程审批规则分别建模，但统一以用户、角色、组织三类主体进行解析
 - 流程与业务类型绑定，用户拥有的是业务发起权限，而不是对某个流程的单独发起权限
@@ -250,7 +251,7 @@
 | 工作流定义层 | 描述流程模板、节点、连线、审批人配置 | `tb_workflow_definition`、`tb_workflow_node`、`tb_workflow_transition`、`tb_workflow_node_approver` |
 | 工作流运行层 | 描述流程实例、节点实例、审批人实例、审批记录 | `tb_workflow_instance`、`tb_workflow_node_instance`、`tb_workflow_node_approver_instance`、`tb_workflow_approval_record` |
 | 系统基础数据层 | 描述用户、角色、组织、菜单、业务申请、业务发起权限等基础模型 | `tb_user`、`tb_user_role`、`tb_user_dept`、`tb_sys_menu`、`tb_biz_apply`、`tb_biz_type`、`tb_biz_type_initiator` |
-| 授权与管理层 | 描述角色授权、数据权限、后台功能、接口边界 | `tb_user_role_rel`、`tb_user_dept_rel`、`tb_user_role_menu`、`tb_user_role_dept` |
+| 授权与管理层 | 描述角色授权、数据权限、后台功能、接口边界 | `tb_user_role_rel`、`tb_user_dept_rel`、`tb_user_dept_rel_expand`、`tb_user_role_menu`、`tb_user_role_dept` |
 
 ### 2.3 权限总体架构
 
@@ -260,7 +261,7 @@
 |------|----------|--------|------|
 | 认证层 | 用户身份 | `tb_user` | 负责登录认证、账号状态、基础资料 |
 | 角色层 | 权限聚合单元 | `tb_user_role`、`tb_user_role_rel` | 角色是菜单权限、数据权限、业务发起权限的重要承载体 |
-| 组织层 | 树形归属关系 | `tb_user_dept`、`tb_user_dept_rel` | 组织用于树形管理、主管解析、数据范围口径 |
+| 组织层 | 树形归属关系 | `tb_user_dept`、`tb_user_dept_rel`、`tb_user_dept_rel_expand` | 组织用于树形管理、主管解析、数据范围口径，其中 direct / expand 分别承载直接绑定与展开生效关系 |
 | 功能权限层 | 菜单/按钮权限 | `tb_sys_menu`、`tb_user_role_menu` | 控制页面可见范围和按钮操作权限 |
 | 数据权限层 | 数据可见范围 | `tb_user_role.data_scope`、`tb_user_role_dept` | 控制业务数据可查询范围 |
 | 业务发起权限层 | 能否发起某类业务 | `tb_biz_type_initiator` | 与业务类型联动，控制谁可发起某类业务 |
@@ -316,7 +317,9 @@ tb_user ──────────────── tb_user_role_rel ──
     │                                                       │
     │                                                       └── tb_user_role_dept ──── tb_user_dept
     │
-    └── tb_user_dept_rel ──────────────────────────────── tb_user_dept
+    ├── tb_user_dept_rel ──────────────────────────────── tb_user_dept
+    │
+    └── tb_user_dept_rel_expand ───────────────────────── tb_user_dept
 
 tb_biz_type ──────────────── tb_biz_type_initiator
    │
@@ -339,6 +342,8 @@ tb_sys_dict_type ──────────────── tb_sys_dict_it
 - `tb_biz_apply.biz_code` 标识“这张业务单据属于哪个业务类型”
 - `tb_biz_apply.form_data` 保存业务申请提交时的实际数据快照，字段结构由前后端按业务类型约定
 - 单据提交时，先根据 `tb_biz_apply.biz_code` 查询 `tb_biz_type` 获取 `workflow_definition_id`，再创建 `tb_workflow_instance`
+- `tb_user_dept_rel` 只记录用户直接选中的组织节点及主组织语义
+- `tb_user_dept_rel_expand` 只记录系统按直接绑定关系向下展开后的当前生效节点，并保留来源关系
 
 ### 4.3 权限模型总结
 
@@ -359,7 +364,8 @@ tb_sys_dict_type ──────────────── tb_sys_dict_it
 | `tb_user_dept` | 表达组织树、部门主管、层级结构 | 不直接表达用户功能权限 |
 | `tb_sys_menu` | 表达前端菜单树和按钮权限点 | 不直接承载数据权限规则 |
 | `tb_user_role_rel` | 维护用户与角色的多对多关系 | 不存业务字段 |
-| `tb_user_dept_rel` | 维护用户与组织的多对多关系及主组织 | 不存菜单权限 |
+| `tb_user_dept_rel` | 维护用户与组织的直接绑定关系及主组织 | 不存展开结果 |
+| `tb_user_dept_rel_expand` | 维护用户组织绑定向下展开后的生效关系 | 不作为人工授权事实表 |
 | `tb_user_role_menu` | 维护角色与菜单/按钮的授权关系 | 不存用户直授权信息 |
 | `tb_biz_type_initiator` | 维护业务类型与发起主体的授权关系 | 不负责审批节点解析 |
 | `tb_workflow_definition` | 描述流程模板及版本 | 不负责用户发起权限判断 |
@@ -721,37 +727,91 @@ CREATE TABLE `tb_user_role_rel` (
 
 ### 5.10 用户-部门关联表 `tb_user_dept_rel`
 
-一个用户可属于多个部门，但有且仅有一个主部门（`is_primary=1`），工作流解析“发起人部门主管”时以主部门为准。
+`tb_user_dept_rel` 只保存用户直接选中的组织节点。一个用户可属于多个组织，但有且仅有一个主组织（`is_primary=1`），工作流解析“发起人部门主管”时以主组织为准。
 
 ```sql
 CREATE TABLE `tb_user_dept_rel` (
   `id`         BIGINT   NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `user_id`    BIGINT   NOT NULL               COMMENT '用户ID（关联tb_user.id）',
-  `dept_id`    BIGINT   NOT NULL               COMMENT '部门ID（关联tb_user_dept.id）',
-  `is_primary` TINYINT  NOT NULL DEFAULT 0     COMMENT '是否主部门：1=是 0=否',
+  `dept_id`    BIGINT   NOT NULL               COMMENT '直接绑定的组织ID（关联tb_user_dept.id）',
+  `org_type`   VARCHAR(32) NOT NULL            COMMENT '组织类型冗余：GROUP/COMPANY/DEPT/POST',
+  `post_type`  VARCHAR(32) DEFAULT NULL        COMMENT '岗位类型冗余；仅当 org_type=POST 时有值',
+  `is_primary` TINYINT  NOT NULL DEFAULT 0     COMMENT '是否主组织：1=是 0=否',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_tb_user_dept` (`user_id`, `dept_id`),
-  KEY `idx_dept_id` (`dept_id`)
-) ENGINE=InnoDB COMMENT='用户-部门关联表';
+  KEY `idx_dept_id` (`dept_id`),
+  KEY `idx_user_primary` (`user_id`, `is_primary`)
+) ENGINE=InnoDB COMMENT='用户-组织直接绑定关系表';
 ```
 
 字段说明：
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `is_primary` | `TINYINT` | 每个用户只能有一个主部门，业务层保证唯一性 |
+| `org_type` | `VARCHAR(32)` | 记录用户绑定时目标组织的组织类型冗余 |
+| `post_type` | `VARCHAR(32)` | 记录用户绑定时目标岗位类型冗余；非岗位节点为空 |
+| `is_primary` | `TINYINT` | 每个用户只能有一个主组织，业务层保证唯一性 |
 
-主部门唯一性约束：
+主组织唯一性约束：
 - 新增/修改关联时，若 `is_primary=1`，先将该用户其他所有记录的 `is_primary` 置为 0，再写入新记录
-- 若用户无主部门，系统自动将第一条关联记录设为主部门
+- 若用户无主组织，系统自动将第一条关联记录设为主组织
 - 推荐通过事务内应用层逻辑或触发器保证唯一性
 
-为什么要求“有且仅有一个主部门”：
+为什么要求“有且仅有一个主组织”：
 - 解析 `INITIATOR_DEPT_LEADER` 时，需要明确按哪个部门的 `leader_id` 查找主管
 - 数据权限为“本部门”或“本部门及子部门”时，需要明确以哪个部门作为范围起点
 - 业务单据创建时，如需默认带出归属部门，需要统一默认值
 - 用户列表、个人信息、统计报表等场景，需要一个稳定的默认归属部门用于展示和归口分析
+
+#### 5.10.1 用户-组织展开关系表 `tb_user_dept_rel_expand`
+
+`tb_user_dept_rel_expand` 只保存系统根据 `tb_user_dept_rel` 向下展开后的当前生效节点，用于表达“某用户当前覆盖了哪些组织节点”。
+
+```sql
+CREATE TABLE `tb_user_dept_rel_expand` (
+  `id`                BIGINT      NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `user_id`           BIGINT      NOT NULL               COMMENT '用户ID（关联tb_user.id）',
+  `source_rel_id`     BIGINT      NOT NULL               COMMENT '来源直接绑定关系ID（关联tb_user_dept_rel.id）',
+  `source_dept_id`    BIGINT      NOT NULL               COMMENT '来源直接绑定组织ID（关联tb_user_dept.id）',
+  `source_org_type`   VARCHAR(32) NOT NULL               COMMENT '来源组织类型冗余：GROUP/COMPANY/DEPT/POST',
+  `source_post_type`  VARCHAR(32) DEFAULT NULL           COMMENT '来源岗位类型冗余；非岗位来源为空',
+  `source_is_primary` TINYINT     NOT NULL DEFAULT 0     COMMENT '是否来源于主组织绑定：1=是 0=否',
+  `dept_id`           BIGINT      NOT NULL               COMMENT '展开后的目标组织ID（关联tb_user_dept.id）',
+  `org_type`          VARCHAR(32) NOT NULL               COMMENT '目标组织类型冗余：GROUP/COMPANY/DEPT/POST',
+  `post_type`         VARCHAR(32) DEFAULT NULL           COMMENT '目标岗位类型冗余；非岗位目标为空',
+  `relation_type`     VARCHAR(16) NOT NULL               COMMENT '关系类型：SELF/DESCENDANT',
+  `distance`          INT         NOT NULL DEFAULT 0     COMMENT '展开距离：自身=0，直接下级=1',
+  `created_at`        DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_source_dept` (`user_id`, `source_rel_id`, `dept_id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_dept_id` (`dept_id`),
+  KEY `idx_source_dept_id` (`source_dept_id`),
+  KEY `idx_user_dept_id` (`user_id`, `dept_id`)
+) ENGINE=InnoDB COMMENT='用户-组织展开生效关系表';
+```
+
+字段说明：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `source_rel_id` | `BIGINT` | 指向直接绑定关系表主键，用于追溯展开来源 |
+| `source_dept_id` | `BIGINT` | 记录来源直接绑定的组织节点 |
+| `source_org_type` | `VARCHAR(32)` | 记录来源直接绑定节点的组织类型冗余 |
+| `source_post_type` | `VARCHAR(32)` | 记录来源直接绑定节点的岗位类型冗余 |
+| `source_is_primary` | `TINYINT` | 仅表示来源绑定是否为主组织，不代表目标节点本身是主组织 |
+| `relation_type` | `VARCHAR(16)` | `SELF` 表示来源节点自身，`DESCENDANT` 表示来源节点的子孙节点 |
+| `distance` | `INT` | 记录来源节点到目标节点的层级距离 |
+
+设计约束：
+- 每条直接绑定关系必须至少生成 1 条 `SELF` 记录。
+- 展开方向固定为向下展开，递归覆盖全部当前有效子孙节点。
+- 同一目标节点允许因不同来源节点保留多条展开记录，只要 `source_rel_id` 不同即可。
+- `tb_user_dept_rel_expand` 是派生结果表，不允许手工单条维护，只允许按用户重建。
+- 主组织口径只认 `tb_user_dept_rel.is_primary`，不得通过 `tb_user_dept_rel_expand.source_is_primary` 反推目标节点是否主组织。
+- 用户重新分配组织时，应在同一事务内先删除该用户旧展开记录，再按新的直接绑定关系全量重建。
+- 组织新增、删除、移动、状态调整、`org_type` 调整、`post_type` 调整后，只重建受影响用户的展开记录。
 
 ### 5.11 菜单/按钮表 `tb_sys_menu`
 
@@ -866,8 +926,10 @@ CREATE TABLE `tb_user_role_dept` (
 #### 用户与组织
 - 一个用户可属于多个组织
 - 一个用户有且仅有一个主组织
-- 通过 `tb_user_dept_rel` 建模，使用 `is_primary` 标识主组织
+- 通过 `tb_user_dept_rel` 维护直接绑定关系，使用 `is_primary` 标识主组织
+- 通过 `tb_user_dept_rel_expand` 维护向下展开后的生效关系，并保留来源直接绑定信息
 - 主组织用于默认组织展示、数据权限口径、主管解析、单据默认归属部门
+- direct / expand 分表后，查询“用户直接绑定了哪些组织”与“某组织当前覆盖了哪些用户”必须分别走不同表
 
 #### 角色与菜单
 - 一个角色可关联多个菜单/按钮
