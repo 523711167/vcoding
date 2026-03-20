@@ -658,7 +658,7 @@ CREATE TABLE `tb_user_role` (
   `description` VARCHAR(200)                        COMMENT '角色描述',
   `status`      TINYINT      NOT NULL DEFAULT 1     COMMENT '状态：1=正常 0=停用',
   `sort_order`  INT          NOT NULL DEFAULT 0     COMMENT '排序值，升序展示',
-  `data_scope`  TINYINT      NOT NULL DEFAULT 1     COMMENT '数据权限范围：1=全部数据 2=自定义部门 3=本部门及子部门 4=仅本部门 5=仅本人数据',
+  `data_scope`  VARCHAR(32)  NOT NULL DEFAULT 'ALL' COMMENT '数据权限范围：ALL/CUSTOM_DEPT/CURRENT_AND_CHILD_DEPT/CURRENT_DEPT/SELF',
   `created_at`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `is_deleted`  TINYINT      NOT NULL DEFAULT 0     COMMENT '软删除标记：0=正常 1=已删除',
@@ -673,7 +673,7 @@ CREATE TABLE `tb_user_role` (
 |------|------|------|
 | `code` | `VARCHAR(64)` | 全局唯一编码，在审批流配置中可通过角色 ID 或角色 code 引用 |
 | `status` | `TINYINT` | 停用角色后，该角色不再参与新的权限加载与审批人解析 |
-| `data_scope` | `TINYINT` | 角色的数据范围控制口径 |
+| `data_scope` | `VARCHAR(32)` | 角色的数据范围控制口径，存储数据权限枚举编码 |
 
 ### 5.8 用户表 `tb_user`
 
@@ -896,7 +896,7 @@ CREATE TABLE `tb_user_role_menu` (
 
 ### 5.13 角色-自定义数据权限部门表 `tb_user_role_dept`
 
-当 `data_scope=2`（自定义部门）时，通过此表指定该角色可访问哪些部门的数据。
+当 `data_scope=CUSTOM_DEPT` 时，通过此表指定该角色可访问哪些部门的数据。
 
 ```sql
 CREATE TABLE `tb_user_role_dept` (
@@ -939,7 +939,7 @@ CREATE TABLE `tb_user_role_dept` (
 
 #### 角色与数据范围
 - 一个角色对应一个 `data_scope`
-- 当 `data_scope=2` 时，通过 `tb_user_role_dept` 绑定多个部门
+- 当 `data_scope=CUSTOM_DEPT` 时，通过 `tb_user_role_dept` 绑定多个部门
 - 用户最终数据权限取全部角色中范围最宽的一档
 
 #### 业务类型与发起权限
@@ -954,23 +954,23 @@ CREATE TABLE `tb_user_role_dept` (
 
 `data_scope` 枚举说明：
 
-| 值 | 名称 | 说明 |
-|----|------|------|
-| `1` | 全部数据 | 可查看系统内所有数据，通常分配给超级管理员 |
-| `2` | 自定义部门 | 可查看 `tb_user_role_dept` 中配置的指定部门数据 |
-| `3` | 本部门及子部门 | 可查看用户主部门及其所有子孙部门的数据 |
-| `4` | 仅本部门 | 只能查看用户主部门的数据 |
-| `5` | 仅本人数据 | 只能查看自己创建/发起的数据 |
+| 编码 | 名称 | 说明 |
+|------|------|------|
+| `ALL` | 全部数据 | 可查看系统内所有数据，通常分配给超级管理员 |
+| `CUSTOM_DEPT` | 自定义部门 | 可查看 `tb_user_role_dept` 中配置的指定部门数据 |
+| `CURRENT_AND_CHILD_DEPT` | 本部门及子部门 | 可查看用户主部门及其所有子孙部门的数据 |
+| `CURRENT_DEPT` | 仅本部门 | 只能查看用户主部门的数据 |
+| `SELF` | 仅本人数据 | 只能查看自己创建/发起的数据 |
 
 数据权限过滤 SQL 模板：
 
 ```sql
--- data_scope=2：自定义部门
+-- data_scope=CUSTOM_DEPT：自定义部门
 AND tb_biz_apply.dept_id IN (
     SELECT dept_id FROM tb_user_role_dept WHERE role_id = #{roleId}
 )
 
--- data_scope=3：本部门及子部门
+-- data_scope=CURRENT_AND_CHILD_DEPT：本部门及子部门
 AND tb_biz_apply.dept_id IN (
     SELECT id FROM tb_user_dept
     WHERE path LIKE CONCAT(
@@ -978,10 +978,10 @@ AND tb_biz_apply.dept_id IN (
     ) AND is_deleted = 0
 )
 
--- data_scope=4：仅本部门
+-- data_scope=CURRENT_DEPT：仅本部门
 AND tb_biz_apply.dept_id = #{currentUserPrimaryDeptId}
 
--- data_scope=5：仅本人数据
+-- data_scope=SELF：仅本人数据
 AND tb_biz_apply.applicant_id = #{currentUserId}
 ```
 
@@ -1029,7 +1029,7 @@ AND tb_biz_apply.applicant_id = #{currentUserId}
   - 可访问菜单列表（type=1/2）
   - 权限标识集合（permission）
    ↓
-取各角色 data_scope 最小值，得到数据权限范围
+按预设优先级取各角色中范围最宽的 `data_scope`，得到最终数据权限范围
    ↓
 加载用户主组织（tb_user_dept_rel.is_primary=1）
    ↓

@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS `tb_user_role` (
   `description` VARCHAR(200) DEFAULT NULL COMMENT '角色描述',
   `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态：1=正常 0=停用',
   `sort_order` INT NOT NULL DEFAULT 0 COMMENT '排序值，升序展示',
-  `data_scope` TINYINT NOT NULL DEFAULT 1 COMMENT '数据权限范围',
+  `data_scope` VARCHAR(32) NOT NULL DEFAULT 'ALL' COMMENT '数据权限范围：ALL/CUSTOM_DEPT/CURRENT_AND_CHILD_DEPT/CURRENT_DEPT/SELF',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `is_deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '软删除标记：0=正常 1=已删除',
@@ -175,7 +175,7 @@ ON DUPLICATE KEY UPDATE
 INSERT INTO `tb_user_role`
 (`id`, `name`, `code`, `description`, `status`, `sort_order`, `data_scope`)
 VALUES
-(1, '系统管理员', 'ADMIN', '拥有系统全部管理权限', 1, 10, 1)
+(1, '系统管理员', 'ADMIN', '拥有系统全部管理权限', 1, 10, 'ALL')
 ON DUPLICATE KEY UPDATE
 `name` = VALUES(`name`),
 `code` = VALUES(`code`),

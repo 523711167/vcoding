@@ -1,9 +1,10 @@
 package com.yuyu.workflow.eto.role;
 
 import com.yuyu.workflow.common.enums.DataScopeEnum;
-import com.yuyu.workflow.common.validation.EnumIdValid;
+import com.yuyu.workflow.common.validation.EnumCodeValid;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
@@ -18,9 +19,9 @@ public class RoleDataScopeUpdateETO {
     private Long roleId;
 
     @Schema(description = "数据权限范围", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "dataScope不能为空")
-    @EnumIdValid(enumClass = DataScopeEnum.class, allowNull = false, message = "dataScope不合法")
-    private Integer dataScope;
+    @NotBlank(message = "dataScope不能为空")
+    @EnumCodeValid(enumClass = DataScopeEnum.class, allowNull = false, message = "dataScope不合法")
+    private String dataScope;
 
     @ArraySchema(schema = @Schema(description = "自定义组织ID"))
     private List<Long> deptIds;

@@ -26,7 +26,7 @@ public class RoleVO {
     @Schema(description = "排序值")
     private Integer sortOrder;
     @Schema(description = "数据权限范围")
-    private Integer dataScope;
+    private String dataScope;
     @Schema(description = "数据权限范围说明")
     private String dataScopeMsg;
     @Schema(description = "创建时间")

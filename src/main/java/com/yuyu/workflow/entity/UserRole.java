@@ -41,5 +41,5 @@ public class UserRole extends BaseAuditEntity {
     /**
      * 数据权限范围。
      */
-    private Integer dataScope;
+    private String dataScope;
 }

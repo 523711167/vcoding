@@ -90,7 +90,7 @@ public class RoleServiceImpl implements RoleService {
         UserRole entity = userRoleStructMapper.toEntity(eto);
         entity.setStatus(CommonStatusEnum.ENABLED.getId());
         entity.setSortOrder(Objects.isNull(eto.getSortOrder()) ? 0 : eto.getSortOrder());
-        entity.setDataScope(DataScopeEnum.ALL.getId());
+        entity.setDataScope(DataScopeEnum.ALL.getCode());
         userRoleMapper.insert(entity);
         return detail(entity.getId());
     }
@@ -185,7 +185,7 @@ public class RoleServiceImpl implements RoleService {
     public void updateDataScope(RoleDataScopeUpdateETO eto) {
         UserRole role = getRoleOrThrow(eto.getRoleId());
         List<Long> deptIds = Objects.isNull(eto.getDeptIds()) ? Collections.emptyList() : eto.getDeptIds();
-        if (DataScopeEnum.CUSTOM_DEPT.getId().equals(eto.getDataScope())) {
+        if (DataScopeEnum.CUSTOM_DEPT.getCode().equals(eto.getDataScope())) {
             if (CollectionUtils.isEmpty(deptIds)) {
                 throw new BizException("自定义部门数据权限必须选择部门");
             }
@@ -194,7 +194,7 @@ public class RoleServiceImpl implements RoleService {
         role.setDataScope(eto.getDataScope());
         userRoleMapper.updateById(role);
         deleteRoleDeptRelations(List.of(eto.getRoleId()));
-        if (DataScopeEnum.CUSTOM_DEPT.getId().equals(eto.getDataScope())) {
+        if (DataScopeEnum.CUSTOM_DEPT.getCode().equals(eto.getDataScope())) {
             for (Long deptId : new LinkedHashSet<>(deptIds)) {
                 UserRoleDept relation = new UserRoleDept();
                 relation.setRoleId(eto.getRoleId());
@@ -384,7 +384,7 @@ public class RoleServiceImpl implements RoleService {
     private RoleVO buildRoleVO(UserRole role) {
         RoleVO vo = userRoleStructMapper.toTarget(role);
         vo.setStatusMsg(CommonStatusEnum.getMsgById(role.getStatus()));
-        vo.setDataScopeMsg(DataScopeEnum.getMsgById(role.getDataScope()));
+        vo.setDataScopeMsg(DataScopeEnum.getMsgByCode(role.getDataScope()));
         vo.setCustomDeptIds(userRoleDeptMapper.selectList(new LambdaQueryWrapper<UserRoleDept>()
                         .eq(UserRoleDept::getRoleId, role.getId()))
                 .stream()

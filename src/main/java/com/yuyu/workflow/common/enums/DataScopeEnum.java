@@ -1,5 +1,8 @@
 package com.yuyu.workflow.common.enums;
 
+import java.util.Arrays;
+import java.util.Objects;
+
 public enum DataScopeEnum implements BaseEnum {
 
     ALL(1, "ALL", "全部数据"),
@@ -47,6 +50,13 @@ public enum DataScopeEnum implements BaseEnum {
      */
     public static String getMsgById(Integer id) {
         return EnumUtils.getMsgById(values(), id);
+    }
+
+    /**
+     * 根据 code 判断数据权限是否存在。
+     */
+    public static boolean containsCode(String code) {
+        return Arrays.stream(values()).anyMatch(item -> Objects.equals(item.getCode(), code));
     }
 
     /**
