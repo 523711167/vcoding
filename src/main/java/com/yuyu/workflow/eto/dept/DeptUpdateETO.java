@@ -1,12 +1,10 @@
 package com.yuyu.workflow.eto.dept;
 
 import com.yuyu.workflow.common.enums.CommonStatusEnum;
-import com.yuyu.workflow.common.enums.OrgTypeEnum;
 import com.yuyu.workflow.common.validation.EnumIdValid;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -27,12 +25,7 @@ public class DeptUpdateETO {
     @Size(max = 64, message = "code长度不能超过64")
     private String code;
 
-    @Schema(description = "组织类型：GROUP/COMPANY/DEPT/POST", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotBlank(message = "orgType不能为空")
-    @Pattern(regexp = OrgTypeEnum.REGEXP, message = "orgType不合法")
-    private String orgType;
-
-    @Schema(description = "岗位类型，orgType=POST时必填")
+    @Schema(description = "岗位类型，仅当当前组织为POST时允许修改")
     @Size(max = 64, message = "postType长度不能超过64")
     private String postType;
 

@@ -6,10 +6,12 @@ import com.yuyu.workflow.convert.UserDeptStructMapper;
 import com.yuyu.workflow.convert.UserStructMapper;
 import com.yuyu.workflow.eto.dept.DeptCreateETO;
 import com.yuyu.workflow.eto.dept.DeptMoveETO;
+import com.yuyu.workflow.eto.dept.DeptUpdateETO;
 import com.yuyu.workflow.entity.UserDept;
 import com.yuyu.workflow.mapper.UserDeptMapper;
 import com.yuyu.workflow.mapper.UserDeptRelMapper;
 import com.yuyu.workflow.mapper.UserMapper;
+import com.yuyu.workflow.vo.dept.DeptVO;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -18,6 +20,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -112,6 +117,83 @@ class DeptServiceImplTests {
         BizException exception = assertThrows(BizException.class, () -> deptService.create(eto));
 
         assertEquals("岗位类型不能为空", exception.getMessage());
+    }
+
+    /**
+     * 更新组织时不允许变更组织类型，应保留原始 orgType。
+     */
+    @Test
+    void shouldKeepOriginalOrgTypeWhenUpdatingDept() {
+        DeptUpdateETO eto = new DeptUpdateETO();
+        eto.setId(2L);
+        eto.setName("研发中心");
+        eto.setCode("RD");
+        eto.setSortOrder(10);
+        eto.setStatus(CommonStatusEnum.ENABLED.getId());
+
+        UserDept oldDept = buildDept(2L, 1L, "DEPT", null, "/1/2/", 2);
+        oldDept.setName("研发部");
+        oldDept.setCode("DEV");
+
+        UserDept updatedDept = buildDept(2L, 1L, "DEPT", null, "/1/2/", 2);
+        updatedDept.setName("研发中心");
+        updatedDept.setCode("RD");
+        updatedDept.setSortOrder(10);
+
+        when(userDeptMapper.selectById(2L)).thenReturn(oldDept, updatedDept);
+        when(userDeptMapper.selectById(1L)).thenReturn(buildDept(1L, 0L, "COMPANY", null, "/1/", 1));
+        when(userDeptStructMapper.toUpdatedEntity(eq(eto), eq(oldDept))).thenReturn(updatedDept);
+        when(userDeptStructMapper.toTarget(updatedDept)).thenReturn(new DeptVO());
+
+        deptService.update(eto);
+
+        verify(userDeptMapper).updateById(argThat(dept -> "DEPT".equals(dept.getOrgType())));
+    }
+
+    /**
+     * 非岗位节点更新时传入岗位类型仍应按现有规则拦截。
+     */
+    @Test
+    void shouldRejectPostTypeUpdateForNonPostDept() {
+        DeptUpdateETO eto = new DeptUpdateETO();
+        eto.setId(2L);
+        eto.setName("研发部");
+        eto.setCode("DEV");
+        eto.setPostType("BACKEND_ENGINEER");
+        eto.setStatus(CommonStatusEnum.ENABLED.getId());
+
+        when(userDeptMapper.selectById(2L)).thenReturn(buildDept(2L, 1L, "DEPT", null, "/1/2/", 2));
+
+        BizException exception = assertThrows(BizException.class, () -> deptService.update(eto));
+
+        assertEquals("非岗位组织不能设置岗位类型", exception.getMessage());
+    }
+
+    /**
+     * 岗位节点更新时允许修改岗位类型。
+     */
+    @Test
+    void shouldAllowUpdatingPostTypeForPostDept() {
+        DeptUpdateETO eto = new DeptUpdateETO();
+        eto.setId(3L);
+        eto.setName("后端岗");
+        eto.setCode("JAVA");
+        eto.setPostType("ARCHITECT");
+        eto.setStatus(CommonStatusEnum.ENABLED.getId());
+
+        UserDept oldDept = buildDept(3L, 2L, "POST", "BACKEND_ENGINEER", "/1/2/3/", 3);
+        UserDept updatedDept = buildDept(3L, 2L, "POST", "ARCHITECT", "/1/2/3/", 3);
+        updatedDept.setName("后端岗");
+        updatedDept.setCode("JAVA");
+
+        when(userDeptMapper.selectById(3L)).thenReturn(oldDept, updatedDept);
+        when(userDeptMapper.selectById(2L)).thenReturn(buildDept(2L, 1L, "DEPT", null, "/1/2/", 2));
+        when(userDeptStructMapper.toUpdatedEntity(eq(eto), eq(oldDept))).thenReturn(updatedDept);
+        when(userDeptStructMapper.toTarget(updatedDept)).thenReturn(new DeptVO());
+
+        deptService.update(eto);
+
+        verify(userDeptMapper).updateById(argThat(dept -> "ARCHITECT".equals(dept.getPostType())));
     }
 
     /**

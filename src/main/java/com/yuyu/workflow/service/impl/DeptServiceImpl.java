@@ -82,13 +82,13 @@ public class DeptServiceImpl implements DeptService {
     @Transactional(rollbackFor = Exception.class)
     public DeptVO update(DeptUpdateETO eto) {
         UserDept entity = getDeptOrThrow(eto.getId());
-        validateDeptTypeAndPostType(eto.getOrgType(), eto.getPostType());
-        validateParentChildRelation(getParentDept(entity.getParentId()), eto.getOrgType());
-        validateChildOrgTypes(entity.getId(), eto.getOrgType());
+        validateDeptTypeAndPostType(entity.getOrgType(), eto.getPostType());
+        validateParentChildRelation(getParentDept(entity.getParentId()), entity.getOrgType());
+        validateChildOrgTypes(entity.getId(), entity.getOrgType());
         validateLeader(eto.getLeaderId());
         assertDeptCodeUnique(entity.getParentId(), eto.getCode(), entity.getId());
         entity = userDeptStructMapper.toUpdatedEntity(eto, entity);
-        entity.setPostType(normalizePostType(eto.getOrgType(), eto.getPostType()));
+        entity.setPostType(normalizePostType(entity.getOrgType(), eto.getPostType()));
         entity.setSortOrder(Objects.isNull(eto.getSortOrder()) ? 0 : eto.getSortOrder());
         entity.setLeaderName(getLeaderName(eto.getLeaderId()));
         userDeptMapper.updateById(entity);

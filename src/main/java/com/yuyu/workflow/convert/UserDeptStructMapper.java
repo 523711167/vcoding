@@ -39,7 +39,7 @@ public interface UserDeptStructMapper extends BaseMapper<UserDept, DeptVO> {
     @Mapping(target = "isDeleted", source = "oldEntity.isDeleted")
     @Mapping(target = "name", source = "eto.name")
     @Mapping(target = "code", source = "eto.code")
-    @Mapping(target = "orgType", source = "eto.orgType")
+    @Mapping(target = "orgType", source = "oldEntity.orgType")
     @Mapping(target = "postType", source = "eto.postType")
     @Mapping(target = "sortOrder", source = "eto.sortOrder")
     @Mapping(target = "leaderId", source = "eto.leaderId")

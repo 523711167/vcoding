@@ -3,6 +3,7 @@ package com.yuyu.workflow.vo.dept;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -38,6 +39,8 @@ public class DeptTreeVO {
     private Integer status;
     @Schema(description = "状态说明")
     private String statusMsg;
+    @Schema(description = "更新时间")
+    private LocalDateTime updatedAt;
     @Schema(description = "子节点")
     private List<DeptTreeVO> children = new ArrayList<>();
 }
