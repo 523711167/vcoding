@@ -82,11 +82,34 @@ CREATE TABLE IF NOT EXISTS `tb_user_role_dept` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `role_id` BIGINT NOT NULL COMMENT '角色ID',
   `dept_id` BIGINT NOT NULL COMMENT '部门ID',
+  `org_type` VARCHAR(16) NOT NULL COMMENT '组织类型冗余：GROUP/COMPANY/DEPT/POST',
+  `post_type` VARCHAR(64) DEFAULT NULL COMMENT '岗位类型冗余；仅当 org_type=POST 时有值',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_role_dept` (`role_id`, `dept_id`),
   KEY `idx_role_dept_id` (`dept_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='角色-自定义数据权限部门表';
+
+CREATE TABLE IF NOT EXISTS `tb_user_role_dept_expand` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `role_id` BIGINT NOT NULL COMMENT '角色ID',
+  `source_rel_id` BIGINT NOT NULL COMMENT '来源直接绑定关系ID',
+  `source_dept_id` BIGINT NOT NULL COMMENT '来源直接绑定组织ID',
+  `source_org_type` VARCHAR(16) NOT NULL COMMENT '来源组织类型冗余：GROUP/COMPANY/DEPT/POST',
+  `source_post_type` VARCHAR(64) DEFAULT NULL COMMENT '来源岗位类型冗余；非岗位来源为空',
+  `dept_id` BIGINT NOT NULL COMMENT '展开后的目标组织ID',
+  `org_type` VARCHAR(16) NOT NULL COMMENT '目标组织类型冗余：GROUP/COMPANY/DEPT/POST',
+  `post_type` VARCHAR(64) DEFAULT NULL COMMENT '目标岗位类型冗余；非岗位目标为空',
+  `relation_type` VARCHAR(16) NOT NULL COMMENT '关系类型：SELF/DESCENDANT',
+  `distance` INT NOT NULL DEFAULT 0 COMMENT '展开距离：自身=0，直接下级=1',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_role_source_dept` (`role_id`, `source_rel_id`, `dept_id`),
+  KEY `idx_role_id` (`role_id`),
+  KEY `idx_dept_id` (`dept_id`),
+  KEY `idx_source_dept_id` (`source_dept_id`),
+  KEY `idx_role_dept_id` (`role_id`, `dept_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='角色-数据权限组织展开生效关系表';
 
 CREATE TABLE IF NOT EXISTS `tb_sys_menu` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',

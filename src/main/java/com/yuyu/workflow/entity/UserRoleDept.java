@@ -22,4 +22,14 @@ public class UserRoleDept extends BaseCreateEntity {
      * 部门ID。
      */
     private Long deptId;
+
+    /**
+     * 组织类型。
+     */
+    private String orgType;
+
+    /**
+     * 岗位类型。
+     */
+    private String postType;
 }

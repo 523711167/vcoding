@@ -21,6 +21,7 @@ import com.yuyu.workflow.mapper.UserDeptMapper;
 import com.yuyu.workflow.qto.dept.DeptTreeQTO;
 import com.yuyu.workflow.service.DeptService;
 import com.yuyu.workflow.service.UserDeptRelExpandService;
+import com.yuyu.workflow.service.UserRoleDeptExpandService;
 import com.yuyu.workflow.vo.dept.DeptTreeVO;
 import com.yuyu.workflow.vo.dept.DeptVO;
 import com.yuyu.workflow.vo.role.UserSimpleVO;
@@ -42,6 +43,7 @@ public class DeptServiceImpl implements DeptService {
     private final UserDeptStructMapper userDeptStructMapper;
     private final UserStructMapper userStructMapper;
     private final UserDeptRelExpandService userDeptRelExpandService;
+    private final UserRoleDeptExpandService userRoleDeptExpandService;
 
     /**
      * 注入部门模块依赖组件。
@@ -52,7 +54,8 @@ public class DeptServiceImpl implements DeptService {
                            UserDeptRelExpandMapper userDeptRelExpandMapper,
                            UserDeptStructMapper userDeptStructMapper,
                            UserStructMapper userStructMapper,
-                           UserDeptRelExpandService userDeptRelExpandService) {
+                           UserDeptRelExpandService userDeptRelExpandService,
+                           UserRoleDeptExpandService userRoleDeptExpandService) {
         this.userDeptMapper = userDeptMapper;
         this.userMapper = userMapper;
         this.userDeptRelMapper = userDeptRelMapper;
@@ -60,6 +63,7 @@ public class DeptServiceImpl implements DeptService {
         this.userDeptStructMapper = userDeptStructMapper;
         this.userStructMapper = userStructMapper;
         this.userDeptRelExpandService = userDeptRelExpandService;
+        this.userRoleDeptExpandService = userRoleDeptExpandService;
     }
 
     @Override
@@ -85,6 +89,7 @@ public class DeptServiceImpl implements DeptService {
         entity.setPath(Objects.isNull(parent) ? "/" + entity.getId() + "/" : parent.getPath() + entity.getId() + "/");
         userDeptMapper.updateById(entity);
         userDeptRelExpandService.rebuildByDeptPaths(List.of(entity.getPath()));
+        userRoleDeptExpandService.rebuildByDeptPaths(List.of(entity.getPath()));
         return detail(entity.getId());
     }
 
@@ -106,6 +111,7 @@ public class DeptServiceImpl implements DeptService {
         userDeptMapper.updateById(entity);
         if (!Objects.equals(oldStatus, entity.getStatus()) || !Objects.equals(oldPostType, entity.getPostType())) {
             userDeptRelExpandService.rebuildByDeptPaths(List.of(entity.getPath()));
+            userRoleDeptExpandService.rebuildByDeptPaths(List.of(entity.getPath()));
         }
         return detail(entity.getId());
     }
@@ -146,6 +152,7 @@ public class DeptServiceImpl implements DeptService {
             userDeptMapper.updateById(dept);
         }
         userDeptRelExpandService.rebuildByDeptPaths(List.of(oldPath, newPath));
+        userRoleDeptExpandService.rebuildByDeptPaths(List.of(oldPath, newPath));
     }
 
     @Override
@@ -168,6 +175,7 @@ public class DeptServiceImpl implements DeptService {
         }
         userDeptMapper.removeByIds(deptIds);
         userDeptRelExpandService.rebuildByDeptPaths(deletedDeptPaths);
+        userRoleDeptExpandService.rebuildByDeptPaths(deletedDeptPaths);
     }
 
     @Override

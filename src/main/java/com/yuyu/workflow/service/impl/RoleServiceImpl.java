@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.yuyu.workflow.common.PageVo;
 import com.yuyu.workflow.common.enums.CommonStatusEnum;
 import com.yuyu.workflow.common.enums.DataScopeEnum;
+import com.yuyu.workflow.common.enums.OrgTypeEnum;
 import com.yuyu.workflow.common.enums.RespCodeEnum;
 import com.yuyu.workflow.common.exception.BizException;
 import com.yuyu.workflow.eto.role.RoleMenusUpdateETO;
@@ -31,6 +32,7 @@ import com.yuyu.workflow.mapper.UserRoleMapper;
 import com.yuyu.workflow.qto.role.RoleListQTO;
 import com.yuyu.workflow.qto.role.RolePageQTO;
 import com.yuyu.workflow.service.RoleService;
+import com.yuyu.workflow.service.UserRoleDeptExpandService;
 import com.yuyu.workflow.vo.role.RoleMenuVO;
 import com.yuyu.workflow.vo.role.RoleVO;
 import com.yuyu.workflow.vo.role.UserSimpleVO;
@@ -59,6 +61,7 @@ public class RoleServiceImpl implements RoleService {
     private final SysMenuMapper sysMenuMapper;
     private final UserRoleStructMapper userRoleStructMapper;
     private final UserStructMapper userStructMapper;
+    private final UserRoleDeptExpandService userRoleDeptExpandService;
 
     /**
      * 注入角色模块依赖组件。
@@ -71,7 +74,8 @@ public class RoleServiceImpl implements RoleService {
                            UserDeptMapper userDeptMapper,
                            SysMenuMapper sysMenuMapper,
                            UserRoleStructMapper userRoleStructMapper,
-                           UserStructMapper userStructMapper) {
+                           UserStructMapper userStructMapper,
+                           UserRoleDeptExpandService userRoleDeptExpandService) {
         this.userRoleMapper = userRoleMapper;
         this.userRoleDeptMapper = userRoleDeptMapper;
         this.userRoleMenuMapper = userRoleMenuMapper;
@@ -81,6 +85,7 @@ public class RoleServiceImpl implements RoleService {
         this.sysMenuMapper = sysMenuMapper;
         this.userRoleStructMapper = userRoleStructMapper;
         this.userStructMapper = userStructMapper;
+        this.userRoleDeptExpandService = userRoleDeptExpandService;
     }
 
     @Override
@@ -118,6 +123,7 @@ public class RoleServiceImpl implements RoleService {
         }
         deleteRoleMenuRelations(roleIds);
         deleteRoleDeptRelations(roleIds);
+        userRoleDeptExpandService.rebuildByRoleIds(roleIds);
         userRoleMapper.removeByIds(roleIds);
     }
 
@@ -185,23 +191,30 @@ public class RoleServiceImpl implements RoleService {
     public void updateDataScope(RoleDataScopeUpdateETO eto) {
         UserRole role = getRoleOrThrow(eto.getRoleId());
         List<Long> deptIds = Objects.isNull(eto.getDeptIds()) ? Collections.emptyList() : eto.getDeptIds();
+        Map<Long, UserDept> deptMap = Collections.emptyMap();
         if (DataScopeEnum.CUSTOM_DEPT.getCode().equals(eto.getDataScope())) {
             if (CollectionUtils.isEmpty(deptIds)) {
                 throw new BizException("自定义部门数据权限必须选择部门");
             }
-            validateDeptIds(deptIds);
+            deptMap = validateDeptIds(deptIds);
         }
         role.setDataScope(eto.getDataScope());
         userRoleMapper.updateById(role);
         deleteRoleDeptRelations(List.of(eto.getRoleId()));
         if (DataScopeEnum.CUSTOM_DEPT.getCode().equals(eto.getDataScope())) {
             for (Long deptId : new LinkedHashSet<>(deptIds)) {
+                UserDept dept = deptMap.get(deptId);
                 UserRoleDept relation = new UserRoleDept();
                 relation.setRoleId(eto.getRoleId());
                 relation.setDeptId(deptId);
+                relation.setOrgType(Objects.nonNull(dept) ? dept.getOrgType() : null);
+                relation.setPostType(Objects.nonNull(dept) && OrgTypeEnum.POST.getCode().equals(dept.getOrgType())
+                        ? dept.getPostType()
+                        : null);
                 userRoleDeptMapper.insert(relation);
             }
         }
+        userRoleDeptExpandService.rebuildByRoleIds(List.of(eto.getRoleId()));
     }
 
     @Override
@@ -309,13 +322,14 @@ public class RoleServiceImpl implements RoleService {
     /**
      * 校验自定义部门列表是否全部有效。
      */
-    private void validateDeptIds(List<Long> deptIds) {
+    private Map<Long, UserDept> validateDeptIds(List<Long> deptIds) {
         Set<Long> uniqueIds = new LinkedHashSet<>(deptIds);
         List<UserDept> deptList = userDeptMapper.selectList(new LambdaQueryWrapper<UserDept>()
                 .in(UserDept::getId, uniqueIds));
         if (deptList.size() != uniqueIds.size()) {
             throw new BizException("存在无效组织");
         }
+        return deptList.stream().collect(Collectors.toMap(UserDept::getId, dept -> dept));
     }
 
     /**

@@ -127,6 +127,7 @@
 核心表：
 - `tb_user_role`
 - `tb_user_role_dept`
+- `tb_user_role_dept_expand`
 
 `data_scope` 建议枚举如下：
 
@@ -142,6 +143,30 @@
 - 用户同时拥有多个角色时，最终数据权限取范围最宽的一档。
 - 数据权限主要作用于查询类接口。
 - 待办、已办、我的发起等任务视图优先按任务参与关系判断，不应被普通数据权限误拦截。
+- `tb_user_role_dept` 只记录角色直接选中的组织节点。
+- `tb_user_role_dept_expand` 只记录系统基于角色直接绑定关系向下展开后的当前生效节点。
+- `CUSTOM_DEPT` 数据权限查询口径应优先读取 `tb_user_role_dept_expand`，不是直接读取 `tb_user_role_dept`。
+
+字段设计要求：
+- `tb_user_role_dept.org_type`：记录角色绑定时的组织节点类型冗余。
+- `tb_user_role_dept.post_type`：记录角色绑定时的岗位类型冗余；非岗位关联时为空。
+- `tb_user_role_dept_expand.source_rel_id`：记录展开结果来源的直接绑定关系 ID，对应 `tb_user_role_dept.id`。
+- `tb_user_role_dept_expand.source_dept_id`：记录来源直接绑定的组织节点 ID。
+- `tb_user_role_dept_expand.source_org_type`：记录来源直接绑定节点的组织类型冗余。
+- `tb_user_role_dept_expand.source_post_type`：记录来源直接绑定节点的岗位类型冗余；非岗位来源时为空。
+- `tb_user_role_dept_expand.dept_id`：记录展开后的目标组织节点 ID。
+- `tb_user_role_dept_expand.org_type`：记录展开后目标节点的组织类型冗余。
+- `tb_user_role_dept_expand.post_type`：记录展开后目标岗位类型冗余；非岗位目标时为空。
+- `tb_user_role_dept_expand.relation_type`：记录展开关系类型，固定为 `SELF` 或 `DESCENDANT`。
+- `tb_user_role_dept_expand.distance`：记录展开距离，自身为 `0`，直接子节点为 `1`。
+
+设计思路说明：
+- `tb_user_role_dept` 负责保存角色数据权限的直接绑定事实，不承载展开结果。
+- `tb_user_role_dept_expand` 是派生表，只承载角色在 `CUSTOM_DEPT` 模式下向下展开后的当前有效节点。
+- role direct / expand 分表的目的与用户组织绑定一致，都是为了避免“直接授权”和“祖先节点展开继承”两种语义混在同一张表中。
+- 角色展开方向固定为向下展开，每条直接绑定关系至少生成 1 条 `SELF` 记录，再递归生成全部 `DESCENDANT` 记录。
+- 展开结果只保留当前有效节点；组织停用、删除、移动、类型调整后，需要按受影响角色重建展开结果。
+- 角色数据权限变更采用全量替换；同一事务内先清空旧的 direct / expand 关系，再写入新的直接绑定关系并重建展开结果。
 
 ## 5. 权限协同关系
 
@@ -180,6 +205,7 @@
 
 关键规则：
 - 删除前需检查用户关联、业务发起权限引用和流程规则引用。
+- 角色配置 `CUSTOM_DEPT` 数据权限后，需要在同一事务内全量重建该角色的 `tb_user_role_dept_expand`。
 
 ### 6.3 组织管理
 
@@ -199,7 +225,9 @@
 - 编辑组织时，`post_type` 按当前节点实际 `org_type` 处理：`POST` 节点允许修改，非 `POST` 节点禁止设置。
 - 用户绑定组织时，需同步维护 `tb_user_dept_rel.org_type`；若绑定的是岗位节点，还需同步维护 `tb_user_dept_rel.post_type`。
 - 用户组织绑定的直接关系写入 `tb_user_dept_rel`，向下展开后的生效关系写入 `tb_user_dept_rel_expand`。
+- 角色数据权限的直接关系写入 `tb_user_role_dept`，向下展开后的生效关系写入 `tb_user_role_dept_expand`。
 - 组织新增、删除、移动、状态调整、`org_type` 调整、`post_type` 调整后，需要仅重建受影响用户的展开关系。
+- 组织新增、删除、移动、状态调整、`org_type` 调整、`post_type` 调整后，也需要仅重建受影响角色的展开关系。
 - 组织名称、编码、排序、主管变更不触发展开关系重建，因为展开表不保存这些快照字段。
 
 ### 6.4 菜单管理

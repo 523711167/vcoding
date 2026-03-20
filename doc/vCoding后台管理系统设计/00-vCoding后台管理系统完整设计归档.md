@@ -251,7 +251,7 @@
 | 工作流定义层 | 描述流程模板、节点、连线、审批人配置 | `tb_workflow_definition`、`tb_workflow_node`、`tb_workflow_transition`、`tb_workflow_node_approver` |
 | 工作流运行层 | 描述流程实例、节点实例、审批人实例、审批记录 | `tb_workflow_instance`、`tb_workflow_node_instance`、`tb_workflow_node_approver_instance`、`tb_workflow_approval_record` |
 | 系统基础数据层 | 描述用户、角色、组织、菜单、业务申请、业务发起权限等基础模型 | `tb_user`、`tb_user_role`、`tb_user_dept`、`tb_sys_menu`、`tb_biz_apply`、`tb_biz_type`、`tb_biz_type_initiator` |
-| 授权与管理层 | 描述角色授权、数据权限、后台功能、接口边界 | `tb_user_role_rel`、`tb_user_dept_rel`、`tb_user_dept_rel_expand`、`tb_user_role_menu`、`tb_user_role_dept` |
+| 授权与管理层 | 描述角色授权、数据权限、后台功能、接口边界 | `tb_user_role_rel`、`tb_user_dept_rel`、`tb_user_dept_rel_expand`、`tb_user_role_menu`、`tb_user_role_dept`、`tb_user_role_dept_expand` |
 
 ### 2.3 权限总体架构
 
@@ -263,7 +263,7 @@
 | 角色层 | 权限聚合单元 | `tb_user_role`、`tb_user_role_rel` | 角色是菜单权限、数据权限、业务发起权限的重要承载体 |
 | 组织层 | 树形归属关系 | `tb_user_dept`、`tb_user_dept_rel`、`tb_user_dept_rel_expand` | 组织用于树形管理、主管解析、数据范围口径，其中 direct / expand 分别承载直接绑定与展开生效关系 |
 | 功能权限层 | 菜单/按钮权限 | `tb_sys_menu`、`tb_user_role_menu` | 控制页面可见范围和按钮操作权限 |
-| 数据权限层 | 数据可见范围 | `tb_user_role.data_scope`、`tb_user_role_dept` | 控制业务数据可查询范围 |
+| 数据权限层 | 数据可见范围 | `tb_user_role.data_scope`、`tb_user_role_dept`、`tb_user_role_dept_expand` | 控制业务数据可查询范围，其中 direct / expand 分别承载直接授权与展开生效范围 |
 | 业务发起权限层 | 能否发起某类业务 | `tb_biz_type_initiator` | 与业务类型联动，控制谁可发起某类业务 |
 | 流程规则层 | 节点审批规则 | `tb_workflow_node_approver` | 与审批工作流联动，控制节点最终解析给谁审批 |
 
@@ -315,7 +315,9 @@ tb_user ──────────────── tb_user_role_rel ──
     │                                                       │
     │                                                       ├── tb_user_role_menu ──── tb_sys_menu (type=1/2/3)
     │                                                       │
-    │                                                       └── tb_user_role_dept ──── tb_user_dept
+    │                                                       ├── tb_user_role_dept ──── tb_user_dept
+    │                                                       │
+    │                                                       └── tb_user_role_dept_expand ─ tb_user_dept
     │
     ├── tb_user_dept_rel ──────────────────────────────── tb_user_dept
     │
@@ -351,7 +353,7 @@ tb_sys_dict_type ──────────────── tb_sys_dict_it
 |----------|----------|----------|
 | 菜单访问权限 | 角色（`tb_user_role`） | `tb_user_role_menu` → `tb_sys_menu(type=1/2)` |
 | 按钮操作权限 | 角色（`tb_user_role`） | `tb_user_role_menu` → `tb_sys_menu(type=3).permission` |
-| 数据权限 | 角色（`tb_user_role`） | `tb_user_role.data_scope` + `tb_user_role_dept` |
+| 数据权限 | 角色（`tb_user_role`） | `tb_user_role.data_scope` + `tb_user_role_dept` + `tb_user_role_dept_expand` |
 | 业务发起权限 | 角色（`tb_user_role`） | `tb_biz_type_initiator` |
 | 审批流规则 | 角色 / 组织 | `tb_workflow_node_approver.approver_type` |
 
@@ -896,19 +898,63 @@ CREATE TABLE `tb_user_role_menu` (
 
 ### 5.13 角色-自定义数据权限部门表 `tb_user_role_dept`
 
-当 `data_scope=CUSTOM_DEPT` 时，通过此表指定该角色可访问哪些部门的数据。
+`tb_user_role_dept` 只保存角色在 `CUSTOM_DEPT` 模式下直接选中的组织节点。
 
 ```sql
 CREATE TABLE `tb_user_role_dept` (
-  `id`         BIGINT   NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `role_id`    BIGINT   NOT NULL               COMMENT '角色ID（关联tb_user_role.id）',
-  `dept_id`    BIGINT   NOT NULL               COMMENT '部门ID（关联tb_user_dept.id）',
-  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `id`         BIGINT      NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `role_id`    BIGINT      NOT NULL               COMMENT '角色ID（关联tb_user_role.id）',
+  `dept_id`    BIGINT      NOT NULL               COMMENT '直接绑定的组织ID（关联tb_user_dept.id）',
+  `org_type`   VARCHAR(16) NOT NULL               COMMENT '组织类型冗余：GROUP/COMPANY/DEPT/POST',
+  `post_type`  VARCHAR(64) DEFAULT NULL           COMMENT '岗位类型冗余；仅当 org_type=POST 时有值',
+  `created_at` DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_role_dept` (`role_id`, `dept_id`),
   KEY `idx_dept_id` (`dept_id`)
 ) ENGINE=InnoDB COMMENT='角色-自定义数据权限部门表';
 ```
+
+字段说明：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `org_type` | `VARCHAR(16)` | 记录角色绑定时目标组织的组织类型冗余 |
+| `post_type` | `VARCHAR(64)` | 记录角色绑定时目标岗位类型冗余；非岗位节点为空 |
+
+#### 5.13.1 角色-数据权限组织展开表 `tb_user_role_dept_expand`
+
+`tb_user_role_dept_expand` 只保存系统根据 `tb_user_role_dept` 向下展开后的当前生效节点，用于表达“某角色在 `CUSTOM_DEPT` 模式下当前覆盖了哪些组织节点”。
+
+```sql
+CREATE TABLE `tb_user_role_dept_expand` (
+  `id`               BIGINT      NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `role_id`          BIGINT      NOT NULL               COMMENT '角色ID（关联tb_user_role.id）',
+  `source_rel_id`    BIGINT      NOT NULL               COMMENT '来源直接绑定关系ID（关联tb_user_role_dept.id）',
+  `source_dept_id`   BIGINT      NOT NULL               COMMENT '来源直接绑定组织ID（关联tb_user_dept.id）',
+  `source_org_type`  VARCHAR(16) NOT NULL               COMMENT '来源组织类型冗余：GROUP/COMPANY/DEPT/POST',
+  `source_post_type` VARCHAR(64) DEFAULT NULL           COMMENT '来源岗位类型冗余；非岗位来源为空',
+  `dept_id`          BIGINT      NOT NULL               COMMENT '展开后的目标组织ID（关联tb_user_dept.id）',
+  `org_type`         VARCHAR(16) NOT NULL               COMMENT '目标组织类型冗余：GROUP/COMPANY/DEPT/POST',
+  `post_type`        VARCHAR(64) DEFAULT NULL           COMMENT '目标岗位类型冗余；非岗位目标为空',
+  `relation_type`    VARCHAR(16) NOT NULL               COMMENT '关系类型：SELF/DESCENDANT',
+  `distance`         INT         NOT NULL DEFAULT 0     COMMENT '展开距离：自身=0，直接下级=1',
+  `created_at`       DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_role_source_dept` (`role_id`, `source_rel_id`, `dept_id`),
+  KEY `idx_role_id` (`role_id`),
+  KEY `idx_dept_id` (`dept_id`),
+  KEY `idx_source_dept_id` (`source_dept_id`),
+  KEY `idx_role_dept_id` (`role_id`, `dept_id`)
+) ENGINE=InnoDB COMMENT='角色-数据权限组织展开生效关系表';
+```
+
+设计约束：
+- 每条直接绑定关系必须至少生成 1 条 `SELF` 记录。
+- 展开方向固定为向下展开，递归覆盖全部当前有效子孙节点。
+- 同一目标节点允许因不同来源节点保留多条展开记录，只要 `source_rel_id` 不同即可。
+- `tb_user_role_dept_expand` 是派生结果表，不允许手工单条维护，只允许按角色重建。
+- 角色数据权限更新时，应在同一事务内先删除该角色旧展开记录，再按新的直接绑定关系全量重建。
+- 组织新增、删除、移动、状态调整、`org_type` 调整、`post_type` 调整后，只重建受影响角色的展开记录。
 
 
 ---
@@ -939,7 +985,8 @@ CREATE TABLE `tb_user_role_dept` (
 
 #### 角色与数据范围
 - 一个角色对应一个 `data_scope`
-- 当 `data_scope=CUSTOM_DEPT` 时，通过 `tb_user_role_dept` 绑定多个部门
+- 当 `data_scope=CUSTOM_DEPT` 时，通过 `tb_user_role_dept` 绑定多个直接授权组织
+- 当 `data_scope=CUSTOM_DEPT` 时，通过 `tb_user_role_dept_expand` 保存向下展开后的生效组织范围
 - 用户最终数据权限取全部角色中范围最宽的一档
 
 #### 业务类型与发起权限
@@ -967,7 +1014,7 @@ CREATE TABLE `tb_user_role_dept` (
 ```sql
 -- data_scope=CUSTOM_DEPT：自定义部门
 AND tb_biz_apply.dept_id IN (
-    SELECT dept_id FROM tb_user_role_dept WHERE role_id = #{roleId}
+    SELECT dept_id FROM tb_user_role_dept_expand WHERE role_id = #{roleId}
 )
 
 -- data_scope=CURRENT_AND_CHILD_DEPT：本部门及子部门

@@ -11,6 +11,7 @@ import com.yuyu.workflow.mapper.UserRoleDeptMapper;
 import com.yuyu.workflow.mapper.UserRoleMapper;
 import com.yuyu.workflow.mapper.UserRoleMenuMapper;
 import com.yuyu.workflow.mapper.UserRoleRelMapper;
+import com.yuyu.workflow.service.UserRoleDeptExpandService;
 import com.yuyu.workflow.convert.UserRoleStructMapper;
 import com.yuyu.workflow.convert.UserStructMapper;
 import com.yuyu.workflow.entity.UserDept;
@@ -66,6 +67,9 @@ class RoleServiceImplTests {
     @Mock
     private UserStructMapper userStructMapper;
 
+    @Mock
+    private UserRoleDeptExpandService userRoleDeptExpandService;
+
     @InjectMocks
     private RoleServiceImpl roleService;
 
@@ -114,8 +118,10 @@ class RoleServiceImplTests {
 
         UserDept dept1 = new UserDept();
         dept1.setId(10L);
+        dept1.setOrgType("DEPT");
         UserDept dept2 = new UserDept();
         dept2.setId(11L);
+        dept2.setOrgType("DEPT");
 
         when(userRoleMapper.selectById(2L)).thenReturn(role);
         when(userDeptMapper.selectList(any())).thenReturn(List.of(dept1, dept2));
@@ -128,5 +134,7 @@ class RoleServiceImplTests {
         ArgumentCaptor<UserRoleDept> captor = ArgumentCaptor.forClass(UserRoleDept.class);
         verify(userRoleDeptMapper, times(2)).insert(captor.capture());
         assertEquals(List.of(10L, 11L), captor.getAllValues().stream().map(UserRoleDept::getDeptId).toList());
+        assertEquals(List.of("DEPT", "DEPT"), captor.getAllValues().stream().map(UserRoleDept::getOrgType).toList());
+        verify(userRoleDeptExpandService).rebuildByRoleIds(List.of(2L));
     }
 }
