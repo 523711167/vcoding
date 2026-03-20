@@ -106,7 +106,7 @@ public class MenuServiceImpl implements MenuService {
     public List<MenuTreeVO> tree(MenuTreeQTO qto) {
         List<SysMenu> menuList = sysMenuMapper.selectList(new LambdaQueryWrapper<SysMenu>()
                 .like(StringUtils.hasText(qto.getName()), SysMenu::getName, qto.getName())
-                .eq(Objects.nonNull(qto.getType()), SysMenu::getType, qto.getType())
+                .eq(StringUtils.hasText(qto.getType()), SysMenu::getType, qto.getType())
                 .eq(Objects.nonNull(qto.getVisible()), SysMenu::getVisible, qto.getVisible())
                 .eq(Objects.nonNull(qto.getStatus()), SysMenu::getStatus, qto.getStatus())
                 .orderByAsc(SysMenu::getSortOrder, SysMenu::getId));
@@ -177,18 +177,18 @@ public class MenuServiceImpl implements MenuService {
     /**
      * 校验当前菜单与父节点之间的类型关系是否合法。
      */
-    private void validateParentRelation(Long selfId, Integer type, SysMenu parent) {
-        if (MenuTypeEnum.BUTTON.getId().equals(type)) {
-            if (Objects.isNull(parent) || !MenuTypeEnum.MENU.getId().equals(parent.getType())) {
+    private void validateParentRelation(Long selfId, String type, SysMenu parent) {
+        if (MenuTypeEnum.BUTTON.getCode().equals(type)) {
+            if (Objects.isNull(parent) || !MenuTypeEnum.MENU.getCode().equals(parent.getType())) {
                 throw new BizException("按钮节点必须挂载在菜单节点下");
             }
         }
-        if (MenuTypeEnum.MENU.getId().equals(type) && Objects.nonNull(parent)
-                && !MenuTypeEnum.DIRECTORY.getId().equals(parent.getType())) {
+        if (MenuTypeEnum.MENU.getCode().equals(type) && Objects.nonNull(parent)
+                && !MenuTypeEnum.DIRECTORY.getCode().equals(parent.getType())) {
             throw new BizException("菜单节点只能挂载在目录节点下");
         }
-        if (MenuTypeEnum.DIRECTORY.getId().equals(type) && Objects.nonNull(parent)
-                && !MenuTypeEnum.DIRECTORY.getId().equals(parent.getType())) {
+        if (MenuTypeEnum.DIRECTORY.getCode().equals(type) && Objects.nonNull(parent)
+                && !MenuTypeEnum.DIRECTORY.getCode().equals(parent.getType())) {
             throw new BizException("目录节点只能挂载在目录节点下");
         }
         validateParentCycle(selfId, parent);
@@ -197,25 +197,25 @@ public class MenuServiceImpl implements MenuService {
     /**
      * 校验修改后的菜单类型是否仍与现有子节点兼容。
      */
-    private void validateChildrenRelation(Long menuId, Integer type) {
+    private void validateChildrenRelation(Long menuId, String type) {
         List<SysMenu> childList = sysMenuMapper.selectList(new LambdaQueryWrapper<SysMenu>()
                 .eq(SysMenu::getParentId, menuId));
         if (CollectionUtils.isEmpty(childList)) {
             return;
         }
-        if (MenuTypeEnum.BUTTON.getId().equals(type)) {
+        if (MenuTypeEnum.BUTTON.getCode().equals(type)) {
             throw new BizException("按钮节点不能存在子节点");
         }
-        if (MenuTypeEnum.MENU.getId().equals(type)) {
+        if (MenuTypeEnum.MENU.getCode().equals(type)) {
             boolean hasInvalidChild = childList.stream()
-                    .anyMatch(child -> !MenuTypeEnum.BUTTON.getId().equals(child.getType()));
+                    .anyMatch(child -> !MenuTypeEnum.BUTTON.getCode().equals(child.getType()));
             if (hasInvalidChild) {
                 throw new BizException("菜单节点下只允许挂载按钮节点");
             }
         }
-        if (MenuTypeEnum.DIRECTORY.getId().equals(type)) {
+        if (MenuTypeEnum.DIRECTORY.getCode().equals(type)) {
             boolean hasInvalidChild = childList.stream()
-                    .anyMatch(child -> MenuTypeEnum.BUTTON.getId().equals(child.getType()));
+                    .anyMatch(child -> MenuTypeEnum.BUTTON.getCode().equals(child.getType()));
             if (hasInvalidChild) {
                 throw new BizException("目录节点下不允许直接挂载按钮节点");
             }
@@ -287,7 +287,7 @@ public class MenuServiceImpl implements MenuService {
      * 补充菜单详情对象中的枚举说明字段。
      */
     private void fillDetailMeta(MenuVO vo, SysMenu entity) {
-        vo.setTypeMsg(MenuTypeEnum.getMsgById(entity.getType()));
+        vo.setTypeMsg(MenuTypeEnum.getMsgByCode(entity.getType()));
         vo.setVisibleMsg(YesNoEnum.getMsgById(entity.getVisible()));
         vo.setStatusMsg(CommonStatusEnum.getMsgById(entity.getStatus()));
     }
@@ -296,7 +296,7 @@ public class MenuServiceImpl implements MenuService {
      * 补充菜单树节点对象中的枚举说明字段。
      */
     private void fillTreeMeta(MenuTreeVO vo, SysMenu entity) {
-        vo.setTypeMsg(MenuTypeEnum.getMsgById(entity.getType()));
+        vo.setTypeMsg(MenuTypeEnum.getMsgByCode(entity.getType()));
         vo.setVisibleMsg(YesNoEnum.getMsgById(entity.getVisible()));
         vo.setStatusMsg(CommonStatusEnum.getMsgById(entity.getStatus()));
     }

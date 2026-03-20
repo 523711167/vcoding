@@ -313,7 +313,7 @@
 ```text
 tb_user ──────────────── tb_user_role_rel ──────────── tb_user_role
     │                                                       │
-    │                                                       ├── tb_user_role_menu ──── tb_sys_menu (type=1/2/3)
+    │                                                       ├── tb_user_role_menu ──── tb_sys_menu (type=DIRECTORY/MENU/BUTTON)
     │                                                       │
     │                                                       ├── tb_user_role_dept ──── tb_user_dept
     │                                                       │
@@ -351,8 +351,8 @@ tb_sys_dict_type ──────────────── tb_sys_dict_it
 
 | 权限维度 | 控制载体 | 实现方式 |
 |----------|----------|----------|
-| 菜单访问权限 | 角色（`tb_user_role`） | `tb_user_role_menu` → `tb_sys_menu(type=1/2)` |
-| 按钮操作权限 | 角色（`tb_user_role`） | `tb_user_role_menu` → `tb_sys_menu(type=3).permission` |
+| 菜单访问权限 | 角色（`tb_user_role`） | `tb_user_role_menu` → `tb_sys_menu(type=DIRECTORY/MENU)` |
+| 按钮操作权限 | 角色（`tb_user_role`） | `tb_user_role_menu` → `tb_sys_menu(type=BUTTON).permission` |
 | 数据权限 | 角色（`tb_user_role`） | `tb_user_role.data_scope` + `tb_user_role_dept` + `tb_user_role_dept_expand` |
 | 业务发起权限 | 角色（`tb_user_role`） | `tb_biz_type_initiator` |
 | 审批流规则 | 角色 / 组织 | `tb_workflow_node_approver.approver_type` |
@@ -823,7 +823,7 @@ CREATE TABLE `tb_user_dept_rel_expand` (
 CREATE TABLE `tb_sys_menu` (
   `id`          BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `parent_id`   BIGINT       NOT NULL DEFAULT 0     COMMENT '父节点ID，顶级节点为0',
-  `type`        TINYINT      NOT NULL               COMMENT '类型：1=目录 2=菜单 3=按钮',
+  `type`        VARCHAR(16)  NOT NULL               COMMENT '类型编码：DIRECTORY/MENU/BUTTON',
   `name`        VARCHAR(64)  NOT NULL               COMMENT '菜单/按钮名称',
   `permission`  VARCHAR(128)                        COMMENT '权限标识，格式：模块:资源:操作，如 sys:user:add（按钮类型必填）',
   `path`        VARCHAR(256)                        COMMENT '前端路由地址，目录/菜单类型有效，按钮为空',
@@ -846,7 +846,7 @@ CREATE TABLE `tb_sys_menu` (
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `type` | `TINYINT` | `1`=目录；`2`=菜单；`3`=按钮 |
+| `type` | `VARCHAR(16)` | `DIRECTORY`=目录；`MENU`=菜单；`BUTTON`=按钮 |
 | `permission` | `VARCHAR(128)` | 后端接口鉴权使用。目录可为空，按钮必填 |
 | `path` | `VARCHAR(256)` | 前端路由，按钮类型为空 |
 | `component` | `VARCHAR(256)` | 前端组件路径，目录/按钮类型为空 |
@@ -855,9 +855,9 @@ CREATE TABLE `tb_sys_menu` (
 类型层级约束：
 
 ```text
-目录 (type=1)
-  └── 菜单 (type=2)
-        └── 按钮 (type=3)
+目录 (type=DIRECTORY)
+  └── 菜单 (type=MENU)
+        └── 按钮 (type=BUTTON)
 ```
 
 - 按钮只能挂在菜单节点下
@@ -1073,7 +1073,7 @@ AND tb_biz_apply.applicant_id = #{currentUserId}
 查询角色关联的所有菜单/按钮（tb_user_role_menu → tb_sys_menu）
    ↓
 去重合并，得到用户拥有的：
-  - 可访问菜单列表（type=1/2）
+  - 可访问菜单列表（type=DIRECTORY/MENU）
   - 权限标识集合（permission）
    ↓
 按预设优先级取各角色中范围最宽的 `data_scope`，得到最终数据权限范围

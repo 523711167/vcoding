@@ -1,9 +1,13 @@
 package com.yuyu.workflow.service.impl;
 
 import com.yuyu.workflow.common.enums.CommonStatusEnum;
+import com.yuyu.workflow.common.enums.MenuTypeEnum;
 import com.yuyu.workflow.eto.role.RoleCreateETO;
 import com.yuyu.workflow.eto.role.RoleDataScopeUpdateETO;
+import com.yuyu.workflow.eto.role.RoleMenusUpdateETO;
+import com.yuyu.workflow.entity.SysMenu;
 import com.yuyu.workflow.entity.UserRole;
+import com.yuyu.workflow.entity.UserRoleMenu;
 import com.yuyu.workflow.mapper.SysMenuMapper;
 import com.yuyu.workflow.mapper.UserDeptMapper;
 import com.yuyu.workflow.mapper.UserMapper;
@@ -136,5 +140,42 @@ class RoleServiceImplTests {
         assertEquals(List.of(10L, 11L), captor.getAllValues().stream().map(UserRoleDept::getDeptId).toList());
         assertEquals(List.of("DEPT", "DEPT"), captor.getAllValues().stream().map(UserRoleDept::getOrgType).toList());
         verify(userRoleDeptExpandService).rebuildByRoleIds(List.of(2L));
+    }
+
+    /**
+     * 角色菜单授权时应按字符串类型编码补齐菜单下按钮节点。
+     */
+    @Test
+    void shouldExpandButtonChildrenByMenuTypeCode() {
+        RoleMenusUpdateETO eto = new RoleMenusUpdateETO();
+        eto.setRoleId(2L);
+        eto.setMenuIds(List.of(1200L));
+
+        UserRole role = new UserRole();
+        role.setId(2L);
+
+        SysMenu menu = new SysMenu();
+        menu.setId(1200L);
+        menu.setType(MenuTypeEnum.MENU.getCode());
+        menu.setStatus(CommonStatusEnum.ENABLED.getId());
+
+        SysMenu button = new SysMenu();
+        button.setId(1201L);
+        button.setParentId(1200L);
+        button.setType(MenuTypeEnum.BUTTON.getCode());
+        button.setStatus(CommonStatusEnum.ENABLED.getId());
+
+        when(userRoleMapper.selectById(2L)).thenReturn(role);
+        when(sysMenuMapper.selectList(any()))
+                .thenReturn(List.of(menu))
+                .thenReturn(List.of(menu))
+                .thenReturn(List.of(button));
+        when(userRoleMenuMapper.selectList(any())).thenReturn(Collections.emptyList());
+
+        roleService.updateMenus(eto);
+
+        ArgumentCaptor<UserRoleMenu> captor = ArgumentCaptor.forClass(UserRoleMenu.class);
+        verify(userRoleMenuMapper, times(2)).insert(captor.capture());
+        assertEquals(List.of(1200L, 1201L), captor.getAllValues().stream().map(UserRoleMenu::getMenuId).toList());
     }
 }

@@ -17,8 +17,8 @@ public class MenuTreeVO {
     private Long id;
     @Schema(description = "父节点ID")
     private Long parentId;
-    @Schema(description = "菜单类型")
-    private Integer type;
+    @Schema(description = "菜单类型编码")
+    private String type;
     @Schema(description = "菜单类型说明")
     private String typeMsg;
     @Schema(description = "菜单名称")

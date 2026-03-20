@@ -367,7 +367,7 @@ public class RoleServiceImpl implements RoleService {
                 .collect(Collectors.toMap(SysMenu::getId, java.util.function.Function.identity()));
         LinkedHashSet<Long> result = new LinkedHashSet<>(normalizedIds);
         List<Long> menuNodeIds = selectedMenuMap.values().stream()
-                .filter(item -> com.yuyu.workflow.common.enums.MenuTypeEnum.MENU.getId().equals(item.getType()))
+                .filter(item -> com.yuyu.workflow.common.enums.MenuTypeEnum.MENU.getCode().equals(item.getType()))
                 .map(SysMenu::getId)
                 .toList();
         if (!CollectionUtils.isEmpty(menuNodeIds)) {

@@ -3,6 +3,7 @@ package com.yuyu.workflow.eto.menu;
 import com.yuyu.workflow.common.enums.CommonStatusEnum;
 import com.yuyu.workflow.common.enums.MenuTypeEnum;
 import com.yuyu.workflow.common.enums.YesNoEnum;
+import com.yuyu.workflow.common.validation.EnumCodeValid;
 import com.yuyu.workflow.common.validation.EnumIdValid;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.AssertTrue;
@@ -26,10 +27,10 @@ public class MenuUpdateETO {
     @Schema(description = "父节点ID，顶级为0")
     private Long parentId;
 
-    @Schema(description = "类型：1=目录 2=菜单 3=按钮", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "类型编码：DIRECTORY/MENU/BUTTON", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "type不能为空")
-    @EnumIdValid(enumClass = MenuTypeEnum.class, allowNull = false, message = "type不合法")
-    private Integer type;
+    @EnumCodeValid(enumClass = MenuTypeEnum.class, allowNull = false, message = "type不合法")
+    private String type;
 
     @Schema(description = "名称", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "name不能为空")
@@ -70,7 +71,7 @@ public class MenuUpdateETO {
      */
     @AssertTrue(message = "按钮类型必须配置permission")
     public boolean isButtonPermissionValid() {
-        return !MenuTypeEnum.BUTTON.getId().equals(type) || StringUtils.hasText(permission);
+        return !MenuTypeEnum.BUTTON.getCode().equals(type) || StringUtils.hasText(permission);
     }
 
     /**
@@ -78,7 +79,7 @@ public class MenuUpdateETO {
      */
     @AssertTrue(message = "按钮类型不能配置path")
     public boolean isButtonPathValid() {
-        return !MenuTypeEnum.BUTTON.getId().equals(type) || !StringUtils.hasText(path);
+        return !MenuTypeEnum.BUTTON.getCode().equals(type) || !StringUtils.hasText(path);
     }
 
     /**
@@ -86,7 +87,7 @@ public class MenuUpdateETO {
      */
     @AssertTrue(message = "按钮类型不能配置component")
     public boolean isButtonComponentValid() {
-        return !MenuTypeEnum.BUTTON.getId().equals(type) || !StringUtils.hasText(component);
+        return !MenuTypeEnum.BUTTON.getCode().equals(type) || !StringUtils.hasText(component);
     }
 
     /**
@@ -94,6 +95,6 @@ public class MenuUpdateETO {
      */
     @AssertTrue(message = "目录类型不能配置component")
     public boolean isDirectoryComponentValid() {
-        return !MenuTypeEnum.DIRECTORY.getId().equals(type) || !StringUtils.hasText(component);
+        return !MenuTypeEnum.DIRECTORY.getCode().equals(type) || !StringUtils.hasText(component);
     }
 }

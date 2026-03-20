@@ -5,6 +5,17 @@
 
 USE `yuyu`;
 
+ALTER TABLE `tb_sys_menu`
+  MODIFY COLUMN `type` VARCHAR(16) NOT NULL COMMENT '类型编码：DIRECTORY/MENU/BUTTON';
+
+UPDATE `tb_sys_menu`
+SET `type` = CASE `type`
+    WHEN '1' THEN 'DIRECTORY'
+    WHEN '2' THEN 'MENU'
+    WHEN '3' THEN 'BUTTON'
+    ELSE `type`
+END;
+
 ALTER TABLE `tb_user_role`
   MODIFY COLUMN `data_scope` VARCHAR(32) NOT NULL DEFAULT 'ALL' COMMENT '数据权限范围：ALL/CUSTOM_DEPT/CURRENT_AND_CHILD_DEPT/CURRENT_DEPT/SELF';
 
@@ -123,3 +134,22 @@ SELECT
   `relation_type`,
   `distance`
 FROM `role_dept_expand`;
+
+-- 补齐现有菜单演示数据的前端路由 path，便于菜单树和前端路由映射使用
+UPDATE `tb_sys_menu`
+SET `path` = CASE `id`
+    WHEN 1404 THEN '/workbench'
+    WHEN 1405 THEN '/workbench/inbox'
+    WHEN 1406 THEN '/workbench/todo'
+    WHEN 1407 THEN '/workbench/query'
+    WHEN 1408 THEN '/organization'
+    WHEN 1409 THEN '/organization/dept'
+    WHEN 1410 THEN '/profile'
+    WHEN 1415 THEN '/operation'
+    WHEN 1416 THEN '/operation/notice'
+    WHEN 1417 THEN '/dashboard'
+    ELSE `path`
+END
+WHERE `id` IN (1404, 1405, 1406, 1407, 1408, 1409, 1410, 1415, 1416, 1417)
+  AND `type` IN ('DIRECTORY', 'MENU')
+  AND (`path` IS NULL OR `path` = '');

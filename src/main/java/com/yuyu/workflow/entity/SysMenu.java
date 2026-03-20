@@ -21,7 +21,7 @@ public class SysMenu extends BaseAuditEntity {
     /**
      * 菜单类型。
      */
-    private Integer type;
+    private String type;
 
     /**
      * 菜单名称。
