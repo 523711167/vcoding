@@ -148,13 +148,13 @@
     "id": 100,
     "code": "LEAVE_APPROVAL",
     "name": "请假审批流程",
-    "formKey": "LEAVE",
+    "bizCode": "LEAVE",
     "version": 2,
     "status": 0
   },
   "nodes": [
     {
-      "nodeKey": "start",
+      "nodeCode": "start",
       "nodeType": "START",
       "name": "开始",
       "positionX": 120,
@@ -162,7 +162,7 @@
       "config": {}
     },
     {
-      "nodeKey": "dept_leader",
+      "nodeCode": "dept_leader",
       "nodeType": "APPROVAL",
       "name": "部门负责人审批",
       "positionX": 320,
@@ -174,8 +174,8 @@
   ],
   "transitions": [
     {
-      "fromNodeKey": "start",
-      "toNodeKey": "dept_leader",
+      "fromNodeId": 1001,
+      "toNodeId": 1002,
       "conditionExpr": null,
       "priority": 1,
       "label": "开始"
@@ -183,7 +183,7 @@
   ],
   "approvers": [
     {
-      "nodeKey": "dept_leader",
+      "nodeCode": "dept_leader",
       "approverType": "INITIATOR_DEPT_LEADER",
       "approverValue": "0",
       "sortOrder": 0
@@ -340,7 +340,7 @@ tb_sys_dict_type ──────────────── tb_sys_dict_it
 - `tb_biz_type` 维护业务名称、状态、说明以及默认绑定的流程定义 ID，不再单独维护业务字段配置明细
 - `tb_biz_type_initiator` 定义“哪些角色可以发起该业务类型”
 - `tb_biz_type.workflow_definition_id` 指向当前业务绑定的流程定义版本，业务发起时以该字段作为流程选择依据
-- `tb_workflow_definition.form_key` 可作为流程侧记录业务编码的辅助字段，便于流程定义查询与展示
+- `tb_workflow_definition.biz_code` 可作为流程侧记录业务编码的辅助字段，便于流程定义查询与展示
 - `tb_biz_apply.biz_code` 标识“这张业务单据属于哪个业务类型”
 - `tb_biz_apply.form_data` 保存业务申请提交时的实际数据快照，字段结构由前后端按业务类型约定
 - 单据提交时，先根据 `tb_biz_apply.biz_code` 查询 `tb_biz_type` 获取 `workflow_definition_id`，再创建 `tb_workflow_instance`
@@ -1123,7 +1123,7 @@ CREATE TABLE `tb_workflow_definition` (
   `version`      INT          NOT NULL DEFAULT 1      COMMENT '版本号，从1开始递增',
   `description`  VARCHAR(500)                         COMMENT '流程描述',
   `status`       TINYINT      NOT NULL DEFAULT 0      COMMENT '状态：0=草稿 1=已发布 2=已停用',
-  `form_key`     VARCHAR(128)                         COMMENT '流程绑定业务编码，值与 tb_biz_type.biz_code 保持一致，如 LEAVE、EXPENSE',
+  `biz_code`     VARCHAR(128)                         COMMENT '流程绑定业务编码，值与 tb_biz_definition.biz_code 保持一致，如 LEAVE、EXPENSE',
   `created_by`   BIGINT       NOT NULL                COMMENT '创建人ID',
   `created_at`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
@@ -1141,7 +1141,7 @@ CREATE TABLE `tb_workflow_definition` (
 | `code` | `VARCHAR(64)` | 同一流程的多个版本共享相同 code |
 | `version` | `INT` | 每次发布新版本递增，旧版本归档 |
 | `status` | `TINYINT` | 同一 code 下只能有一个已发布版本 |
-| `form_key` | `VARCHAR(128)` | 流程侧业务绑定字段，值与 `tb_biz_type.biz_code` 保持一致，如 `LEAVE`、`EXPENSE` |
+| `biz_code` | `VARCHAR(128)` | 流程侧业务绑定字段，值与 `tb_biz_definition.biz_code` 保持一致，如 `LEAVE`、`EXPENSE` |
 
 ### 7.2 流程节点表 `tb_workflow_node`
 
@@ -1151,7 +1151,7 @@ CREATE TABLE `tb_workflow_definition` (
 CREATE TABLE `tb_workflow_node` (
   `id`               BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `definition_id`    BIGINT       NOT NULL               COMMENT '所属流程定义ID',
-  `node_key`         VARCHAR(64)  NOT NULL               COMMENT '节点标识（定义内唯一）',
+  `code`             VARCHAR(64)  NOT NULL               COMMENT '节点编码（定义内唯一）',
   `name`             VARCHAR(100) NOT NULL               COMMENT '节点名称',
   `node_type`        VARCHAR(32)  NOT NULL               COMMENT '节点类型：START/APPROVAL/CONDITION/PARALLEL_SPLIT/PARALLEL_JOIN/END',
   `approve_mode`     VARCHAR(16)                         COMMENT '多人审批模式：AND=会签 OR=或签 SEQUENTIAL=顺签（仅APPROVAL节点有效）',
@@ -1165,7 +1165,7 @@ CREATE TABLE `tb_workflow_node` (
   `updated_at`       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `is_deleted`       TINYINT      NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_definition_nodekey` (`definition_id`, `node_key`),
+  UNIQUE KEY `uk_definition_code` (`definition_id`, `code`),
   KEY `idx_definition_id` (`definition_id`)
 ) ENGINE=InnoDB COMMENT='流程节点表';
 ```
@@ -1201,31 +1201,31 @@ CREATE TABLE `tb_workflow_node_approver` (
 CREATE TABLE `tb_workflow_transition` (
   `id`              BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `definition_id`   BIGINT       NOT NULL               COMMENT '所属流程定义ID',
-  `from_node_key`   VARCHAR(64)  NOT NULL               COMMENT '来源节点标识',
-  `to_node_key`     VARCHAR(64)  NOT NULL               COMMENT '目标节点标识',
+  `from_node_id`    BIGINT       NOT NULL               COMMENT '来源节点ID',
+  `to_node_id`      BIGINT       NOT NULL               COMMENT '目标节点ID',
   `condition_expr`  VARCHAR(512)                        COMMENT '条件表达式（为NULL则无条件流转）',
   `priority`        INT          NOT NULL DEFAULT 0     COMMENT '条件优先级（值越小越先判断）',
   `label`           VARCHAR(64)                         COMMENT '连线标签',
   `created_at`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `is_deleted`      TINYINT      NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
-  KEY `idx_definition_from` (`definition_id`, `from_node_key`)
+  KEY `idx_definition_from` (`definition_id`, `from_node_id`)
 ) ENGINE=InnoDB COMMENT='流转条件表';
 ```
 
 字段作用说明：
-- `from_node_key`：表示从哪个节点流出
-- `to_node_key`：表示流转到哪个目标节点
+- `from_node_id`：表示从哪个节点流出
+- `to_node_id`：表示流转到哪个目标节点
 - `condition_expr`：表示该连线命中的条件；为 `NULL` 时表示默认路径或无条件路径
 - `priority`：当同一节点存在多条出边时，按优先级从小到大依次判断
 - `label`：用于流程设计器展示，例如“金额大于5000”“默认分支”
 
 运行时作用过程：
-1. 当前节点处理完成后，系统根据当前流程实例绑定的 `definition_id` 和当前节点 `node_key` 查询所有出边
-2. 从 `tb_workflow_transition` 中读取 `from_node_key = 当前节点` 的所有记录
+1. 当前节点处理完成后，系统根据当前流程实例绑定的 `definition_id` 和当前节点 `code` 查询所有出边
+2. 从 `tb_workflow_transition` 中读取 `from_node_id = 当前节点ID` 的所有记录
 3. 按 `priority` 升序依次判断每条连线的 `condition_expr`
 4. 若 `condition_expr` 为 `NULL`，表示该连线可作为无条件或兜底路径
-5. 第一条满足条件的连线生效，系统激活对应的 `to_node_key` 节点
+5. 第一条满足条件的连线生效，系统激活对应的 `to_node_id` 节点
 6. 若目标节点是 `END`，则流程结束；若目标节点是普通审批节点，则创建对应节点实例并继续审批
 7. 若目标节点是 `PARALLEL_SPLIT`，则其所有出边都将被同时激活；若目标节点是 `PARALLEL_JOIN`，则需等待所有预期分支完成后再继续向后流转
 
@@ -1248,12 +1248,12 @@ CREATE TABLE `tb_workflow_transition` (
 
 则 `tb_workflow_transition` 可以配置为：
 
-| definition_id | from_node_key | to_node_key | condition_expr | priority | label |
-|---------------|---------------|-------------|----------------|----------|-------|
-| 20 | `start` | `dept_leader` | `NULL` | 1 | 开始 |
-| 20 | `dept_leader` | `finance_director` | `amount > 5000` | 1 | 金额大于5000 |
-| 20 | `dept_leader` | `end` | `NULL` | 99 | 默认结束 |
-| 20 | `finance_director` | `end` | `NULL` | 1 | 审批完成 |
+| definition_id | from_node_id | to_node_id | condition_expr | priority | label |
+|---------------|--------------|------------|----------------|----------|-------|
+| 20 | `1001` | `1002` | `NULL` | 1 | 开始 |
+| 20 | `1002` | `1003` | `amount > 5000` | 1 | 金额大于5000 |
+| 20 | `1002` | `1004` | `NULL` | 99 | 默认结束 |
+| 20 | `1003` | `1004` | `NULL` | 1 | 审批完成 |
 
 示例运行过程：
 - 当报销单金额为 `3000`：
@@ -1269,8 +1269,8 @@ CREATE TABLE `tb_workflow_transition` (
 
 配套节点配置示例：
 
-| definition_id | node_key | name | node_type | approve_mode |
-|---------------|----------|------|-----------|--------------|
+| definition_id | code | name | node_type | approve_mode |
+|---------------|------|------|-----------|--------------|
 | 20 | `start` | 开始 | `START` | `NULL` |
 | 20 | `dept_leader` | 部门负责人审批 | `APPROVAL` | `AND` |
 | 20 | `finance_director` | 财务总监审批 | `APPROVAL` | `AND` |
@@ -1278,8 +1278,8 @@ CREATE TABLE `tb_workflow_transition` (
 
 对应的审批人配置示例：
 
-| node_key | approver_type | approver_value | 说明 |
-|----------|---------------|----------------|------|
+| node_code | approver_type | approver_value | 说明 |
+|-----------|---------------|----------------|------|
 | `dept_leader` | `INITIATOR_DEPT_LEADER` | `0` 或固定占位值 | 动态解析发起人主部门主管 |
 | `finance_director` | `ROLE` | 财务总监角色ID | 解析该角色下有效用户 |
 
@@ -1327,7 +1327,7 @@ CREATE TABLE `tb_workflow_instance` (
   `initiator_id`     BIGINT       NOT NULL               COMMENT '发起人用户ID',
   `initiator_name`   VARCHAR(64)  NOT NULL               COMMENT '发起人姓名（冗余）',
   `form_data`        JSON                                COMMENT '业务申请数据快照',
-  `current_node_key` VARCHAR(64)                         COMMENT '当前所在节点标识',
+  `current_node_code` VARCHAR(64)                        COMMENT '当前所在节点编码',
   `started_at`       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '发起时间',
   `finished_at`      DATETIME                            COMMENT '完成时间',
   `created_at`       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1349,7 +1349,7 @@ CREATE TABLE `tb_workflow_node_instance` (
   `id`              BIGINT      NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `instance_id`     BIGINT      NOT NULL               COMMENT '所属流程实例ID',
   `node_id`         BIGINT      NOT NULL               COMMENT '对应的节点定义ID',
-  `node_key`        VARCHAR(64) NOT NULL               COMMENT '节点标识',
+  `node_code`       VARCHAR(64) NOT NULL               COMMENT '节点编码',
   `node_name`       VARCHAR(100) NOT NULL              COMMENT '节点名称（冗余）',
   `node_type`       VARCHAR(32) NOT NULL               COMMENT '节点类型（冗余）',
   `status`          VARCHAR(16) NOT NULL DEFAULT 'PENDING' COMMENT '状态：PENDING=待激活 ACTIVE=进行中 APPROVED=已通过 REJECTED=已拒绝 SKIPPED=已跳过 TIMEOUT=已超时',
@@ -1406,8 +1406,8 @@ CREATE TABLE `tb_workflow_approval_record` (
   `operator_name`    VARCHAR(64)  NOT NULL               COMMENT '操作人姓名',
   `action`           VARCHAR(16)  NOT NULL               COMMENT '操作类型：SUBMIT=提交 APPROVE=通过 REJECT=拒绝 DELEGATE=转交 RECALL=撤回 URGE=催办 TIMEOUT=超时自动',
   `comment`          VARCHAR(500)                        COMMENT '操作备注',
-  `from_node_key`    VARCHAR(64)                         COMMENT '操作时所在节点',
-  `to_node_key`      VARCHAR(64)                         COMMENT '流转到的节点（通过时有值）',
+  `from_node_id`     BIGINT                              COMMENT '操作时所在节点ID',
+  `to_node_id`       BIGINT                              COMMENT '流转到的节点ID（通过时有值）',
   `extra_data`       JSON                                COMMENT '附加数据（如附件列表、转交目标等）',
   `operated_at`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '操作时间',
   PRIMARY KEY (`id`),
@@ -1458,7 +1458,7 @@ CREATE TABLE `tb_workflow_approval_record` (
    - 复制 `tb_workflow_transition`
    - 新记录的 `definition_id` 指向新版本的 `tb_workflow_definition.id`
 5. 复制原版本对应的审批人配置到新版本：
-   - 按节点 `node_key` 建立新旧节点映射关系
+   - 按节点 `code` 建立新旧节点映射关系
    - 将旧节点下的 `tb_workflow_node_approver` 复制到新节点下
 6. 后续所有设计器修改都只作用于这个新草稿版本
 
@@ -1498,7 +1498,7 @@ CREATE TABLE `tb_workflow_approval_record` (
 实现建议：
 - “归档”在当前表结构中用 `tb_workflow_definition.status=2` 表达
 - 编辑已发布流程时，建议前端显式提示“将创建新版本草稿”
-- 复制审批人配置时，建议以 `node_key` 作为新旧节点映射依据，而不是旧节点主键 ID
+- 复制审批人配置时，建议以 `code` 作为新旧节点映射依据，而不是旧节点主键 ID
 - 发布动作必须加事务，保证定义主表、节点、连线、审批人配置的版本切换一致
 
 ### 9.3 发起审批
@@ -1523,7 +1523,7 @@ CREATE TABLE `tb_workflow_approval_record` (
 ```text
 节点审批完成
    ↓
-查询 tb_workflow_transition（from_node_key = 当前节点）
+查询 tb_workflow_transition（from_node_id = 当前节点ID）
    ↓
 按 priority 升序遍历出边
    ↓

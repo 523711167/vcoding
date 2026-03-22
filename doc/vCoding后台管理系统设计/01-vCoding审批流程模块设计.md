@@ -68,7 +68,7 @@
 ### 5.3 关键约束
 
 - 同一 `code` 下任一时刻只能有一个已发布版本。
-- 同一流程定义下 `node_key` 必须唯一。
+- 同一流程定义下 `code` 必须唯一。
 - `APPROVAL` 节点必须至少配置一个审批人。
 - 条件分支应尽量提供兜底路径，避免流程停滞。
 
@@ -106,13 +106,13 @@
 
 ### 8.1 前置校验
 
-- 业务类型存在且处于启用状态。
-- 业务类型已配置有效的 `workflow_definition_id`。
+- 业务定义存在且处于启用状态。
+- 业务定义已配置有效的 `workflow_definition_id`。
 - 当前用户具备对应业务的发起权限。
 
 ### 8.2 发起步骤
 
-1. 根据 `biz_code` 查询业务类型并定位流程定义。
+1. 根据 `biz_code` 查询业务定义并定位流程定义。
 2. 创建 `tb_workflow_instance`。
 3. 从 `START` 节点出发，解析并激活首个有效节点。
 4. 创建节点实例与审批人实例。
@@ -205,8 +205,8 @@
 
 ## 14. 与其他模块的衔接
 
-- 与业务类型通过 `tb_biz_type.workflow_definition_id` 绑定。
-- 与发起权限通过 `tb_biz_type_initiator` 衔接。
+- 与业务定义通过 `tb_biz_definition.workflow_definition_id` 绑定。
+- 与发起权限通过 `tb_biz_definition_initiator` 衔接。
 - 与用户、角色、组织通过审批人解析规则衔接。
 - 与字典、业务表单通过 `form_data` 和条件表达式衔接。
 
