@@ -3,6 +3,7 @@ package com.yuyu.workflow.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.yuyu.workflow.common.enums.CommonStatusEnum;
 import com.yuyu.workflow.common.enums.MenuTypeEnum;
+import com.yuyu.workflow.common.enums.RoleCodeEnum;
 import com.yuyu.workflow.common.enums.RespCodeEnum;
 import com.yuyu.workflow.common.enums.YesNoEnum;
 import com.yuyu.workflow.common.exception.BizException;
@@ -10,8 +11,10 @@ import com.yuyu.workflow.convert.MenuStructMapper;
 import com.yuyu.workflow.eto.menu.MenuCreateETO;
 import com.yuyu.workflow.eto.menu.MenuUpdateETO;
 import com.yuyu.workflow.entity.SysMenu;
+import com.yuyu.workflow.entity.UserRole;
 import com.yuyu.workflow.entity.UserRoleMenu;
 import com.yuyu.workflow.mapper.SysMenuMapper;
+import com.yuyu.workflow.mapper.UserRoleMapper;
 import com.yuyu.workflow.mapper.UserRoleMenuMapper;
 import com.yuyu.workflow.qto.menu.MenuTreeQTO;
 import com.yuyu.workflow.service.MenuService;
@@ -36,6 +39,7 @@ import java.util.Objects;
 public class MenuServiceImpl implements MenuService {
 
     private final SysMenuMapper sysMenuMapper;
+    private final UserRoleMapper userRoleMapper;
     private final UserRoleMenuMapper userRoleMenuMapper;
     private final MenuStructMapper menuStructMapper;
 
@@ -43,9 +47,11 @@ public class MenuServiceImpl implements MenuService {
      * 注入菜单模块依赖组件。
      */
     public MenuServiceImpl(SysMenuMapper sysMenuMapper,
+                           UserRoleMapper userRoleMapper,
                            UserRoleMenuMapper userRoleMenuMapper,
                            MenuStructMapper menuStructMapper) {
         this.sysMenuMapper = sysMenuMapper;
+        this.userRoleMapper = userRoleMapper;
         this.userRoleMenuMapper = userRoleMenuMapper;
         this.menuStructMapper = menuStructMapper;
     }
@@ -62,6 +68,7 @@ public class MenuServiceImpl implements MenuService {
         entity.setParentId(parentId);
         entity.setSortOrder(Objects.isNull(eto.getSortOrder()) ? 0 : eto.getSortOrder());
         sysMenuMapper.insert(entity);
+        bindMenuToAdminRole(entity.getId());
         return detail(entity.getId());
     }
 
@@ -259,6 +266,20 @@ public class MenuServiceImpl implements MenuService {
             return;
         }
         userRoleMenuMapper.removeByIds(relationList.stream().map(UserRoleMenu::getId).toList());
+    }
+
+    /**
+     * 新增菜单后自动授予 ADMIN 角色。
+     */
+    private void bindMenuToAdminRole(Long menuId) {
+        UserRole adminRole = userRoleMapper.selectAnyByCode(RoleCodeEnum.ADMIN.getCode());
+        if (Objects.isNull(adminRole)) {
+            throw new BizException("ADMIN角色不存在，无法完成菜单默认授权");
+        }
+        UserRoleMenu relation = new UserRoleMenu();
+        relation.setRoleId(adminRole.getId());
+        relation.setMenuId(menuId);
+        userRoleMenuMapper.insert(relation);
     }
 
     /**

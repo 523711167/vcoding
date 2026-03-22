@@ -2,9 +2,12 @@ package com.yuyu.workflow.service.impl;
 
 import com.yuyu.workflow.common.enums.CommonStatusEnum;
 import com.yuyu.workflow.common.enums.MenuTypeEnum;
+import com.yuyu.workflow.common.enums.RoleCodeEnum;
+import com.yuyu.workflow.common.exception.BizException;
 import com.yuyu.workflow.eto.role.RoleCreateETO;
 import com.yuyu.workflow.eto.role.RoleDataScopeUpdateETO;
 import com.yuyu.workflow.eto.role.RoleMenusUpdateETO;
+import com.yuyu.workflow.eto.role.RoleUpdateETO;
 import com.yuyu.workflow.entity.SysMenu;
 import com.yuyu.workflow.entity.UserRole;
 import com.yuyu.workflow.entity.UserRoleMenu;
@@ -32,6 +35,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
@@ -177,5 +181,25 @@ class RoleServiceImplTests {
         ArgumentCaptor<UserRoleMenu> captor = ArgumentCaptor.forClass(UserRoleMenu.class);
         verify(userRoleMenuMapper, times(2)).insert(captor.capture());
         assertEquals(List.of(1200L, 1201L), captor.getAllValues().stream().map(UserRoleMenu::getMenuId).toList());
+    }
+
+    /**
+     * 内置 ADMIN 角色不允许修改。
+     */
+    @Test
+    void shouldRejectUpdatingBuiltInAdminRole() {
+        RoleUpdateETO eto = new RoleUpdateETO();
+        eto.setId(1L);
+        eto.setName("新角色名");
+
+        UserRole role = new UserRole();
+        role.setId(1L);
+        role.setCode(RoleCodeEnum.ADMIN.getCode());
+
+        when(userRoleMapper.selectById(1L)).thenReturn(role);
+
+        BizException exception = assertThrows(BizException.class, () -> roleService.update(eto));
+
+        assertEquals("ADMIN超级管理员角色不允许修改", exception.getMessage());
     }
 }

@@ -2,11 +2,13 @@ package com.yuyu.workflow.service.impl;
 
 import com.yuyu.workflow.common.enums.CommonStatusEnum;
 import com.yuyu.workflow.common.enums.YesNoEnum;
+import com.yuyu.workflow.common.exception.BizException;
 import com.yuyu.workflow.convert.UserDeptStructMapper;
 import com.yuyu.workflow.convert.UserRoleStructMapper;
 import com.yuyu.workflow.convert.UserStructMapper;
 import com.yuyu.workflow.eto.user.UserDeptItemETO;
 import com.yuyu.workflow.eto.user.UserDeptsUpdateETO;
+import com.yuyu.workflow.eto.user.UserUpdateETO;
 import com.yuyu.workflow.entity.User;
 import com.yuyu.workflow.entity.UserDept;
 import com.yuyu.workflow.entity.UserDeptRel;
@@ -28,6 +30,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -107,5 +110,25 @@ class UserServiceImplTests {
         assertEquals(10L, captor.getValue().getDeptId());
         assertEquals(YesNoEnum.YES.getId(), captor.getValue().getIsPrimary());
         verify(userDeptRelExpandService).rebuildByUserIds(List.of(1L));
+    }
+
+    /**
+     * 内置 admin 账号不允许修改。
+     */
+    @Test
+    void shouldRejectUpdatingBuiltInAdminUser() {
+        UserUpdateETO eto = new UserUpdateETO();
+        eto.setId(1L);
+        eto.setRealName("新名称");
+
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("admin");
+
+        when(userMapper.selectById(1L)).thenReturn(user);
+
+        BizException exception = assertThrows(BizException.class, () -> userService.update(eto));
+
+        assertEquals("admin内置管理员账号不允许修改", exception.getMessage());
     }
 }

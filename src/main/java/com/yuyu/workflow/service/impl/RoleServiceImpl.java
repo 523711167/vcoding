@@ -7,6 +7,7 @@ import com.yuyu.workflow.common.PageVo;
 import com.yuyu.workflow.common.enums.CommonStatusEnum;
 import com.yuyu.workflow.common.enums.DataScopeEnum;
 import com.yuyu.workflow.common.enums.OrgTypeEnum;
+import com.yuyu.workflow.common.enums.RoleCodeEnum;
 import com.yuyu.workflow.common.enums.RespCodeEnum;
 import com.yuyu.workflow.common.exception.BizException;
 import com.yuyu.workflow.eto.role.RoleMenusUpdateETO;
@@ -51,6 +52,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class RoleServiceImpl implements RoleService {
+
+    private static final String BUILT_IN_ADMIN_ROLE_PROTECT_MESSAGE = "ADMIN超级管理员角色不允许修改";
 
     private final UserRoleMapper userRoleMapper;
     private final UserRoleDeptMapper userRoleDeptMapper;
@@ -103,7 +106,7 @@ public class RoleServiceImpl implements RoleService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public RoleVO update(RoleUpdateETO eto) {
-        UserRole entity = userRoleStructMapper.toUpdatedEntity(eto, getRoleOrThrow(eto.getId()));
+        UserRole entity = userRoleStructMapper.toUpdatedEntity(eto, getWritableRoleOrThrow(eto.getId()));
         entity.setSortOrder(Objects.isNull(eto.getSortOrder()) ? 0 : eto.getSortOrder());
         userRoleMapper.updateById(entity);
         return detail(entity.getId());
@@ -114,7 +117,7 @@ public class RoleServiceImpl implements RoleService {
     public void delete(List<Long> idList) {
         List<Long> roleIds = normalizeDeleteIds(idList);
         for (Long roleId : roleIds) {
-            getRoleOrThrow(roleId);
+            getWritableRoleOrThrow(roleId);
         }
         long userCount = userRoleRelMapper.selectCount(new LambdaQueryWrapper<UserRoleRel>()
                 .in(UserRoleRel::getRoleId, roleIds));
@@ -150,7 +153,7 @@ public class RoleServiceImpl implements RoleService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateStatus(RoleStatusUpdateETO eto) {
-        getRoleOrThrow(eto.getRoleId());
+        getWritableRoleOrThrow(eto.getRoleId());
         userRoleMapper.update(null, new LambdaUpdateWrapper<UserRole>()
                 .eq(UserRole::getId, eto.getRoleId())
                 .set(UserRole::getStatus, eto.getStatus()));
@@ -159,7 +162,7 @@ public class RoleServiceImpl implements RoleService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateMenus(RoleMenusUpdateETO eto) {
-        getRoleOrThrow(eto.getRoleId());
+        getWritableRoleOrThrow(eto.getRoleId());
         List<Long> menuIds = expandRoleMenuIds(eto.getMenuIds());
         deleteRoleMenuRelations(List.of(eto.getRoleId()));
         for (Long menuId : menuIds) {
@@ -189,7 +192,7 @@ public class RoleServiceImpl implements RoleService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateDataScope(RoleDataScopeUpdateETO eto) {
-        UserRole role = getRoleOrThrow(eto.getRoleId());
+        UserRole role = getWritableRoleOrThrow(eto.getRoleId());
         List<Long> deptIds = Objects.isNull(eto.getDeptIds()) ? Collections.emptyList() : eto.getDeptIds();
         Map<Long, UserDept> deptMap = Collections.emptyMap();
         if (DataScopeEnum.CUSTOM_DEPT.getCode().equals(eto.getDataScope())) {
@@ -243,6 +246,17 @@ public class RoleServiceImpl implements RoleService {
         UserRole role = userRoleMapper.selectById(id);
         if (Objects.isNull(role)) {
             throw new BizException(RespCodeEnum.BIZ_ERROR.getId(), "角色不存在");
+        }
+        return role;
+    }
+
+    /**
+     * 查询可写角色，不允许修改内置 ADMIN 角色。
+     */
+    private UserRole getWritableRoleOrThrow(Long id) {
+        UserRole role = getRoleOrThrow(id);
+        if (RoleCodeEnum.ADMIN.getCode().equals(role.getCode())) {
+            throw new BizException(BUILT_IN_ADMIN_ROLE_PROTECT_MESSAGE);
         }
         return role;
     }

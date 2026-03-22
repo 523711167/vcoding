@@ -56,6 +56,9 @@ import java.util.stream.Collectors;
 @Service
 public class UserServiceImpl implements UserService {
 
+    private static final String BUILT_IN_ADMIN_USERNAME = "admin";
+    private static final String BUILT_IN_ADMIN_USER_PROTECT_MESSAGE = "admin内置管理员账号不允许修改";
+
     private final UserMapper userMapper;
     private final UserRoleMapper userRoleMapper;
     private final UserDeptMapper userDeptMapper;
@@ -106,7 +109,7 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public UserVO update(UserUpdateETO eto) {
-        User entity = userStructMapper.toUpdatedEntity(eto, getUserOrThrow(eto.getId()));
+        User entity = userStructMapper.toUpdatedEntity(eto, getWritableUserOrThrow(eto.getId()));
         userMapper.updateById(entity);
         return detail(entity.getId());
     }
@@ -116,7 +119,7 @@ public class UserServiceImpl implements UserService {
     public void delete(List<Long> idList) {
         List<Long> userIds = normalizeDeleteIds(idList);
         for (Long userId : userIds) {
-            User entity = getUserOrThrow(userId);
+            User entity = getWritableUserOrThrow(userId);
             validateNoRunningTasks(entity.getId());
         }
         userMapper.removeByIds(userIds);
@@ -162,7 +165,7 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void resetPassword(UserPasswordResetETO eto) {
-        User entity = getUserOrThrow(eto.getId());
+        User entity = getWritableUserOrThrow(eto.getId());
         entity.setPassword(passwordEncoder.encode(eto.getNewPassword()));
         userMapper.updateById(entity);
     }
@@ -170,7 +173,7 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateStatus(UserStatusUpdateETO eto) {
-        getUserOrThrow(eto.getId());
+        getWritableUserOrThrow(eto.getId());
         userMapper.update(null, new LambdaUpdateWrapper<User>()
                 .eq(User::getId, eto.getId())
                 .set(User::getStatus, eto.getStatus()));
@@ -179,7 +182,7 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateRoles(UserRolesUpdateETO eto) {
-        getUserOrThrow(eto.getUserId());
+        getWritableUserOrThrow(eto.getUserId());
         List<Long> roleIds = Objects.isNull(eto.getRoleIds()) ? Collections.emptyList() : eto.getRoleIds();
         validateRoleIds(roleIds);
         deleteUserRoleRelations(List.of(eto.getUserId()));
@@ -200,7 +203,7 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateDepts(UserDeptsUpdateETO eto) {
-        getUserOrThrow(eto.getUserId());
+        getWritableUserOrThrow(eto.getUserId());
         Map<Long, UserDept> deptMap = validateDeptItems(eto.getDepts());
         deleteUserDeptRelations(List.of(eto.getUserId()));
         for (UserDeptItemETO item : eto.getDepts()) {
@@ -234,6 +237,17 @@ public class UserServiceImpl implements UserService {
         User entity = userMapper.selectById(id);
         if (Objects.isNull(entity)) {
             throw new BizException(RespCodeEnum.BIZ_ERROR.getId(), "用户不存在");
+        }
+        return entity;
+    }
+
+    /**
+     * 查询可写用户，不允许修改内置 admin 账号。
+     */
+    private User getWritableUserOrThrow(Long id) {
+        User entity = getUserOrThrow(id);
+        if (BUILT_IN_ADMIN_USERNAME.equals(entity.getUsername())) {
+            throw new BizException(BUILT_IN_ADMIN_USER_PROTECT_MESSAGE);
         }
         return entity;
     }

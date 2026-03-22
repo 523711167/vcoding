@@ -2,12 +2,16 @@ package com.yuyu.workflow.service.impl;
 
 import com.yuyu.workflow.common.enums.CommonStatusEnum;
 import com.yuyu.workflow.common.enums.MenuTypeEnum;
+import com.yuyu.workflow.common.enums.RoleCodeEnum;
 import com.yuyu.workflow.common.enums.YesNoEnum;
 import com.yuyu.workflow.common.exception.BizException;
 import com.yuyu.workflow.convert.MenuStructMapper;
 import com.yuyu.workflow.eto.menu.MenuCreateETO;
 import com.yuyu.workflow.entity.SysMenu;
+import com.yuyu.workflow.entity.UserRole;
+import com.yuyu.workflow.entity.UserRoleMenu;
 import com.yuyu.workflow.mapper.SysMenuMapper;
+import com.yuyu.workflow.mapper.UserRoleMapper;
 import com.yuyu.workflow.mapper.UserRoleMenuMapper;
 import com.yuyu.workflow.qto.menu.MenuTreeQTO;
 import com.yuyu.workflow.vo.menu.MenuTreeVO;
@@ -22,6 +26,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -33,6 +38,9 @@ class MenuServiceImplTests {
 
     @Mock
     private SysMenuMapper sysMenuMapper;
+
+    @Mock
+    private UserRoleMapper userRoleMapper;
 
     @Mock
     private UserRoleMenuMapper userRoleMenuMapper;
@@ -89,6 +97,46 @@ class MenuServiceImplTests {
         BizException exception = assertThrows(BizException.class, () -> menuService.create(eto));
 
         assertEquals("按钮节点必须挂载在菜单节点下", exception.getMessage());
+    }
+
+    /**
+     * 新增菜单后应自动授权给 ADMIN 角色。
+     */
+    @Test
+    void shouldBindNewMenuToAdminRoleWhenCreatingMenu() {
+        MenuCreateETO eto = new MenuCreateETO();
+        eto.setParentId(0L);
+        eto.setType(MenuTypeEnum.DIRECTORY.getCode());
+        eto.setName("系统设置");
+        eto.setVisible(YesNoEnum.YES.getId());
+        eto.setStatus(CommonStatusEnum.ENABLED.getId());
+
+        SysMenu entity = new SysMenu();
+        entity.setId(88L);
+        entity.setParentId(0L);
+        entity.setType(MenuTypeEnum.DIRECTORY.getCode());
+        entity.setVisible(YesNoEnum.YES.getId());
+        entity.setStatus(CommonStatusEnum.ENABLED.getId());
+
+        UserRole adminRole = new UserRole();
+        adminRole.setId(1L);
+        adminRole.setCode(RoleCodeEnum.ADMIN.getCode());
+
+        MenuVO menuVO = new MenuVO();
+        menuVO.setId(88L);
+        menuVO.setType(MenuTypeEnum.DIRECTORY.getCode());
+
+        when(menuStructMapper.toEntity(eto)).thenReturn(entity);
+        when(userRoleMapper.selectAnyByCode(RoleCodeEnum.ADMIN.getCode())).thenReturn(adminRole);
+        when(sysMenuMapper.selectById(88L)).thenReturn(entity);
+        when(menuStructMapper.toTarget(entity)).thenReturn(menuVO);
+
+        menuService.create(eto);
+
+        org.mockito.ArgumentCaptor<UserRoleMenu> captor = org.mockito.ArgumentCaptor.forClass(UserRoleMenu.class);
+        verify(userRoleMenuMapper).insert(captor.capture());
+        assertEquals(1L, captor.getValue().getRoleId());
+        assertEquals(88L, captor.getValue().getMenuId());
     }
 
     /**
