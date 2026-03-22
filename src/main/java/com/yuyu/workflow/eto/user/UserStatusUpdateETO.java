@@ -1,14 +1,17 @@
 package com.yuyu.workflow.eto.user;
 
+import com.yuyu.workflow.common.base.UserContextParam;
 import com.yuyu.workflow.common.enums.CommonStatusEnum;
 import com.yuyu.workflow.common.validation.EnumIdValid;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 @Data
+@EqualsAndHashCode(callSuper = true)
 @Schema(description = "更新用户状态参数")
-public class UserStatusUpdateETO {
+public class UserStatusUpdateETO extends UserContextParam {
 
     @Schema(description = "用户ID", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "id不能为空")

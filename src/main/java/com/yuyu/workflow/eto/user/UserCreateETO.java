@@ -1,13 +1,16 @@
 package com.yuyu.workflow.eto.user;
 
+import com.yuyu.workflow.common.base.UserContextParam;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 @Data
+@EqualsAndHashCode(callSuper = true)
 @Schema(description = "新增用户参数")
-public class UserCreateETO {
+public class UserCreateETO extends UserContextParam {
 
     @Schema(description = "登录用户名", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "username不能为空")

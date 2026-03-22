@@ -9,6 +9,8 @@ import com.yuyu.workflow.eto.menu.MenuCreateETO;
 import com.yuyu.workflow.entity.SysMenu;
 import com.yuyu.workflow.mapper.SysMenuMapper;
 import com.yuyu.workflow.mapper.UserRoleMenuMapper;
+import com.yuyu.workflow.qto.menu.MenuTreeQTO;
+import com.yuyu.workflow.vo.menu.MenuTreeVO;
 import com.yuyu.workflow.vo.menu.MenuVO;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,8 +18,11 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -84,5 +89,51 @@ class MenuServiceImplTests {
         BizException exception = assertThrows(BizException.class, () -> menuService.create(eto));
 
         assertEquals("按钮节点必须挂载在菜单节点下", exception.getMessage());
+    }
+
+    /**
+     * 查询菜单树时应按当前登录用户已授权菜单返回。
+     */
+    @Test
+    void shouldQueryMenuTreeByCurrentUser() {
+        MenuTreeQTO qto = new MenuTreeQTO();
+        qto.setCurrentUserId(9L);
+        qto.setCurrentUsername("admin");
+        qto.setVisible(YesNoEnum.YES.getId());
+
+        SysMenu root = new SysMenu();
+        root.setId(1000L);
+        root.setParentId(0L);
+        root.setType(MenuTypeEnum.DIRECTORY.getCode());
+        root.setName("系统管理");
+        root.setVisible(YesNoEnum.YES.getId());
+        root.setStatus(CommonStatusEnum.ENABLED.getId());
+
+        SysMenu menu = new SysMenu();
+        menu.setId(1100L);
+        menu.setParentId(1000L);
+        menu.setType(MenuTypeEnum.MENU.getCode());
+        menu.setName("用户管理");
+        menu.setVisible(YesNoEnum.YES.getId());
+        menu.setStatus(CommonStatusEnum.ENABLED.getId());
+
+        MenuTreeVO rootVO = new MenuTreeVO();
+        rootVO.setId(1000L);
+        rootVO.setParentId(0L);
+        MenuTreeVO menuVO = new MenuTreeVO();
+        menuVO.setId(1100L);
+        menuVO.setParentId(1000L);
+
+        when(sysMenuMapper.selectMenuTreeByUserId(9L, qto)).thenReturn(List.of(root, menu));
+        when(menuStructMapper.toTreeVO(root)).thenReturn(rootVO);
+        when(menuStructMapper.toTreeVO(menu)).thenReturn(menuVO);
+
+        List<MenuTreeVO> result = menuService.tree(qto);
+
+        assertEquals(1, result.size());
+        assertEquals(Long.valueOf(1000L), result.get(0).getId());
+        assertEquals(1, result.get(0).getChildren().size());
+        assertEquals(Long.valueOf(1100L), result.get(0).getChildren().get(0).getId());
+        verify(sysMenuMapper).selectMenuTreeByUserId(9L, qto);
     }
 }

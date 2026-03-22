@@ -3,16 +3,19 @@ package com.yuyu.workflow.eto.dept;
 import com.yuyu.workflow.common.enums.CommonStatusEnum;
 import com.yuyu.workflow.common.enums.OrgTypeEnum;
 import com.yuyu.workflow.common.validation.EnumIdValid;
+import com.yuyu.workflow.common.base.UserContextParam;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 @Data
+@EqualsAndHashCode(callSuper = true)
 @Schema(description = "新增部门参数")
-public class DeptCreateETO {
+public class DeptCreateETO extends UserContextParam {
 
     @Schema(description = "父部门ID，顶级为0")
     private Long parentId;

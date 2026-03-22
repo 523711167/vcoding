@@ -3,6 +3,7 @@ package com.yuyu.workflow.eto.menu;
 import com.yuyu.workflow.common.enums.CommonStatusEnum;
 import com.yuyu.workflow.common.enums.MenuTypeEnum;
 import com.yuyu.workflow.common.enums.YesNoEnum;
+import com.yuyu.workflow.common.base.UserContextParam;
 import com.yuyu.workflow.common.validation.EnumCodeValid;
 import com.yuyu.workflow.common.validation.EnumIdValid;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -11,14 +12,16 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import org.springframework.util.StringUtils;
 
 /**
  * 新增菜单参数。
  */
 @Data
+@EqualsAndHashCode(callSuper = true)
 @Schema(description = "新增菜单参数")
-public class MenuCreateETO {
+public class MenuCreateETO extends UserContextParam {
 
     @Schema(description = "父节点ID，顶级为0")
     private Long parentId;

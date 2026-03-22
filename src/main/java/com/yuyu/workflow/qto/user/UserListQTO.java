@@ -5,8 +5,10 @@ import com.yuyu.workflow.common.validation.EnumIdValid;
 import com.yuyu.workflow.qto.base.BaseQueryQTO;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 @Data
+@EqualsAndHashCode(callSuper = true)
 @Schema(description = "用户列表查询参数")
 public class UserListQTO extends BaseQueryQTO {
 

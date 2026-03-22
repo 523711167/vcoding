@@ -1,12 +1,15 @@
 package com.yuyu.workflow.eto.dept;
 
+import com.yuyu.workflow.common.base.UserContextParam;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 @Data
+@EqualsAndHashCode(callSuper = true)
 @Schema(description = "移动部门参数")
-public class DeptMoveETO {
+public class DeptMoveETO extends UserContextParam {
 
     @Schema(description = "当前部门ID", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "id不能为空")

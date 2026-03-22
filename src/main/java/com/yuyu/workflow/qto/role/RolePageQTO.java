@@ -5,8 +5,10 @@ import com.yuyu.workflow.common.validation.EnumIdValid;
 import com.yuyu.workflow.qto.base.BasePageQTO;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 @Data
+@EqualsAndHashCode(callSuper = true)
 @Schema(description = "角色分页查询参数")
 public class RolePageQTO extends BasePageQTO {
 

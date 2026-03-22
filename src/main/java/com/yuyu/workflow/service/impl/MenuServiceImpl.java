@@ -104,12 +104,7 @@ public class MenuServiceImpl implements MenuService {
 
     @Override
     public List<MenuTreeVO> tree(MenuTreeQTO qto) {
-        List<SysMenu> menuList = sysMenuMapper.selectList(new LambdaQueryWrapper<SysMenu>()
-                .like(StringUtils.hasText(qto.getName()), SysMenu::getName, qto.getName())
-                .eq(StringUtils.hasText(qto.getType()), SysMenu::getType, qto.getType())
-                .eq(Objects.nonNull(qto.getVisible()), SysMenu::getVisible, qto.getVisible())
-                .eq(Objects.nonNull(qto.getStatus()), SysMenu::getStatus, qto.getStatus())
-                .orderByAsc(SysMenu::getSortOrder, SysMenu::getId));
+        List<SysMenu> menuList = sysMenuMapper.selectMenuTreeByUserId(qto.getCurrentUserId(), qto);
         if (CollectionUtils.isEmpty(menuList)) {
             return Collections.emptyList();
         }

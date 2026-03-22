@@ -2,10 +2,11 @@ package com.yuyu.workflow.qto.base;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 @Data
+@EqualsAndHashCode(callSuper = true)
 @Schema(description = "通用分页查询参数基类")
 public class BasePageQTO extends BaseQueryQTO {
 

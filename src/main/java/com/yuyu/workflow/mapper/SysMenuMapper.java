@@ -2,6 +2,7 @@ package com.yuyu.workflow.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.yuyu.workflow.entity.SysMenu;
+import com.yuyu.workflow.qto.menu.MenuTreeQTO;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -49,4 +50,36 @@ public interface SysMenuMapper extends BaseMapper<SysMenu> {
             "</script>"
     })
     List<String> selectEnabledPermissionsByUserId(@Param("userId") Long userId);
+
+    /**
+     * 查询指定用户已授权的菜单树节点。
+     */
+    @Select({
+            "<script>",
+            "SELECT DISTINCT m.id, m.parent_id, m.type, m.name, m.permission, m.path, m.component, m.icon,",
+            "m.sort_order, m.visible, m.status, m.created_at, m.updated_at, m.is_deleted",
+            "FROM tb_sys_menu m",
+            "INNER JOIN tb_user_role_menu rm ON rm.menu_id = m.id",
+            "INNER JOIN tb_user_role r ON r.id = rm.role_id",
+            "INNER JOIN tb_user_role_rel ur ON ur.role_id = r.id",
+            "WHERE ur.user_id = #{userId}",
+            "AND m.is_deleted = 0",
+            "AND r.status = 1",
+            "AND r.is_deleted = 0",
+            "<if test='qto != null and qto.name != null and qto.name != \"\"'>",
+            "AND m.name LIKE CONCAT('%', #{qto.name}, '%')",
+            "</if>",
+            "<if test='qto != null and qto.type != null and qto.type != \"\"'>",
+            "AND m.type = #{qto.type}",
+            "</if>",
+            "<if test='qto != null and qto.visible != null'>",
+            "AND m.visible = #{qto.visible}",
+            "</if>",
+            "<if test='qto != null and qto.status != null'>",
+            "AND m.status = #{qto.status}",
+            "</if>",
+            "ORDER BY m.sort_order ASC, m.id ASC",
+            "</script>"
+    })
+    List<SysMenu> selectMenuTreeByUserId(@Param("userId") Long userId, @Param("qto") MenuTreeQTO qto);
 }
