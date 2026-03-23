@@ -7,6 +7,7 @@
 -- 6. 工作流节点超时与提醒字段统一使用分钟口径。
 -- 7. tb_workflow_node_approver 冗余 definition_id，便于按流程定义直接查询审批人配置。
 -- 8. 业务定义表统一使用 tb_biz_definition，不再沿用 tb_biz_type 命名。
+-- 9. 业务定义角色关联表统一使用 tb_biz_definition_role_rel，并按 biz_definition_id + role_id 存储。
 
 USE `yuyu`;
 
@@ -316,3 +317,359 @@ WHERE `created_by` IS NULL;
 
 ALTER TABLE `tb_biz_definition`
     MODIFY COLUMN `created_by` BIGINT NOT NULL COMMENT '创建人用户ID';
+
+SET @rename_biz_type_initiator_to_role_rel_sql = (
+  SELECT IF(
+    EXISTS(
+      SELECT 1
+      FROM information_schema.TABLES
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'tb_biz_type_initiator'
+    ) AND NOT EXISTS(
+      SELECT 1
+      FROM information_schema.TABLES
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'tb_biz_definition_role_rel'
+    ),
+    'RENAME TABLE `tb_biz_type_initiator` TO `tb_biz_definition_role_rel`',
+    'SELECT 1'
+  )
+);
+PREPARE stmt_rename_biz_type_initiator_to_role_rel FROM @rename_biz_type_initiator_to_role_rel_sql;
+EXECUTE stmt_rename_biz_type_initiator_to_role_rel;
+DEALLOCATE PREPARE stmt_rename_biz_type_initiator_to_role_rel;
+
+SET @rename_biz_definition_initiator_to_role_rel_sql = (
+  SELECT IF(
+    EXISTS(
+      SELECT 1
+      FROM information_schema.TABLES
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'tb_biz_definition_initiator'
+    ) AND NOT EXISTS(
+      SELECT 1
+      FROM information_schema.TABLES
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'tb_biz_definition_role_rel'
+    ),
+    'RENAME TABLE `tb_biz_definition_initiator` TO `tb_biz_definition_role_rel`',
+    'SELECT 1'
+  )
+);
+PREPARE stmt_rename_biz_definition_initiator_to_role_rel FROM @rename_biz_definition_initiator_to_role_rel_sql;
+EXECUTE stmt_rename_biz_definition_initiator_to_role_rel;
+DEALLOCATE PREPARE stmt_rename_biz_definition_initiator_to_role_rel;
+
+SET @rename_biz_definition_role_to_rel_sql = (
+  SELECT IF(
+    EXISTS(
+      SELECT 1
+      FROM information_schema.TABLES
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'tb_biz_definition_role'
+    ) AND NOT EXISTS(
+      SELECT 1
+      FROM information_schema.TABLES
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'tb_biz_definition_role_rel'
+    ),
+    'RENAME TABLE `tb_biz_definition_role` TO `tb_biz_definition_role_rel`',
+    'SELECT 1'
+  )
+);
+PREPARE stmt_rename_biz_definition_role_to_rel FROM @rename_biz_definition_role_to_rel_sql;
+EXECUTE stmt_rename_biz_definition_role_to_rel;
+DEALLOCATE PREPARE stmt_rename_biz_definition_role_to_rel;
+
+CREATE TABLE IF NOT EXISTS `tb_biz_definition_role_rel` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `biz_definition_id` BIGINT NOT NULL COMMENT '业务定义ID（关联 tb_biz_definition.id）',
+  `role_id` BIGINT NOT NULL COMMENT '角色ID（关联 tb_user_role.id）',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `is_deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除标记：0=正常 1=已删除',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_biz_definition_role` (`biz_definition_id`, `role_id`),
+  KEY `idx_biz_definition_id` (`biz_definition_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='业务定义角色关联表';
+
+ALTER TABLE `tb_biz_definition_role_rel`
+    COMMENT = '业务定义角色关联表';
+
+SET @add_biz_definition_role_rel_biz_definition_id_sql = (
+  SELECT IF(
+    EXISTS(
+      SELECT 1
+      FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'tb_biz_definition_role_rel'
+        AND COLUMN_NAME = 'biz_definition_id'
+    ),
+    'SELECT 1',
+    'ALTER TABLE `tb_biz_definition_role_rel` ADD COLUMN `biz_definition_id` BIGINT NULL COMMENT ''业务定义ID（关联 tb_biz_definition.id）'' AFTER `id`'
+  )
+);
+PREPARE stmt_add_biz_definition_role_rel_biz_definition_id FROM @add_biz_definition_role_rel_biz_definition_id_sql;
+EXECUTE stmt_add_biz_definition_role_rel_biz_definition_id;
+DEALLOCATE PREPARE stmt_add_biz_definition_role_rel_biz_definition_id;
+
+SET @migrate_biz_definition_role_rel_biz_definition_id_sql = (
+  SELECT IF(
+    EXISTS(
+      SELECT 1
+      FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'tb_biz_definition_role_rel'
+        AND COLUMN_NAME = 'biz_code'
+    ),
+    'UPDATE `tb_biz_definition_role_rel` biz_role_rel INNER JOIN `tb_biz_definition` definition ON definition.`biz_code` = biz_role_rel.`biz_code` AND definition.`is_deleted` = 0 SET biz_role_rel.`biz_definition_id` = definition.`id` WHERE biz_role_rel.`biz_definition_id` IS NULL AND biz_role_rel.`biz_code` IS NOT NULL',
+    'SELECT 1'
+  )
+);
+PREPARE stmt_migrate_biz_definition_role_rel_biz_definition_id FROM @migrate_biz_definition_role_rel_biz_definition_id_sql;
+EXECUTE stmt_migrate_biz_definition_role_rel_biz_definition_id;
+DEALLOCATE PREPARE stmt_migrate_biz_definition_role_rel_biz_definition_id;
+
+SET @migrate_biz_def_role_rel_id_sql = (
+  SELECT IF(
+    EXISTS(
+      SELECT 1
+      FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'tb_biz_definition_role_rel'
+        AND COLUMN_NAME = 'biz_id'
+    ),
+    'UPDATE `tb_biz_definition_role_rel` SET `biz_definition_id` = `biz_id` WHERE `biz_definition_id` IS NULL AND `biz_id` IS NOT NULL',
+    'SELECT 1'
+  )
+);
+PREPARE stmt_migrate_biz_def_role_rel_id FROM @migrate_biz_def_role_rel_id_sql;
+EXECUTE stmt_migrate_biz_def_role_rel_id;
+DEALLOCATE PREPARE stmt_migrate_biz_def_role_rel_id;
+
+ALTER TABLE `tb_biz_definition_role_rel`
+    MODIFY COLUMN `biz_definition_id` BIGINT NOT NULL COMMENT '业务定义ID（关联 tb_biz_definition.id）';
+
+SET @add_biz_definition_role_rel_role_id_sql = (
+  SELECT IF(
+    EXISTS(
+      SELECT 1
+      FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'tb_biz_definition_role_rel'
+        AND COLUMN_NAME = 'role_id'
+    ),
+    'SELECT 1',
+    'ALTER TABLE `tb_biz_definition_role_rel` ADD COLUMN `role_id` BIGINT NULL COMMENT ''角色ID（关联 tb_user_role.id）'' AFTER `biz_definition_id`'
+  )
+);
+PREPARE stmt_add_biz_definition_role_rel_role_id FROM @add_biz_definition_role_rel_role_id_sql;
+EXECUTE stmt_add_biz_definition_role_rel_role_id;
+DEALLOCATE PREPARE stmt_add_biz_definition_role_rel_role_id;
+
+SET @migrate_biz_definition_role_rel_role_id_sql = (
+  SELECT IF(
+    EXISTS(
+      SELECT 1
+      FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'tb_biz_definition_role_rel'
+        AND COLUMN_NAME = 'initiator_value'
+    ),
+    'UPDATE `tb_biz_definition_role_rel` SET `role_id` = `initiator_value` WHERE `role_id` IS NULL AND `initiator_value` IS NOT NULL',
+    'SELECT 1'
+  )
+);
+PREPARE stmt_migrate_biz_definition_role_rel_role_id FROM @migrate_biz_definition_role_rel_role_id_sql;
+EXECUTE stmt_migrate_biz_definition_role_rel_role_id;
+DEALLOCATE PREPARE stmt_migrate_biz_definition_role_rel_role_id;
+
+ALTER TABLE `tb_biz_definition_role_rel`
+    MODIFY COLUMN `role_id` BIGINT NOT NULL COMMENT '角色ID（关联 tb_user_role.id）';
+
+SET @drop_biz_definition_role_old_uk_sql = (
+  SELECT IF(
+    EXISTS(
+      SELECT 1
+      FROM information_schema.STATISTICS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'tb_biz_definition_role_rel'
+        AND INDEX_NAME = 'uk_biz_initiator'
+    ),
+    'ALTER TABLE `tb_biz_definition_role_rel` DROP INDEX `uk_biz_initiator`',
+    'SELECT 1'
+  )
+);
+PREPARE stmt_drop_biz_definition_role_old_uk FROM @drop_biz_definition_role_old_uk_sql;
+EXECUTE stmt_drop_biz_definition_role_old_uk;
+DEALLOCATE PREPARE stmt_drop_biz_definition_role_old_uk;
+
+SET @drop_biz_definition_role_idx_code_sql = (
+  SELECT IF(
+    EXISTS(
+      SELECT 1
+      FROM information_schema.STATISTICS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'tb_biz_definition_role_rel'
+        AND INDEX_NAME = 'idx_biz_code'
+    ),
+    'ALTER TABLE `tb_biz_definition_role_rel` DROP INDEX `idx_biz_code`',
+    'SELECT 1'
+  )
+);
+PREPARE stmt_drop_biz_definition_role_idx_code FROM @drop_biz_definition_role_idx_code_sql;
+EXECUTE stmt_drop_biz_definition_role_idx_code;
+DEALLOCATE PREPARE stmt_drop_biz_definition_role_idx_code;
+
+SET @drop_biz_definition_role_old_uk_role_sql = (
+  SELECT IF(
+    EXISTS(
+      SELECT 1
+      FROM information_schema.STATISTICS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'tb_biz_definition_role_rel'
+        AND INDEX_NAME = 'uk_biz_role'
+    ),
+    'SELECT 1',
+    'SELECT 1'
+  )
+);
+PREPARE stmt_drop_biz_definition_role_old_uk_role FROM @drop_biz_definition_role_old_uk_role_sql;
+EXECUTE stmt_drop_biz_definition_role_old_uk_role;
+DEALLOCATE PREPARE stmt_drop_biz_definition_role_old_uk_role;
+
+SET @drop_biz_definition_role_rel_old_uk_sql = (
+  SELECT IF(
+    EXISTS(
+      SELECT 1
+      FROM information_schema.STATISTICS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'tb_biz_definition_role_rel'
+        AND INDEX_NAME = 'uk_biz_role'
+    ),
+    'ALTER TABLE `tb_biz_definition_role_rel` DROP INDEX `uk_biz_role`',
+    'SELECT 1'
+  )
+);
+PREPARE stmt_drop_biz_definition_role_rel_old_uk FROM @drop_biz_definition_role_rel_old_uk_sql;
+EXECUTE stmt_drop_biz_definition_role_rel_old_uk;
+DEALLOCATE PREPARE stmt_drop_biz_definition_role_rel_old_uk;
+
+SET @add_biz_definition_role_rel_uk_sql = (
+  SELECT IF(
+    EXISTS(
+      SELECT 1
+      FROM information_schema.STATISTICS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'tb_biz_definition_role_rel'
+        AND INDEX_NAME = 'uk_biz_definition_role'
+    ),
+    'SELECT 1',
+    'ALTER TABLE `tb_biz_definition_role_rel` ADD UNIQUE KEY `uk_biz_definition_role` (`biz_definition_id`, `role_id`)'
+  )
+);
+PREPARE stmt_add_biz_definition_role_rel_uk FROM @add_biz_definition_role_rel_uk_sql;
+EXECUTE stmt_add_biz_definition_role_rel_uk;
+DEALLOCATE PREPARE stmt_add_biz_definition_role_rel_uk;
+
+SET @drop_biz_definition_role_rel_old_idx_sql = (
+  SELECT IF(
+    EXISTS(
+      SELECT 1
+      FROM information_schema.STATISTICS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'tb_biz_definition_role_rel'
+        AND INDEX_NAME = 'idx_biz_id'
+    ),
+    'ALTER TABLE `tb_biz_definition_role_rel` DROP INDEX `idx_biz_id`',
+    'SELECT 1'
+  )
+);
+PREPARE stmt_drop_biz_definition_role_rel_old_idx FROM @drop_biz_definition_role_rel_old_idx_sql;
+EXECUTE stmt_drop_biz_definition_role_rel_old_idx;
+DEALLOCATE PREPARE stmt_drop_biz_definition_role_rel_old_idx;
+
+SET @add_biz_definition_role_rel_idx_sql = (
+  SELECT IF(
+    EXISTS(
+      SELECT 1
+      FROM information_schema.STATISTICS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'tb_biz_definition_role_rel'
+        AND INDEX_NAME = 'idx_biz_definition_id'
+    ),
+    'SELECT 1'
+    ,
+    'ALTER TABLE `tb_biz_definition_role_rel` ADD INDEX `idx_biz_definition_id` (`biz_definition_id`)'
+  )
+);
+PREPARE stmt_add_biz_definition_role_rel_idx FROM @add_biz_definition_role_rel_idx_sql;
+EXECUTE stmt_add_biz_definition_role_rel_idx;
+DEALLOCATE PREPARE stmt_add_biz_definition_role_rel_idx;
+
+SET @drop_biz_definition_role_rel_biz_code_sql = (
+  SELECT IF(
+    EXISTS(
+      SELECT 1
+      FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'tb_biz_definition_role_rel'
+        AND COLUMN_NAME = 'biz_code'
+    ),
+    'ALTER TABLE `tb_biz_definition_role_rel` DROP COLUMN `biz_code`',
+    'SELECT 1'
+  )
+);
+PREPARE stmt_drop_biz_definition_role_rel_biz_code FROM @drop_biz_definition_role_rel_biz_code_sql;
+EXECUTE stmt_drop_biz_definition_role_rel_biz_code;
+DEALLOCATE PREPARE stmt_drop_biz_definition_role_rel_biz_code;
+
+SET @drop_biz_definition_role_rel_biz_id_sql = (
+  SELECT IF(
+    EXISTS(
+      SELECT 1
+      FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'tb_biz_definition_role_rel'
+        AND COLUMN_NAME = 'biz_id'
+    ),
+    'ALTER TABLE `tb_biz_definition_role_rel` DROP COLUMN `biz_id`',
+    'SELECT 1'
+  )
+);
+PREPARE stmt_drop_biz_definition_role_rel_biz_id FROM @drop_biz_definition_role_rel_biz_id_sql;
+EXECUTE stmt_drop_biz_definition_role_rel_biz_id;
+DEALLOCATE PREPARE stmt_drop_biz_definition_role_rel_biz_id;
+
+SET @drop_biz_definition_role_rel_initiator_type_sql = (
+  SELECT IF(
+    EXISTS(
+      SELECT 1
+      FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'tb_biz_definition_role_rel'
+        AND COLUMN_NAME = 'initiator_type'
+    ),
+    'ALTER TABLE `tb_biz_definition_role_rel` DROP COLUMN `initiator_type`',
+    'SELECT 1'
+  )
+);
+PREPARE stmt_drop_biz_definition_role_rel_initiator_type FROM @drop_biz_definition_role_rel_initiator_type_sql;
+EXECUTE stmt_drop_biz_definition_role_rel_initiator_type;
+DEALLOCATE PREPARE stmt_drop_biz_definition_role_rel_initiator_type;
+
+SET @drop_biz_definition_role_rel_initiator_value_sql = (
+  SELECT IF(
+    EXISTS(
+      SELECT 1
+      FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'tb_biz_definition_role_rel'
+        AND COLUMN_NAME = 'initiator_value'
+    ),
+    'ALTER TABLE `tb_biz_definition_role_rel` DROP COLUMN `initiator_value`',
+    'SELECT 1'
+  )
+);
+PREPARE stmt_drop_biz_definition_role_rel_initiator_value FROM @drop_biz_definition_role_rel_initiator_value_sql;
+EXECUTE stmt_drop_biz_definition_role_rel_initiator_value;
+DEALLOCATE PREPARE stmt_drop_biz_definition_role_rel_initiator_value;

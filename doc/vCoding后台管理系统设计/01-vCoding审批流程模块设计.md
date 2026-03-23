@@ -225,7 +225,7 @@
 ## 14. 与其他模块的衔接
 
 - 与业务定义通过 `tb_biz_definition.workflow_definition_id` 绑定。
-- 与发起权限通过 `tb_biz_definition_initiator` 衔接。
+- 与发起权限通过 `tb_biz_definition_role_rel` 衔接。
 - 与用户、角色、组织通过审批人解析规则衔接。
 - 与字典、业务表单通过 `form_data` 和条件表达式衔接。
 

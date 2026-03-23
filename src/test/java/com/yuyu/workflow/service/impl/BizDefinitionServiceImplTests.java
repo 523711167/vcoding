@@ -11,6 +11,7 @@ import com.yuyu.workflow.eto.biz.BizDefinitionUpdateETO;
 import com.yuyu.workflow.mapper.BizDefinitionMapper;
 import com.yuyu.workflow.mapper.WorkflowDefinitionMapper;
 import com.yuyu.workflow.qto.biz.BizDefinitionListQTO;
+import com.yuyu.workflow.service.BizDefinitionRoleRelService;
 import com.yuyu.workflow.vo.biz.BizDefinitionVO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,6 +43,9 @@ class BizDefinitionServiceImplTests {
     @Mock
     private WorkflowDefinitionMapper workflowDefinitionMapper;
 
+    @Mock
+    private BizDefinitionRoleRelService bizDefinitionRoleRelService;
+
     private BizDefinitionServiceImpl bizDefinitionService;
 
     @BeforeEach
@@ -50,7 +54,8 @@ class BizDefinitionServiceImplTests {
         bizDefinitionService = new BizDefinitionServiceImpl(
                 bizDefinitionMapper,
                 workflowDefinitionMapper,
-                bizDefinitionStructMapper
+                bizDefinitionStructMapper,
+                bizDefinitionRoleRelService
         );
     }
 
@@ -162,6 +167,20 @@ class BizDefinitionServiceImplTests {
         assertEquals(1, result.size());
         assertEquals("LEAVE_APPROVAL", result.get(0).getWorkflowDefinitionCode());
         assertEquals("请假审批", result.get(0).getWorkflowDefinitionName());
+    }
+
+    /**
+     * 删除业务定义时应同步清理业务发起权限。
+     */
+    @Test
+    void shouldRemoveInitiatorsWhenDeletingBizDefinition() {
+        BizDefinition entity = buildBizDefinition(1L, "LEAVE", "请假申请", 100L, CommonStatusEnum.ENABLED.getId(), 9L);
+        when(bizDefinitionMapper.selectById(1L)).thenReturn(entity);
+
+        bizDefinitionService.delete(List.of(1L));
+
+        verify(bizDefinitionRoleRelService).removeByBizDefinitionIds(List.of(1L));
+        verify(bizDefinitionMapper).removeByIds(List.of(1L));
     }
 
     /**

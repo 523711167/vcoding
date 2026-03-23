@@ -4,11 +4,15 @@ import com.yuyu.workflow.common.PageVo;
 import com.yuyu.workflow.common.Resp;
 import com.yuyu.workflow.eto.base.BaseIdETO;
 import com.yuyu.workflow.eto.biz.BizDefinitionCreateETO;
+import com.yuyu.workflow.eto.biz.BizDefinitionRolesUpdateETO;
 import com.yuyu.workflow.eto.biz.BizDefinitionUpdateETO;
 import com.yuyu.workflow.qto.biz.BizDefinitionIdQTO;
+import com.yuyu.workflow.qto.biz.BizDefinitionRolesQTO;
 import com.yuyu.workflow.qto.biz.BizDefinitionListQTO;
 import com.yuyu.workflow.qto.biz.BizDefinitionPageQTO;
+import com.yuyu.workflow.service.BizDefinitionRoleRelService;
 import com.yuyu.workflow.service.BizDefinitionService;
+import com.yuyu.workflow.vo.biz.BizDefinitionRoleVO;
 import com.yuyu.workflow.vo.biz.BizDefinitionVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -34,12 +38,15 @@ import java.util.List;
 public class BizDefinitionController {
 
     private final BizDefinitionService bizDefinitionService;
+    private final BizDefinitionRoleRelService bizDefinitionRoleRelService;
 
     /**
      * 注入业务定义服务。
      */
-    public BizDefinitionController(BizDefinitionService bizDefinitionService) {
+    public BizDefinitionController(BizDefinitionService bizDefinitionService,
+                                   BizDefinitionRoleRelService bizDefinitionRoleRelService) {
         this.bizDefinitionService = bizDefinitionService;
+        this.bizDefinitionRoleRelService = bizDefinitionRoleRelService;
     }
 
     /**
@@ -95,6 +102,28 @@ public class BizDefinitionController {
     @GetMapping("/detail")
     public Resp<BizDefinitionVO> detail(@Valid @ParameterObject BizDefinitionIdQTO qto) {
         return Resp.success(bizDefinitionService.detail(qto.getId()));
+    }
+
+    /**
+     * 全量更新业务绑定角色。
+     */
+    @Operation(summary = "设置业务绑定角色")
+    @PostMapping("/roles/update")
+    public Resp<Void> updateRoles(@Valid @RequestBody BizDefinitionRolesUpdateETO eto) {
+        bizDefinitionRoleRelService.replaceRoles(eto.getBizDefinitionId(), eto.getRoleIds());
+        return Resp.success();
+    }
+
+    /**
+     * 查询业务已绑定角色。
+     */
+    @Operation(summary = "查询业务绑定角色")
+    @GetMapping("/roles")
+    public Resp<BizDefinitionRoleVO> getRoles(@Valid @ParameterObject BizDefinitionRolesQTO qto) {
+        BizDefinitionRoleVO vo = new BizDefinitionRoleVO();
+        vo.setBizDefinitionId(qto.getBizDefinitionId());
+        vo.setRoleIds(bizDefinitionRoleRelService.listRoleIdsByBizDefinitionId(qto.getBizDefinitionId()));
+        return Resp.success(vo);
     }
 
     /**

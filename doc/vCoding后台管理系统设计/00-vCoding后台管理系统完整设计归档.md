@@ -18,7 +18,7 @@
 
 以下命名规范为本文档最高标准，若与旧命名口径冲突，一律以本标准为准并同步修正文档内容：
 - 所有数据库表统一使用 `tb_` 前缀，禁止在同一项目内混用无前缀表名或其他前缀体系
-- 业务相关表统一命名为 `tb_biz_*`，如 `tb_biz_apply`、`tb_biz_definition`、`tb_biz_definition_initiator`
+- 业务相关表统一命名为 `tb_biz_*`，如 `tb_biz_apply`、`tb_biz_definition`、`tb_biz_definition_role_rel`
 - 用户、角色、组织及其关联表统一命名为 `tb_user*` 体系，如 `tb_user`、`tb_user_role`、`tb_user_dept`、`tb_user_role_rel`、`tb_user_dept_rel`、`tb_user_dept_rel_expand`
 - 工作流相关表统一命名为 `tb_workflow_*`，如 `tb_workflow_definition`、`tb_workflow_instance`、`tb_workflow_node`
 - 系统配置与权限相关表统一命名为 `tb_sys_*` 或 `tb_user_*` 体系，如 `tb_sys_menu`、`tb_sys_dict_type`、`tb_user_role_menu`
@@ -249,7 +249,7 @@
 |------|------|--------|
 | 工作流定义层 | 描述流程模板、节点、连线、审批人配置 | `tb_workflow_definition`、`tb_workflow_node`、`tb_workflow_transition`、`tb_workflow_node_approver`、`tb_workflow_node_approver_dept_expand` |
 | 工作流运行层 | 描述流程实例、节点实例、审批人实例、审批记录 | `tb_workflow_instance`、`tb_workflow_node_instance`、`tb_workflow_node_approver_instance`、`tb_workflow_approval_record` |
-| 系统基础数据层 | 描述用户、角色、组织、菜单、业务申请、业务发起权限等基础模型 | `tb_user`、`tb_user_role`、`tb_user_dept`、`tb_sys_menu`、`tb_biz_apply`、`tb_biz_definition`、`tb_biz_definition_initiator` |
+| 系统基础数据层 | 描述用户、角色、组织、菜单、业务申请、业务发起权限等基础模型 | `tb_user`、`tb_user_role`、`tb_user_dept`、`tb_sys_menu`、`tb_biz_apply`、`tb_biz_definition`、`tb_biz_definition_role_rel` |
 | 授权与管理层 | 描述角色授权、数据权限、后台功能、接口边界 | `tb_user_role_rel`、`tb_user_dept_rel`、`tb_user_dept_rel_expand`、`tb_user_role_menu`、`tb_user_role_dept`、`tb_user_role_dept_expand` |
 
 ### 2.3 权限总体架构
@@ -263,7 +263,7 @@
 | 组织层 | 树形归属关系 | `tb_user_dept`、`tb_user_dept_rel`、`tb_user_dept_rel_expand` | 组织用于树形管理、主管解析、数据范围口径，其中 direct / expand 分别承载直接绑定与展开生效关系 |
 | 功能权限层 | 菜单/按钮权限 | `tb_sys_menu`、`tb_user_role_menu` | 控制页面可见范围和按钮操作权限 |
 | 数据权限层 | 数据可见范围 | `tb_user_role.data_scope`、`tb_user_role_dept`、`tb_user_role_dept_expand` | 控制业务数据可查询范围，其中 direct / expand 分别承载直接授权与展开生效范围 |
-| 业务发起权限层 | 能否发起某类业务 | `tb_biz_definition_initiator` | 与业务定义联动，控制谁可发起某类业务 |
+| 业务发起权限层 | 能否发起某类业务 | `tb_biz_definition_role_rel` | 与业务定义联动，控制谁可发起某类业务 |
 | 流程规则层 | 节点审批规则 | `tb_workflow_node_approver`、`tb_workflow_node_approver_dept_expand` | 与审批工作流联动，控制节点最终解析给谁审批 |
 
 ---
@@ -322,7 +322,7 @@ tb_user ──────────────── tb_user_role_rel ──
     │
     └── tb_user_dept_rel_expand ───────────────────────── tb_user_dept
 
-tb_biz_definition ──────────────── tb_biz_definition_initiator
+tb_biz_definition ──────────────── tb_biz_definition_role_rel
    │
    ├── tb_workflow_definition.id（via workflow_definition_id）
    └── tb_biz_apply.biz_code
@@ -337,7 +337,7 @@ tb_sys_dict_type ──────────────── tb_sys_dict_it
 
 - `tb_biz_definition` 定义“系统有哪些业务定义”，核心编码统一为 `biz_code`
 - `tb_biz_definition` 维护业务名称、状态、说明以及默认绑定的流程定义 ID，不再单独维护业务字段配置明细
-- `tb_biz_definition_initiator` 定义“哪些角色可以发起该业务定义”
+- `tb_biz_definition_role_rel` 定义“哪些角色可以发起该业务定义”
 - `tb_biz_definition.workflow_definition_id` 指向当前业务绑定的流程定义版本，业务发起时以该字段作为流程选择依据
 - `tb_workflow_definition` 不再冗余保存 `biz_code`
 - `tb_biz_apply.biz_code` 标识“这张业务单据属于哪个业务定义”
@@ -353,7 +353,7 @@ tb_sys_dict_type ──────────────── tb_sys_dict_it
 | 菜单访问权限 | 角色（`tb_user_role`） | `tb_user_role_menu` → `tb_sys_menu(type=DIRECTORY/MENU)` |
 | 按钮操作权限 | 角色（`tb_user_role`） | `tb_user_role_menu` → `tb_sys_menu(type=BUTTON).permission` |
 | 数据权限 | 角色（`tb_user_role`） | `tb_user_role.data_scope` + `tb_user_role_dept` + `tb_user_role_dept_expand` |
-| 业务发起权限 | 角色（`tb_user_role`） | `tb_biz_definition_initiator` |
+| 业务发起权限 | 角色（`tb_user_role`） | `tb_biz_definition_role_rel` |
 | 审批流规则 | 角色 / 组织 | `tb_workflow_node_approver.approver_type` |
 
 ### 4.4 对象职责边界
@@ -368,7 +368,7 @@ tb_sys_dict_type ──────────────── tb_sys_dict_it
 | `tb_user_dept_rel` | 维护用户与组织的直接绑定关系及主组织 | 不存展开结果 |
 | `tb_user_dept_rel_expand` | 维护用户组织绑定向下展开后的生效关系 | 不作为人工授权事实表 |
 | `tb_user_role_menu` | 维护角色与菜单/按钮的授权关系 | 不存用户直授权信息 |
-| `tb_biz_definition_initiator` | 维护业务定义与发起主体的授权关系 | 不负责审批节点解析 |
+| `tb_biz_definition_role_rel` | 维护业务定义与发起主体的授权关系 | 不负责审批节点解析 |
 | `tb_workflow_definition` | 描述流程模板及版本 | 不负责用户发起权限判断 |
 
 ---
@@ -573,24 +573,23 @@ CREATE TABLE `tb_sys_dict_item` (
 
 示例：若请假单 `form_data` 中保存 `"leave_type": "ANNUAL"`，则页面展示时根据 `LEAVE_TYPE + ANNUAL` 解析为“年假”。
 
-### 5.5 业务发起权限表 `tb_biz_definition_initiator`
+### 5.5 业务定义角色关联表 `tb_biz_definition_role_rel`
 
 控制哪些角色可以发起指定业务定义。流程本身不单独配置发起权限；用户只要拥有某业务定义对应角色的权限，即可发起该业务绑定的已发布流程。
 
 设计约束：基础版仅按角色控制，一条记录只表示一个业务定义对应一个角色。
 
 ```sql
-CREATE TABLE `tb_biz_definition_initiator` (
-  `id`              BIGINT      NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `biz_code`        VARCHAR(64) NOT NULL               COMMENT '业务编码（关联 tb_biz_definition.biz_code）',
-  `initiator_type`  VARCHAR(16) NOT NULL DEFAULT 'ROLE' COMMENT '发起主体类型：固定为 ROLE',
-  `initiator_value` BIGINT      NOT NULL               COMMENT '发起主体值：角色ID（关联 tb_user_role.id）',
-  `created_at`      DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `is_deleted`      TINYINT     NOT NULL DEFAULT 0,
+CREATE TABLE `tb_biz_definition_role_rel` (
+  `id`         BIGINT   NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `biz_definition_id` BIGINT   NOT NULL COMMENT '业务定义ID（关联 tb_biz_definition.id）',
+  `role_id`    BIGINT   NOT NULL COMMENT '角色ID（关联 tb_user_role.id）',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `is_deleted` TINYINT  NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_biz_initiator` (`biz_code`, `initiator_type`, `initiator_value`),
-  KEY `idx_biz_code` (`biz_code`)
-) ENGINE=InnoDB COMMENT='业务发起权限表';
+  UNIQUE KEY `uk_biz_definition_role` (`biz_definition_id`, `role_id`),
+  KEY `idx_biz_definition_id` (`biz_definition_id`)
+) ENGINE=InnoDB COMMENT='业务定义角色关联表';
 ```
 
 使用说明：
@@ -600,9 +599,9 @@ CREATE TABLE `tb_biz_definition_initiator` (
 - 基础版不按部门单独控制发起权限，统一收敛到角色授权
 
 示例：
-- `biz_code='LEAVE', initiator_type='ROLE', initiator_value=3`：角色 ID 为 3 的用户可发起请假业务
-- `biz_code='LEAVE', initiator_type='ROLE', initiator_value=4`：角色 ID 为 4 的用户可发起请假业务
-- `biz_code='EXPENSE', initiator_type='ROLE', initiator_value=6`：角色 ID 为 6 的用户可发起报销业务
+- `biz_definition_id=1, role_id=3`：角色 ID 为 3 的用户可发起业务定义 ID 为 1 的业务
+- `biz_definition_id=1, role_id=4`：角色 ID 为 4 的用户可发起业务定义 ID 为 1 的业务
+- `biz_definition_id=2, role_id=6`：角色 ID 为 6 的用户可发起业务定义 ID 为 2 的业务
 
 ### 5.6 部门表 `tb_user_dept`
 
@@ -993,7 +992,7 @@ CREATE TABLE `tb_user_role_dept_expand` (
 #### 业务定义与发起权限
 - 一个业务定义可配置多个发起主体
 - 当前基础版发起主体统一按角色配置
-- 通过 `tb_biz_definition_initiator` 建模
+- 通过 `tb_biz_definition_role_rel` 建模
 - 用户命中任一发起主体，即可发起该业务
 
 ### 6.2 数据权限设计
@@ -1048,7 +1047,7 @@ AND tb_biz_apply.applicant_id = #{currentUserId}
 
 #### 业务发起权限
 - 控制“能发起哪些业务定义”
-- 发起权限由 `tb_biz_definition_initiator` 定义，基础版按角色配置
+- 发起权限由 `tb_biz_definition_role_rel` 定义，基础版按角色配置
 - 流程与业务绑定，用户不需要单独拥有某个流程的发起权限
 
 #### 流程规则
@@ -1174,7 +1173,7 @@ CREATE TABLE `tb_workflow_node` (
 配置每个审批节点的审批人来源（静态配置）。
 
 说明：
-- 本表解决的是“节点审批时由谁来审批”，与 `tb_biz_definition_initiator` 的“谁可以发起业务”不是同一层含义
+- 本表解决的是“节点审批时由谁来审批”，与 `tb_biz_definition_role_rel` 的“谁可以发起业务”不是同一层含义
 - `tb_workflow_node_approver` 采用“一条记录对应一个审批主体”的范式，不允许再使用逗号拼接多个值
 - 直接审批人配置表冗余 `definition_id`，便于按流程定义直接查询审批人配置，并与版本隔离保持一致
 
@@ -1538,7 +1537,7 @@ CREATE TABLE `tb_workflow_approval_record` (
 
 前置校验：
 - 根据业务定义查询 `tb_biz_definition`，验证业务是否存在、是否启用，以及是否已配置 `workflow_definition_id`
-- 根据业务定义查询 `tb_biz_definition_initiator`，验证当前用户所在角色是否有权发起该业务
+- 根据业务定义查询 `tb_biz_definition_role_rel`，验证当前用户所在角色是否有权发起该业务
 - 根据 `tb_biz_definition.workflow_definition_id` 查询对应流程定义，确认流程定义存在且可用于发起
 
 发起步骤：
@@ -1791,8 +1790,8 @@ PENDING ──────────────────────→ AC
 - 业务定义通过 `workflow_definition_id` 直接绑定流程定义
 - `workflow_definition_id` 必须指向有效流程定义，且应绑定到当前业务口径对应的流程
 - `tb_biz_apply.form_data` 仅保存业务申请数据快照，不再依赖独立业务配置明细表
-- 发起权限按业务定义配置在 `tb_biz_definition_initiator` 中，不再按流程单独配置
-- 删除前需检查是否已被 `tb_biz_apply.biz_code` 或 `tb_biz_definition_initiator.biz_code` 引用，并确认业务停用后再处理
+- 发起权限按业务定义配置在 `tb_biz_definition_role_rel` 中，不再按流程单独配置
+- 删除前需检查是否已被 `tb_biz_apply.biz_code` 或 `tb_biz_definition_role_rel.biz_definition_id` 引用，并确认业务停用后再处理
 
 ### 11.6 字典管理
 
@@ -1929,8 +1928,8 @@ PENDING ──────────────────────→ AC
 | `/sys/biz/delete` | POST | 删除业务定义 |
 | `/sys/biz/list` | GET | 查询业务定义列表 |
 | `/sys/biz/detail` | GET | 查询业务定义详情 |
-| `/sys/biz/initiators/update` | POST | 设置业务发起角色 |
-| `/sys/biz/initiators` | GET | 查询业务发起角色 |
+| `/sys/biz/roles/update` | POST | 设置业务绑定角色 |
+| `/sys/biz/roles` | GET | 查询业务绑定角色 |
 
 ### 12.7 字典模块 `/sys/dict`
 
@@ -1967,8 +1966,8 @@ PENDING ──────────────────────→ AC
 ### 13.1 发起权限衔接
 
 - 流程与业务定义通过 `tb_biz_definition.workflow_definition_id` 绑定
-- 发起权限配置在 `tb_biz_definition_initiator`，按业务定义控制可发起角色范围
-- `tb_biz_definition_initiator` 采用“一条记录对应一个角色”的方式存储，不在单条记录中混存多个角色 ID
+- 发起权限配置在 `tb_biz_definition_role_rel`，按业务定义控制可发起角色范围
+- `tb_biz_definition_role_rel` 采用“一条记录对应一个业务定义和一个角色”的方式存储，不在单条记录中混存多个角色 ID
 - 用户发起审批时，系统同时检查：
   - 用户状态正常
   - 当前业务定义存在且状态正常
@@ -1987,7 +1986,7 @@ PENDING ──────────────────────→ AC
 ### 13.3 变更影响检查
 
 - 用户停用时：检查是否存在待办审批、是否担任部门主管、是否被直接配置为审批人
-- 角色停用时：检查是否被 `tb_biz_definition_initiator`、`tb_workflow_node_approver` 引用
+- 角色停用时：检查是否被 `tb_biz_definition_role_rel`、`tb_workflow_node_approver` 引用
 - 组织停用或移动时：检查是否影响业务发起权限配置、审批人解析路径、数据权限口径
 - 菜单调整时：仅影响后台功能入口与接口访问，不应直接改变历史流程实例数据
 

@@ -17,6 +17,7 @@ import com.yuyu.workflow.mapper.BizDefinitionMapper;
 import com.yuyu.workflow.mapper.WorkflowDefinitionMapper;
 import com.yuyu.workflow.qto.biz.BizDefinitionListQTO;
 import com.yuyu.workflow.qto.biz.BizDefinitionPageQTO;
+import com.yuyu.workflow.service.BizDefinitionRoleRelService;
 import com.yuyu.workflow.service.BizDefinitionService;
 import com.yuyu.workflow.vo.biz.BizDefinitionVO;
 import org.springframework.stereotype.Service;
@@ -42,16 +43,19 @@ public class BizDefinitionServiceImpl implements BizDefinitionService {
     private final BizDefinitionMapper bizDefinitionMapper;
     private final WorkflowDefinitionMapper workflowDefinitionMapper;
     private final BizDefinitionStructMapper bizDefinitionStructMapper;
+    private final BizDefinitionRoleRelService bizDefinitionRoleRelService;
 
     /**
      * 注入业务定义服务依赖。
      */
     public BizDefinitionServiceImpl(BizDefinitionMapper bizDefinitionMapper,
                                     WorkflowDefinitionMapper workflowDefinitionMapper,
-                                    BizDefinitionStructMapper bizDefinitionStructMapper) {
+                                    BizDefinitionStructMapper bizDefinitionStructMapper,
+                                    BizDefinitionRoleRelService bizDefinitionRoleRelService) {
         this.bizDefinitionMapper = bizDefinitionMapper;
         this.workflowDefinitionMapper = workflowDefinitionMapper;
         this.bizDefinitionStructMapper = bizDefinitionStructMapper;
+        this.bizDefinitionRoleRelService = bizDefinitionRoleRelService;
     }
 
     @Override
@@ -78,9 +82,8 @@ public class BizDefinitionServiceImpl implements BizDefinitionService {
     @Transactional(rollbackFor = Exception.class)
     public void delete(List<Long> idList) {
         List<Long> bizDefinitionIds = normalizeDeleteIds(idList);
-        for (Long bizDefinitionId : bizDefinitionIds) {
-            getBizDefinitionOrThrow(bizDefinitionId);
-        }
+        bizDefinitionIds.forEach(this::getBizDefinitionOrThrow);
+        bizDefinitionRoleRelService.removeByBizDefinitionIds(bizDefinitionIds);
         bizDefinitionMapper.removeByIds(bizDefinitionIds);
     }
 
