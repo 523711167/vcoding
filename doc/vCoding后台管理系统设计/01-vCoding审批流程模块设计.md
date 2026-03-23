@@ -56,20 +56,25 @@
 - `tb_workflow_definition`
 - `tb_workflow_node`
 - `tb_workflow_node_approver`
+- `tb_workflow_node_approver_dept_expand`
 - `tb_workflow_transition`
 
 ### 5.2 职责划分
 
 - `tb_workflow_definition`：保存流程定义主信息、版本、发布状态，以及前端流程设计原始 JSON。
 - `tb_workflow_node`：保存流程节点结构、节点类型、节点配置。
-- `tb_workflow_node_approver`：保存审批节点对应的审批人配置。
+- `tb_workflow_node_approver`：保存审批节点对应的审批人直接配置，一条记录只对应一个审批主体，并冗余 `definition_id`。
+- `tb_workflow_node_approver_dept_expand`：保存 `DEPT` 类型审批人的向下展开结果，仅作为派生生效范围表使用。
 - `tb_workflow_transition`：保存节点之间的流转关系、优先级和条件表达式。
 
 ### 5.3 关键约束
 
 - 同一 `code` 下任一时刻只能有一个已发布版本。
+- `tb_workflow_definition` 不再冗余保存 `biz_code`，流程与业务的绑定统一由 `tb_biz_definition.workflow_definition_id` 维护。
 - 同一流程定义下前端节点 `id` 必须唯一，但该 `id` 仅用于保存时解析，不再单独落库。
 - `APPROVAL` 节点必须至少配置一个审批人。
+- 审批人 direct 配置必须满足“一条记录一个审批主体”，`approver_value` 不允许逗号拼接多个值。
+- `DEPT` 类型审批人除 direct 配置外，还需要维护组织展开表，且只保留当前有效组织节点。
 - 节点超时与提醒时长统一使用“分钟”作为存储和接口口径。
 - 条件分支应尽量提供兜底路径，避免流程停滞。
 
@@ -81,6 +86,7 @@
   后端在保存时解析前端节点 `id`、`properties`、`text`，拆分并落到节点、审批人、连线表。
 - `transitions` 对应 `tb_workflow_transition`
 - `approvers` 对应 `tb_workflow_node_approver`
+  审批人保存时按数组逐项拆分，一条审批主体写一条 direct 记录；当 `approverType=DEPT` 时，再同步重建 `tb_workflow_node_approver_dept_expand`。
 
 ## 6. 运行层设计
 
@@ -101,7 +107,9 @@
 ## 7. 发布与版本机制
 
 - 草稿流程允许反复编辑。
-- 已发布流程不得直接修改，必须复制出新草稿版本。
+- 已发布流程编辑时，不直接覆盖原记录，而是基于最新内容生成新的草稿版本。
+- 已停用流程编辑时，与已发布流程保持同一处理逻辑，生成新的草稿版本。
+- 新草稿保存后，旧的已发布版本保持不变；只有手动发布新草稿时，旧发布版本才自动转为已停用。
 - 发布动作必须在同一事务内完成版本切换。
 - 流程实例创建后固定绑定 `definition_id`，不受后续新版本发布影响。
 
@@ -120,6 +128,10 @@
 3. 从 `START` 节点出发，解析并激活首个有效节点。
 4. 创建节点实例与审批人实例。
 5. 写入 `SUBMIT` 审批记录。
+
+补充说明：
+- 业务侧通过 `tb_biz_definition.workflow_definition_id` 选择流程定义版本。
+- 流程定义表本身不再保存 `biz_code`。
 
 ## 9. 节点流转机制
 
@@ -169,6 +181,10 @@
 - `AUTO_REJECT`
 - `NOTIFY_ONLY`
 
+补充规则：
+- 流程定义层超时与提醒字段统一使用分钟口径。
+- 前端传入 `timeoutAfterMinutes`、`remindAfterMinutes` 后，后端按分钟原值保存，不再执行小时换算。
+
 ## 12. 审批操作与通知
 
 ### 12.1 支持的审批操作
@@ -212,5 +228,9 @@
 - 与发起权限通过 `tb_biz_definition_initiator` 衔接。
 - 与用户、角色、组织通过审批人解析规则衔接。
 - 与字典、业务表单通过 `form_data` 和条件表达式衔接。
+
+补充说明：
+- 流程定义详情可直接返回 `workFlowJson`，供前端直接回显流程图。
+- 若前端仍需要结构化节点、审批人、连线明细，后端可继续同时返回解析结果。
 
 完整 SQL、流程示例和原始章节可查看 [vCoding 后台管理系统完整设计归档](./00-vCoding后台管理系统完整设计归档.md)。

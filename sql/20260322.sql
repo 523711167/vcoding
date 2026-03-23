@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS `tb_workflow_node` (
 
 CREATE TABLE IF NOT EXISTS `tb_workflow_node_approver` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `definition_id` BIGINT NOT NULL COMMENT '所属流程定义ID',
   `node_id` BIGINT NOT NULL COMMENT '所属节点ID',
   `approver_type` VARCHAR(16) NOT NULL COMMENT '审批人类型：USER/ROLE/DEPT/INITIATOR_DEPT_LEADER',
   `approver_value` VARCHAR(256) NOT NULL COMMENT '审批人值：用户ID/角色ID/组织ID',
@@ -51,6 +52,7 @@ CREATE TABLE IF NOT EXISTS `tb_workflow_node_approver` (
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `is_deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '软删除标记：0=正常 1=已删除',
   PRIMARY KEY (`id`),
+  KEY `idx_definition_id` (`definition_id`),
   KEY `idx_node_id` (`node_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='节点审批人配置表';
 

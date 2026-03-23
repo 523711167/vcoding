@@ -53,6 +53,7 @@ class WorkflowNodeApproverDeptExpandServiceImplTests {
     void shouldRebuildDeptApproverSelfAndDescendantRelations() {
         WorkflowNodeApprover approver = new WorkflowNodeApprover();
         approver.setId(100L);
+        approver.setDefinitionId(1L);
         approver.setNodeId(10L);
         approver.setApproverType("DEPT");
         approver.setApproverValue("2");

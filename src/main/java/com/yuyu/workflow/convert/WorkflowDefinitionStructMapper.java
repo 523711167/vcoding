@@ -68,6 +68,7 @@ public interface WorkflowDefinitionStructMapper extends BaseMapper<WorkflowDefin
     WorkflowNodeVO toNodeVO(WorkflowNode entity);
 
     @Mapping(target = "id", ignore = true)
+    @Mapping(target = "definitionId", ignore = true)
     @Mapping(target = "nodeId", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "isDeleted", ignore = true)

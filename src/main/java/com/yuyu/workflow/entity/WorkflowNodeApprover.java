@@ -14,6 +14,8 @@ import lombok.EqualsAndHashCode;
 @TableName("tb_workflow_node_approver")
 public class WorkflowNodeApprover extends BaseCreateEntity {
 
+    private Long definitionId;
+
     private Long nodeId;
 
     private String approverType;

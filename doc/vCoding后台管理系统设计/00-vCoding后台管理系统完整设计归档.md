@@ -3,6 +3,7 @@
 > 说明：
 > 本文档为迁移到 `doc/vCoding后台管理系统设计/` 后保留的完整归档稿，用于查阅原始章节、完整 SQL 和历史上下文。
 > 日常开发请优先阅读同目录下按功能拆分的专题文档；若归档稿与拆分文档、当前代码实现存在不一致，以拆分文档和当前实现为准。
+> 本归档稿已合并 `doc/需求变更/` 中截至 `2026-03-23` 的已确认变更，包括：用户组织展开、角色数据权限展开、`data_scope` 字符串化、菜单类型编码化、内置管理员保护、流程定义原始 JSON、流程定义版本发布规则、流程定义移除 `biz_code`、流程节点分钟口径、审批组织展开等。
 
 ## 一、文档概述
 
@@ -17,7 +18,7 @@
 
 以下命名规范为本文档最高标准，若与旧命名口径冲突，一律以本标准为准并同步修正文档内容：
 - 所有数据库表统一使用 `tb_` 前缀，禁止在同一项目内混用无前缀表名或其他前缀体系
-- 业务相关表统一命名为 `tb_biz_*`，如 `tb_biz_apply`、`tb_biz_type`、`tb_biz_type_initiator`
+- 业务相关表统一命名为 `tb_biz_*`，如 `tb_biz_apply`、`tb_biz_definition`、`tb_biz_definition_initiator`
 - 用户、角色、组织及其关联表统一命名为 `tb_user*` 体系，如 `tb_user`、`tb_user_role`、`tb_user_dept`、`tb_user_role_rel`、`tb_user_dept_rel`、`tb_user_dept_rel_expand`
 - 工作流相关表统一命名为 `tb_workflow_*`，如 `tb_workflow_definition`、`tb_workflow_instance`、`tb_workflow_node`
 - 系统配置与权限相关表统一命名为 `tb_sys_*` 或 `tb_user_*` 体系，如 `tb_sys_menu`、`tb_sys_dict_type`、`tb_user_role_menu`
@@ -113,7 +114,7 @@
 建议采用“独立前端工程承载后台管理页面与流程画布，后端仓库仅提供 API”的方式。
 
 可拆分为以下页面：
-- 流程定义列表页：展示流程编码、名称、版本、状态、绑定业务类型
+- 流程定义列表页：展示流程编码、名称、版本、状态、绑定业务定义
 - 流程设计页：用于绘制节点、连线、配置审批人、配置条件表达式
 - 流程详情页：查看已发布版本的结构和配置
 - 流程实例页：查看某次审批实例的流转轨迹、当前节点和审批记录
@@ -132,13 +133,12 @@
 
 #### 2.4.3 前后端交互建议
 
-建议采用“加载定义时组装前端流程 JSON，保存时再拆回后端表结构”的方式。
+建议采用“前端直接提交整份流程设计 JSON，后端统一解析落库”的方式。
 
-后端对前端返回的流程设计数据可统一抽象为：
-- 流程基础信息：流程编码、名称、业务类型、版本、状态
-- 节点集合：节点标识、节点类型、名称、坐标、节点配置
-- 连线集合：起点、终点、条件表达式、优先级、标签
-- 审批人配置集合：节点审批人类型、审批人值、顺序等
+后端对前端交互的主口径如下：
+- 新增、修改流程定义时，前端直接提交 `workFlowJson`
+- 详情查询时，后端直接返回 `workFlowJson` 供前端回显
+- 后端在保存时负责把流程 JSON 解析为定义、节点、审批人、连线四类结构化数据
 
 推荐返回结构示意：
 
@@ -148,13 +148,12 @@
     "id": 100,
     "code": "LEAVE_APPROVAL",
     "name": "请假审批流程",
-    "bizCode": "LEAVE",
     "version": 2,
-    "status": 0
+    "status": 0,
+    "workFlowJson": "{...}"
   },
   "nodes": [
     {
-      "nodeCode": "start",
       "nodeType": "START",
       "name": "开始",
       "positionX": 120,
@@ -162,13 +161,12 @@
       "config": {}
     },
     {
-      "nodeCode": "dept_leader",
       "nodeType": "APPROVAL",
       "name": "部门负责人审批",
       "positionX": 320,
       "positionY": 80,
       "approveMode": "AND",
-      "timeoutHours": 24,
+      "timeoutMinutes": 1440,
       "timeoutAction": "AUTO_REJECT"
     }
   ],
@@ -183,7 +181,7 @@
   ],
   "approvers": [
     {
-      "nodeCode": "dept_leader",
+      "nodeId": 1002,
       "approverType": "INITIATOR_DEPT_LEADER",
       "approverValue": "0",
       "sortOrder": 0
@@ -199,6 +197,7 @@
 - 前端 `nodes` 对应 `tb_workflow_node`
 - 前端 `transitions` 对应 `tb_workflow_transition`
 - 前端 `approvers` 对应 `tb_workflow_node_approver`
+- `tb_workflow_definition.workflow_json` 额外原样保存前端设计 JSON
 
 这样做的好处是：
 - 页面模型清晰
@@ -235,7 +234,7 @@
 - 用户与组织的“直接绑定关系”和“展开生效关系”必须分表维护，禁止把两种语义混写到同一张关联表
 - 一个用户可关联多个角色、多个组织，但主组织有且仅有一个
 - 菜单权限、数据权限、业务发起权限、流程审批规则分别建模，但统一以用户、角色、组织三类主体进行解析
-- 流程与业务类型绑定，用户拥有的是业务发起权限，而不是对某个流程的单独发起权限
+- 流程与业务定义绑定，用户拥有的是业务发起权限，而不是对某个流程的单独发起权限
 - 流程实例创建后绑定具体 `definition_id`，不随流程版本升级受影响
 - 当前阶段沿用 `tb_sys_menu + tb_user_role_menu + permission` 方案，保持与现有设计一致
 - 后续如需更细粒度接口级权限，可增量扩展 `tb_sys_permission`、`tb_user_role_permission`
@@ -248,9 +247,9 @@
 
 | 层级 | 说明 | 核心表 |
 |------|------|--------|
-| 工作流定义层 | 描述流程模板、节点、连线、审批人配置 | `tb_workflow_definition`、`tb_workflow_node`、`tb_workflow_transition`、`tb_workflow_node_approver` |
+| 工作流定义层 | 描述流程模板、节点、连线、审批人配置 | `tb_workflow_definition`、`tb_workflow_node`、`tb_workflow_transition`、`tb_workflow_node_approver`、`tb_workflow_node_approver_dept_expand` |
 | 工作流运行层 | 描述流程实例、节点实例、审批人实例、审批记录 | `tb_workflow_instance`、`tb_workflow_node_instance`、`tb_workflow_node_approver_instance`、`tb_workflow_approval_record` |
-| 系统基础数据层 | 描述用户、角色、组织、菜单、业务申请、业务发起权限等基础模型 | `tb_user`、`tb_user_role`、`tb_user_dept`、`tb_sys_menu`、`tb_biz_apply`、`tb_biz_type`、`tb_biz_type_initiator` |
+| 系统基础数据层 | 描述用户、角色、组织、菜单、业务申请、业务发起权限等基础模型 | `tb_user`、`tb_user_role`、`tb_user_dept`、`tb_sys_menu`、`tb_biz_apply`、`tb_biz_definition`、`tb_biz_definition_initiator` |
 | 授权与管理层 | 描述角色授权、数据权限、后台功能、接口边界 | `tb_user_role_rel`、`tb_user_dept_rel`、`tb_user_dept_rel_expand`、`tb_user_role_menu`、`tb_user_role_dept`、`tb_user_role_dept_expand` |
 
 ### 2.3 权限总体架构
@@ -264,8 +263,8 @@
 | 组织层 | 树形归属关系 | `tb_user_dept`、`tb_user_dept_rel`、`tb_user_dept_rel_expand` | 组织用于树形管理、主管解析、数据范围口径，其中 direct / expand 分别承载直接绑定与展开生效关系 |
 | 功能权限层 | 菜单/按钮权限 | `tb_sys_menu`、`tb_user_role_menu` | 控制页面可见范围和按钮操作权限 |
 | 数据权限层 | 数据可见范围 | `tb_user_role.data_scope`、`tb_user_role_dept`、`tb_user_role_dept_expand` | 控制业务数据可查询范围，其中 direct / expand 分别承载直接授权与展开生效范围 |
-| 业务发起权限层 | 能否发起某类业务 | `tb_biz_type_initiator` | 与业务类型联动，控制谁可发起某类业务 |
-| 流程规则层 | 节点审批规则 | `tb_workflow_node_approver` | 与审批工作流联动，控制节点最终解析给谁审批 |
+| 业务发起权限层 | 能否发起某类业务 | `tb_biz_definition_initiator` | 与业务定义联动，控制谁可发起某类业务 |
+| 流程规则层 | 节点审批规则 | `tb_workflow_node_approver`、`tb_workflow_node_approver_dept_expand` | 与审批工作流联动，控制节点最终解析给谁审批 |
 
 ---
 
@@ -273,7 +272,7 @@
 
 | 概念 | 说明 |
 |------|------|
-| 业务类型（Biz） | 系统支持的审批业务种类，如请假、报销、合同 |
+| 业务定义（Biz Definition） | 系统支持的审批业务种类，如请假、报销、合同 |
 | 业务发起权限 | 用户是否可以发起某类业务，由角色或组织决定 |
 | 流程定义（Definition） | 可复用的流程模板，包含节点、连线和审批规则 |
 | 流程实例（Instance） | 某次具体审批的运行记录 |
@@ -323,7 +322,7 @@ tb_user ──────────────── tb_user_role_rel ──
     │
     └── tb_user_dept_rel_expand ───────────────────────── tb_user_dept
 
-tb_biz_type ──────────────── tb_biz_type_initiator
+tb_biz_definition ──────────────── tb_biz_definition_initiator
    │
    ├── tb_workflow_definition.id（via workflow_definition_id）
    └── tb_biz_apply.biz_code
@@ -336,14 +335,14 @@ tb_sys_dict_type ──────────────── tb_sys_dict_it
 
 ### 4.2 关键关系说明
 
-- `tb_biz_type` 定义“系统有哪些业务类型”，核心编码统一为 `biz_code`
-- `tb_biz_type` 维护业务名称、状态、说明以及默认绑定的流程定义 ID，不再单独维护业务字段配置明细
-- `tb_biz_type_initiator` 定义“哪些角色可以发起该业务类型”
-- `tb_biz_type.workflow_definition_id` 指向当前业务绑定的流程定义版本，业务发起时以该字段作为流程选择依据
-- `tb_workflow_definition.biz_code` 可作为流程侧记录业务编码的辅助字段，便于流程定义查询与展示
-- `tb_biz_apply.biz_code` 标识“这张业务单据属于哪个业务类型”
-- `tb_biz_apply.form_data` 保存业务申请提交时的实际数据快照，字段结构由前后端按业务类型约定
-- 单据提交时，先根据 `tb_biz_apply.biz_code` 查询 `tb_biz_type` 获取 `workflow_definition_id`，再创建 `tb_workflow_instance`
+- `tb_biz_definition` 定义“系统有哪些业务定义”，核心编码统一为 `biz_code`
+- `tb_biz_definition` 维护业务名称、状态、说明以及默认绑定的流程定义 ID，不再单独维护业务字段配置明细
+- `tb_biz_definition_initiator` 定义“哪些角色可以发起该业务定义”
+- `tb_biz_definition.workflow_definition_id` 指向当前业务绑定的流程定义版本，业务发起时以该字段作为流程选择依据
+- `tb_workflow_definition` 不再冗余保存 `biz_code`
+- `tb_biz_apply.biz_code` 标识“这张业务单据属于哪个业务定义”
+- `tb_biz_apply.form_data` 保存业务申请提交时的实际数据快照，字段结构由前后端按业务定义约定
+- 单据提交时，先根据 `tb_biz_apply.biz_code` 查询 `tb_biz_definition` 获取 `workflow_definition_id`，再创建 `tb_workflow_instance`
 - `tb_user_dept_rel` 只记录用户直接选中的组织节点及主组织语义
 - `tb_user_dept_rel_expand` 只记录系统按直接绑定关系向下展开后的当前生效节点，并保留来源关系
 
@@ -354,7 +353,7 @@ tb_sys_dict_type ──────────────── tb_sys_dict_it
 | 菜单访问权限 | 角色（`tb_user_role`） | `tb_user_role_menu` → `tb_sys_menu(type=DIRECTORY/MENU)` |
 | 按钮操作权限 | 角色（`tb_user_role`） | `tb_user_role_menu` → `tb_sys_menu(type=BUTTON).permission` |
 | 数据权限 | 角色（`tb_user_role`） | `tb_user_role.data_scope` + `tb_user_role_dept` + `tb_user_role_dept_expand` |
-| 业务发起权限 | 角色（`tb_user_role`） | `tb_biz_type_initiator` |
+| 业务发起权限 | 角色（`tb_user_role`） | `tb_biz_definition_initiator` |
 | 审批流规则 | 角色 / 组织 | `tb_workflow_node_approver.approver_type` |
 
 ### 4.4 对象职责边界
@@ -369,7 +368,7 @@ tb_sys_dict_type ──────────────── tb_sys_dict_it
 | `tb_user_dept_rel` | 维护用户与组织的直接绑定关系及主组织 | 不存展开结果 |
 | `tb_user_dept_rel_expand` | 维护用户组织绑定向下展开后的生效关系 | 不作为人工授权事实表 |
 | `tb_user_role_menu` | 维护角色与菜单/按钮的授权关系 | 不存用户直授权信息 |
-| `tb_biz_type_initiator` | 维护业务类型与发起主体的授权关系 | 不负责审批节点解析 |
+| `tb_biz_definition_initiator` | 维护业务定义与发起主体的授权关系 | 不负责审批节点解析 |
 | `tb_workflow_definition` | 描述流程模板及版本 | 不负责用户发起权限判断 |
 
 ---
@@ -380,7 +379,7 @@ tb_sys_dict_type ──────────────── tb_sys_dict_it
 
 ### 5.1 业务申请表 `tb_biz_apply`
 
-用一张通用表覆盖所有业务申请场景（请假、报销、合同等），通过 `biz_code` 字段区分业务类型，差异化字段存入 `form_data` JSON 列。
+用一张通用表覆盖所有业务申请场景（请假、报销、合同等），通过 `biz_code` 字段区分业务定义，差异化字段存入 `form_data` JSON 列。
 
 ```sql
 CREATE TABLE `tb_biz_apply` (
@@ -409,7 +408,7 @@ CREATE TABLE `tb_biz_apply` (
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `biz_code` | `VARCHAR(64)` | 业务类型编码，对应 `tb_biz_type.biz_code` |
+| `biz_code` | `VARCHAR(64)` | 业务定义编码，对应 `tb_biz_definition.biz_code` |
 | `status` | `VARCHAR(16)` | 申请单自身状态，随工作流实例状态同步更新 |
 | `form_data` | `JSON` | 按 `biz_code` 存储业务申请提交的数据快照；其中枚举类字段统一存字典项值，不存显示文案 |
 | `workflow_instance_id` | `BIGINT` | 提交审批后关联到 `tb_workflow_instance.id`，草稿阶段为 `NULL` |
@@ -451,12 +450,12 @@ CREATE TABLE `tb_biz_apply` (
 - 申请提交时创建工作流实例，将实例 ID 回写至 `tb_biz_apply.workflow_instance_id`
 - 工作流实例状态变更（通过/拒绝/撤回）时，同步更新 `tb_biz_apply.status`
 
-### 5.2 业务类型表 `tb_biz_type`
+### 5.2 业务定义表 `tb_biz_definition`
 
-记录系统支持的业务类型（如请假、报销、合同等），并直接维护该业务默认绑定的流程定义 ID。
+记录系统支持的业务定义（如请假、报销、合同等），并直接维护该业务默认绑定的流程定义 ID。
 
 ```sql
-CREATE TABLE `tb_biz_type` (
+CREATE TABLE `tb_biz_definition` (
   `id`                     BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `biz_code`               VARCHAR(64)  NOT NULL               COMMENT '业务编码（全局唯一），如 LEAVE、EXPENSE、CONTRACT',
   `biz_name`               VARCHAR(128) NOT NULL               COMMENT '业务名称，如 请假申请、费用报销',
@@ -470,26 +469,26 @@ CREATE TABLE `tb_biz_type` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_biz_code` (`biz_code`),
   KEY `idx_workflow_definition_id` (`workflow_definition_id`)
-) ENGINE=InnoDB COMMENT='业务类型表';
+) ENGINE=InnoDB COMMENT='业务定义表';
 ```
 
 字段说明：
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `biz_code` | `VARCHAR(64)` | 业务编码，全局唯一，建议全大写英文下划线风格 |
-| `biz_name` | `VARCHAR(128)` | 业务名称，用于页面展示和单据分类 |
-| `biz_desc` | `VARCHAR(500)` | 业务说明，用于描述该业务的适用范围和填写要求 |
+| `biz_code` | `VARCHAR(64)` | 业务定义编码，全局唯一，建议全大写英文下划线风格 |
+| `biz_name` | `VARCHAR(128)` | 业务定义名称，用于页面展示和单据分类 |
+| `biz_desc` | `VARCHAR(500)` | 业务定义说明，用于描述该业务的适用范围和填写要求 |
 | `workflow_definition_id` | `BIGINT` | 当前业务默认绑定的流程定义 ID，创建申请时据此确定流程 |
 | `status` | `TINYINT` | 状态：1=正常 0=停用；停用后不可再发起新申请 |
 
 说明：
-- `tb_biz_type` 表示审批系统支持的业务类型，是业务申请入口、流程绑定和发起权限控制的业务主维度
+- `tb_biz_definition` 表示审批系统支持的业务定义，是业务申请入口、流程绑定和发起权限控制的业务主维度
 - 基础版只维护业务名称、业务说明、默认流程定义和启停状态，不再单独维护业务字段配置表
-- 业务申请提交时，先根据 `biz_code` 查询 `tb_biz_type`，读取 `workflow_definition_id`，再创建对应的 `tb_workflow_instance`
+- 业务申请提交时，先根据 `biz_code` 查询 `tb_biz_definition`，读取 `workflow_definition_id`，再创建对应的 `tb_workflow_instance`
 - `tb_biz_apply.form_data` 作为业务申请数据快照保存，字段内容由具体业务场景自行约定
 - 字典表表示可复用的枚举维度，如请假类型、费用类型、币种等，用于承载业务申请中的通用枚举值
-- `tb_biz_type` 与字典表职责不同，前者用于定义“是什么业务”，后者用于定义“业务中可复用的枚举项”，两者不能混用
+- `tb_biz_definition` 与字典表职责不同，前者用于定义“是什么业务”，后者用于定义“业务中可复用的枚举项”，两者不能混用
 
 ### 5.3 字典类型表 `tb_sys_dict_type`
 
@@ -574,16 +573,16 @@ CREATE TABLE `tb_sys_dict_item` (
 
 示例：若请假单 `form_data` 中保存 `"leave_type": "ANNUAL"`，则页面展示时根据 `LEAVE_TYPE + ANNUAL` 解析为“年假”。
 
-### 5.5 业务发起权限表 `tb_biz_type_initiator`
+### 5.5 业务发起权限表 `tb_biz_definition_initiator`
 
-控制哪些角色可以发起指定业务类型。流程本身不单独配置发起权限；用户只要拥有某业务类型对应角色的权限，即可发起该业务绑定的已发布流程。
+控制哪些角色可以发起指定业务定义。流程本身不单独配置发起权限；用户只要拥有某业务定义对应角色的权限，即可发起该业务绑定的已发布流程。
 
-设计约束：基础版仅按角色控制，一条记录只表示一个业务类型对应一个角色。
+设计约束：基础版仅按角色控制，一条记录只表示一个业务定义对应一个角色。
 
 ```sql
-CREATE TABLE `tb_biz_type_initiator` (
+CREATE TABLE `tb_biz_definition_initiator` (
   `id`              BIGINT      NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `biz_code`        VARCHAR(64) NOT NULL               COMMENT '业务编码（关联 tb_biz_type.biz_code）',
+  `biz_code`        VARCHAR(64) NOT NULL               COMMENT '业务编码（关联 tb_biz_definition.biz_code）',
   `initiator_type`  VARCHAR(16) NOT NULL DEFAULT 'ROLE' COMMENT '发起主体类型：固定为 ROLE',
   `initiator_value` BIGINT      NOT NULL               COMMENT '发起主体值：角色ID（关联 tb_user_role.id）',
   `created_at`      DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -595,9 +594,9 @@ CREATE TABLE `tb_biz_type_initiator` (
 ```
 
 使用说明：
-- 一条记录只对应一个业务类型和一个角色
+- 一条记录只对应一个业务定义和一个角色
 - 若一个业务允许多个角色发起，则插入多条记录
-- 发起校验时，先按业务类型判断当前用户角色是否命中该业务的发起权限；命中后，再选择该业务绑定的已发布流程发起
+- 发起校验时，先按业务定义判断当前用户角色是否命中该业务的发起权限；命中后，再选择该业务绑定的已发布流程发起
 - 基础版不按部门单独控制发起权限，统一收敛到角色授权
 
 示例：
@@ -895,6 +894,8 @@ CREATE TABLE `tb_user_role_menu` (
 说明：
 - 关联表不设软删除，直接物理删除关联记录
 - 为角色分配权限时，同时分配菜单节点和其下所有按钮节点
+- 菜单新增成功后，系统自动为角色编码 `ADMIN` 补一条 `tb_user_role_menu` 关联，保证超级管理员默认可见新菜单
+- 若系统中不存在 `ADMIN` 角色，则菜单新增应直接失败，避免出现新菜单无人可见的状态
 
 ### 5.13 角色-自定义数据权限部门表 `tb_user_role_dept`
 
@@ -989,10 +990,10 @@ CREATE TABLE `tb_user_role_dept_expand` (
 - 当 `data_scope=CUSTOM_DEPT` 时，通过 `tb_user_role_dept_expand` 保存向下展开后的生效组织范围
 - 用户最终数据权限取全部角色中范围最宽的一档
 
-#### 业务类型与发起权限
-- 一个业务类型可配置多个发起主体
-- 发起主体可以是角色或部门
-- 通过 `tb_biz_type_initiator` 建模
+#### 业务定义与发起权限
+- 一个业务定义可配置多个发起主体
+- 当前基础版发起主体统一按角色配置
+- 通过 `tb_biz_definition_initiator` 建模
 - 用户命中任一发起主体，即可发起该业务
 
 ### 6.2 数据权限设计
@@ -1046,13 +1047,13 @@ AND tb_biz_apply.applicant_id = #{currentUserId}
 - 不应用于误拦截用户自己的资料、自己的申请单、自己的待办任务
 
 #### 业务发起权限
-- 控制“能发起哪些业务类型”
-- 发起权限由 `tb_biz_type_initiator` 定义，基础版按角色配置
+- 控制“能发起哪些业务定义”
+- 发起权限由 `tb_biz_definition_initiator` 定义，基础版按角色配置
 - 流程与业务绑定，用户不需要单独拥有某个流程的发起权限
 
 #### 流程规则
 - 控制“该业务提交后走哪条流程”“流程节点最终解析给谁审批”
-- 业务类型通过 `tb_biz_type.workflow_definition_id` 绑定流程定义
+- 业务定义通过 `tb_biz_definition.workflow_definition_id` 绑定流程定义
 - 审批人由 `tb_workflow_node_approver` 定义，可按用户、角色、组织、发起人主组织主管解析
 
 #### 统一口径
@@ -1113,7 +1114,7 @@ AND tb_biz_apply.applicant_id = #{currentUserId}
 
 ### 7.1 流程定义表 `tb_workflow_definition`
 
-流程模板的基本信息，支持版本管理。
+流程模板的基本信息，支持版本管理，并额外保留前端设计器提交的原始流程 JSON。
 
 ```sql
 CREATE TABLE `tb_workflow_definition` (
@@ -1122,8 +1123,8 @@ CREATE TABLE `tb_workflow_definition` (
   `code`         VARCHAR(64)  NOT NULL                COMMENT '流程编码（唯一标识）',
   `version`      INT          NOT NULL DEFAULT 1      COMMENT '版本号，从1开始递增',
   `description`  VARCHAR(500)                         COMMENT '流程描述',
+  `workflow_json` LONGTEXT                            COMMENT '前端流程设计原始JSON',
   `status`       TINYINT      NOT NULL DEFAULT 0      COMMENT '状态：0=草稿 1=已发布 2=已停用',
-  `biz_code`     VARCHAR(128)                         COMMENT '流程绑定业务编码，值与 tb_biz_definition.biz_code 保持一致，如 LEAVE、EXPENSE',
   `created_by`   BIGINT       NOT NULL                COMMENT '创建人ID',
   `created_at`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
@@ -1141,23 +1142,22 @@ CREATE TABLE `tb_workflow_definition` (
 | `code` | `VARCHAR(64)` | 同一流程的多个版本共享相同 code |
 | `version` | `INT` | 每次发布新版本递增，旧版本归档 |
 | `status` | `TINYINT` | 同一 code 下只能有一个已发布版本 |
-| `biz_code` | `VARCHAR(128)` | 流程侧业务绑定字段，值与 `tb_biz_definition.biz_code` 保持一致，如 `LEAVE`、`EXPENSE` |
+| `workflow_json` | `LONGTEXT` | 前端流程设计器提交的原始 JSON，用于详情回显和前端直接渲染 |
 
 ### 7.2 流程节点表 `tb_workflow_node`
 
-定义流程中的每个节点及其配置。
+定义流程中的每个节点及其配置。前端节点 `id` 仅作为保存时的解析辅助信息，不再单独落表。
 
 ```sql
 CREATE TABLE `tb_workflow_node` (
   `id`               BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `definition_id`    BIGINT       NOT NULL               COMMENT '所属流程定义ID',
-  `code`             VARCHAR(64)  NOT NULL               COMMENT '节点编码（定义内唯一）',
   `name`             VARCHAR(100) NOT NULL               COMMENT '节点名称',
   `node_type`        VARCHAR(32)  NOT NULL               COMMENT '节点类型：START/APPROVAL/CONDITION/PARALLEL_SPLIT/PARALLEL_JOIN/END',
   `approve_mode`     VARCHAR(16)                         COMMENT '多人审批模式：AND=会签 OR=或签 SEQUENTIAL=顺签（仅APPROVAL节点有效）',
-  `timeout_hours`    INT                                 COMMENT '超时时限（小时），NULL表示不限时',
+  `timeout_minutes`  INT                                 COMMENT '超时时限（分钟），NULL表示不限时',
   `timeout_action`   VARCHAR(16)                         COMMENT '超时处理策略：AUTO_APPROVE=自动通过 AUTO_REJECT=自动拒绝 NOTIFY_ONLY=仅提醒',
-  `remind_hours`     INT                                 COMMENT '提醒时限（小时），到达后发送催办通知',
+  `remind_minutes`   INT                                 COMMENT '提醒时限（分钟），到达后发送催办通知',
   `position_x`       INT          NOT NULL DEFAULT 0     COMMENT '节点在画布上的X坐标（前端渲染用）',
   `position_y`       INT          NOT NULL DEFAULT 0     COMMENT '节点在画布上的Y坐标（前端渲染用）',
   `config_json`      JSON                                COMMENT '节点扩展配置（按节点类型存储附加参数）',
@@ -1165,7 +1165,6 @@ CREATE TABLE `tb_workflow_node` (
   `updated_at`       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `is_deleted`       TINYINT      NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_definition_code` (`definition_id`, `code`),
   KEY `idx_definition_id` (`definition_id`)
 ) ENGINE=InnoDB COMMENT='流程节点表';
 ```
@@ -1175,23 +1174,59 @@ CREATE TABLE `tb_workflow_node` (
 配置每个审批节点的审批人来源（静态配置）。
 
 说明：
-- 本表解决的是“节点审批时由谁来审批”，与 `tb_biz_type_initiator` 的“谁可以发起业务”不是同一层含义
-- 当前设计中，`tb_biz_type_initiator` 已明确采用“一条记录对应一个发起主体”的范式
-- `tb_workflow_node_approver` 由于存在顺签、会签、动态解析等场景，当前保留 `approver_value` 支持单值或逗号分隔多个值的写法；如果后续希望与发起权限保持完全一致，也可以再拆成“一条审批主体一条记录”的范式
+- 本表解决的是“节点审批时由谁来审批”，与 `tb_biz_definition_initiator` 的“谁可以发起业务”不是同一层含义
+- `tb_workflow_node_approver` 采用“一条记录对应一个审批主体”的范式，不允许再使用逗号拼接多个值
+- 直接审批人配置表冗余 `definition_id`，便于按流程定义直接查询审批人配置，并与版本隔离保持一致
 
 ```sql
 CREATE TABLE `tb_workflow_node_approver` (
   `id`              BIGINT      NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `definition_id`   BIGINT      NOT NULL               COMMENT '所属流程定义ID',
   `node_id`         BIGINT      NOT NULL               COMMENT '所属节点ID',
   `approver_type`   VARCHAR(16) NOT NULL               COMMENT '审批人类型：USER=指定用户 ROLE=角色 DEPT=部门 INITIATOR_DEPT_LEADER=发起人部门主管',
-  `approver_value`  VARCHAR(256) NOT NULL              COMMENT '审批人值：用户ID/角色ID/部门ID（当前设计允许单值或逗号分隔多个）',
+  `approver_value`  VARCHAR(256) NOT NULL              COMMENT '审批人值：单个用户ID/角色ID/组织ID',
   `sort_order`      INT         NOT NULL DEFAULT 0     COMMENT '顺序（SEQUENTIAL模式下有效）',
   `created_at`      DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `is_deleted`      TINYINT     NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
+  KEY `idx_definition_id` (`definition_id`),
   KEY `idx_node_id` (`node_id`)
 ) ENGINE=InnoDB COMMENT='节点审批人配置表';
 ```
+
+### 7.3.1 节点审批组织展开表 `tb_workflow_node_approver_dept_expand`
+
+`tb_workflow_node_approver_dept_expand` 只保存 `approver_type=DEPT` 的审批人向下展开后的当前有效组织范围。
+
+```sql
+CREATE TABLE `tb_workflow_node_approver_dept_expand` (
+  `id`               BIGINT      NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `approver_id`      BIGINT      NOT NULL               COMMENT '来源审批人配置ID',
+  `node_id`          BIGINT      NOT NULL               COMMENT '来源流程节点ID',
+  `definition_id`    BIGINT      NOT NULL               COMMENT '来源流程定义ID',
+  `source_dept_id`   BIGINT      NOT NULL               COMMENT '来源直接配置组织ID',
+  `source_org_type`  VARCHAR(32) NOT NULL               COMMENT '来源组织类型冗余',
+  `source_post_type` VARCHAR(64) DEFAULT NULL           COMMENT '来源岗位类型冗余，非岗位来源为空',
+  `dept_id`          BIGINT      NOT NULL               COMMENT '展开后的目标组织ID',
+  `org_type`         VARCHAR(32) NOT NULL               COMMENT '目标组织类型冗余',
+  `post_type`        VARCHAR(64) DEFAULT NULL           COMMENT '目标岗位类型冗余，非岗位目标为空',
+  `relation_type`    VARCHAR(16) NOT NULL               COMMENT '关系类型：SELF/DESCENDANT',
+  `distance`         INT         NOT NULL DEFAULT 0     COMMENT '展开距离：自身=0，直接下级=1',
+  `created_at`       DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_approver_dept` (`approver_id`, `dept_id`),
+  KEY `idx_node_id` (`node_id`),
+  KEY `idx_definition_id` (`definition_id`),
+  KEY `idx_source_dept_id` (`source_dept_id`),
+  KEY `idx_dept_id` (`dept_id`)
+) ENGINE=InnoDB COMMENT='工作流节点审批组织展开关系表';
+```
+
+设计约束：
+- 仅当 `approver_type=DEPT` 时维护展开记录。
+- 每条直接审批组织关系必须至少生成 1 条 `SELF` 记录。
+- 展开方向固定为向下展开，仅保存当前有效组织节点。
+- 流程定义保存时，审批 direct 配置写入完成后，按最新 direct 结果全量重建该定义下的审批组织展开关系。
 
 ### 7.4 流转条件表 `tb_workflow_transition`
 
@@ -1221,7 +1256,7 @@ CREATE TABLE `tb_workflow_transition` (
 - `label`：用于流程设计器展示，例如“金额大于5000”“默认分支”
 
 运行时作用过程：
-1. 当前节点处理完成后，系统根据当前流程实例绑定的 `definition_id` 和当前节点 `code` 查询所有出边
+1. 当前节点处理完成后，系统根据当前流程实例绑定的 `definition_id` 和当前节点 `id` 查询所有出边
 2. 从 `tb_workflow_transition` 中读取 `from_node_id = 当前节点ID` 的所有记录
 3. 按 `priority` 升序依次判断每条连线的 `condition_expr`
 4. 若 `condition_expr` 为 `NULL`，表示该连线可作为无条件或兜底路径
@@ -1237,10 +1272,10 @@ CREATE TABLE `tb_workflow_transition` (
 示例：费用报销流程按金额分支
 
 假设某报销流程 `definition_id=20` 中存在以下节点：
-- `start`：开始节点
-- `dept_leader`：部门负责人审批
-- `finance_director`：财务总监审批
-- `end`：结束节点
+- `1001`：开始节点
+- `1002`：部门负责人审批
+- `1003`：财务总监审批
+- `1004`：结束节点
 
 业务规则：
 - 报销金额 `amount <= 5000` 时，部门负责人通过后直接结束
@@ -1257,31 +1292,31 @@ CREATE TABLE `tb_workflow_transition` (
 
 示例运行过程：
 - 当报销单金额为 `3000`：
-  - `start` 完成后，无条件流转到 `dept_leader`
-  - `dept_leader` 审批通过后，先判断 `amount > 5000`，结果为 false
+  - 开始节点完成后，无条件流转到部门负责人审批节点
+  - 部门负责人审批通过后，先判断 `amount > 5000`，结果为 false
   - 再命中 `condition_expr = NULL` 的默认分支
-  - 流程流转到 `end`，审批结束
+  - 流程流转到结束节点，审批结束
 - 当报销单金额为 `12000`：
-  - `start` 完成后，无条件流转到 `dept_leader`
-  - `dept_leader` 审批通过后，判断 `amount > 5000`，结果为 true
-  - 流程流转到 `finance_director`
-  - `finance_director` 审批通过后，再无条件流转到 `end`
+  - 开始节点完成后，无条件流转到部门负责人审批节点
+  - 部门负责人审批通过后，判断 `amount > 5000`，结果为 true
+  - 流程流转到财务总监审批节点
+  - 财务总监审批通过后，再无条件流转到结束节点
 
 配套节点配置示例：
 
-| definition_id | code | name | node_type | approve_mode |
-|---------------|------|------|-----------|--------------|
-| 20 | `start` | 开始 | `START` | `NULL` |
-| 20 | `dept_leader` | 部门负责人审批 | `APPROVAL` | `AND` |
-| 20 | `finance_director` | 财务总监审批 | `APPROVAL` | `AND` |
-| 20 | `end` | 结束 | `END` | `NULL` |
+| definition_id | id | name | node_type | approve_mode |
+|---------------|----|------|-----------|--------------|
+| 20 | `1001` | 开始 | `START` | `NULL` |
+| 20 | `1002` | 部门负责人审批 | `APPROVAL` | `AND` |
+| 20 | `1003` | 财务总监审批 | `APPROVAL` | `AND` |
+| 20 | `1004` | 结束 | `END` | `NULL` |
 
 对应的审批人配置示例：
 
-| node_code | approver_type | approver_value | 说明 |
-|-----------|---------------|----------------|------|
-| `dept_leader` | `INITIATOR_DEPT_LEADER` | `0` 或固定占位值 | 动态解析发起人主部门主管 |
-| `finance_director` | `ROLE` | 财务总监角色ID | 解析该角色下有效用户 |
+| node_id | approver_type | approver_value | 说明 |
+|---------|---------------|----------------|------|
+| `1002` | `INITIATOR_DEPT_LEADER` | `0` 或固定占位值 | 动态解析发起人主部门主管 |
+| `1003` | `ROLE` | 财务总监角色ID | 解析该角色下有效用户 |
 
 ASCII 流程图示例：
 
@@ -1327,7 +1362,7 @@ CREATE TABLE `tb_workflow_instance` (
   `initiator_id`     BIGINT       NOT NULL               COMMENT '发起人用户ID',
   `initiator_name`   VARCHAR(64)  NOT NULL               COMMENT '发起人姓名（冗余）',
   `form_data`        JSON                                COMMENT '业务申请数据快照',
-  `current_node_code` VARCHAR(64)                        COMMENT '当前所在节点编码',
+  `current_node_id`   BIGINT                              COMMENT '当前所在节点ID',
   `started_at`       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '发起时间',
   `finished_at`      DATETIME                            COMMENT '完成时间',
   `created_at`       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1349,14 +1384,13 @@ CREATE TABLE `tb_workflow_node_instance` (
   `id`              BIGINT      NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `instance_id`     BIGINT      NOT NULL               COMMENT '所属流程实例ID',
   `node_id`         BIGINT      NOT NULL               COMMENT '对应的节点定义ID',
-  `node_code`       VARCHAR(64) NOT NULL               COMMENT '节点编码',
   `node_name`       VARCHAR(100) NOT NULL              COMMENT '节点名称（冗余）',
   `node_type`       VARCHAR(32) NOT NULL               COMMENT '节点类型（冗余）',
   `status`          VARCHAR(16) NOT NULL DEFAULT 'PENDING' COMMENT '状态：PENDING=待激活 ACTIVE=进行中 APPROVED=已通过 REJECTED=已拒绝 SKIPPED=已跳过 TIMEOUT=已超时',
   `approve_mode`    VARCHAR(16)                        COMMENT '审批模式（冗余）',
   `activated_at`    DATETIME                           COMMENT '节点激活时间',
   `finished_at`     DATETIME                           COMMENT '节点完成时间',
-  `deadline_at`     DATETIME                           COMMENT '超时截止时间（activated_at + timeout_hours）',
+  `deadline_at`     DATETIME                           COMMENT '超时截止时间（activated_at + timeout_minutes）',
   `remind_at`       DATETIME                           COMMENT '催办提醒时间',
   `is_reminded`     TINYINT     NOT NULL DEFAULT 0     COMMENT '是否已发送催办通知',
   `remark`          VARCHAR(500)                       COMMENT '节点备注（如自动处理原因）',
@@ -1428,7 +1462,9 @@ CREATE TABLE `tb_workflow_approval_record` (
    - 必须有且仅有一个 `START` 节点和至少一个 `END` 节点
    - 所有节点可达，不存在孤立节点
    - `APPROVAL` 节点必须配置至少一个审批人
-4. 修改已发布流程时，需新建版本（递增 `version`），旧版本归档
+4. 流程定义新增、修改时，前端统一提交 `workFlowJson`，后端负责解析并落到定义、节点、审批人、连线表
+5. `DEPT` 类型审批人保存后，需同步全量重建 `tb_workflow_node_approver_dept_expand`
+6. 修改已发布或已停用流程时，需新建版本（递增 `version`），旧版本保持原状态，直到新草稿被手动发布
 5. 已运行实例继续使用原版本，新发起实例使用最新已发布版本
 
 ### 9.2 流程版本发布与归档机制
@@ -1437,30 +1473,26 @@ CREATE TABLE `tb_workflow_approval_record` (
 
 触发时机：
 - 编辑草稿流程：直接修改当前草稿版本，不新增 `version`
-- 编辑已发布流程：不得直接修改原已发布版本，系统需基于当前已发布版本复制出一个新草稿版本
+- 编辑已发布流程：不直接修改原已发布版本，系统根据最新提交内容新建一条草稿版本
+- 编辑已停用流程：与编辑已发布流程保持同一处理逻辑，新建一条草稿版本
 - 发布草稿流程：执行发布校验，通过后切换生效版本
 
 发布相关表：
-- 定义层会变化的表：`tb_workflow_definition`、`tb_workflow_node`、`tb_workflow_transition`、`tb_workflow_node_approver`
+- 定义层会变化的表：`tb_workflow_definition`、`tb_workflow_node`、`tb_workflow_transition`、`tb_workflow_node_approver`、`tb_workflow_node_approver_dept_expand`
 - 运行层不会因发布新版本而修改的表：`tb_workflow_instance`、`tb_workflow_node_instance`、`tb_workflow_node_approver_instance`、`tb_workflow_approval_record`
 - 业务单据表 `tb_biz_apply` 不因流程新版本发布而回写或迁移历史数据
 
-编辑已发布流程时的数据变化：
-1. 查询当前已发布版本，例如 `code=LEAVE_APPROVAL, version=1, status=1`
-2. 在 `tb_workflow_definition` 新增一条草稿记录：
+编辑流程时的数据变化：
+1. 若当前版本为草稿：
+   - 直接更新当前 `tb_workflow_definition`
+   - 按最新 `workFlowJson` 删除并重建当前版本的节点、审批人、审批组织展开、连线
+2. 若当前版本为已发布或已停用：
+   - 在 `tb_workflow_definition` 新增一条草稿记录
    - `code` 与原版本保持一致
    - `version = 当前最大版本号 + 1`
    - `status = 0`
-3. 复制原版本对应的节点定义到新版本：
-   - 复制 `tb_workflow_node`
-   - 新记录的 `definition_id` 指向新版本的 `tb_workflow_definition.id`
-4. 复制原版本对应的流转定义到新版本：
-   - 复制 `tb_workflow_transition`
-   - 新记录的 `definition_id` 指向新版本的 `tb_workflow_definition.id`
-5. 复制原版本对应的审批人配置到新版本：
-   - 按节点 `code` 建立新旧节点映射关系
-   - 将旧节点下的 `tb_workflow_node_approver` 复制到新节点下
-6. 后续所有设计器修改都只作用于这个新草稿版本
+   - `workflow_json` 直接保存本次最新提交内容
+   - 节点、审批人、审批组织展开、连线全部按最新 `workFlowJson` 重新解析写入，不复制旧子表数据
 
 点击发布时的数据变化：
 1. 校验当前草稿版本：
@@ -1482,9 +1514,9 @@ CREATE TABLE `tb_workflow_approval_record` (
   - 只有新发起实例才会使用最新已发布版本
 
 与业务单据的关系：
-- 业务单据提交审批时，系统先根据 `tb_biz_apply.biz_code` 查询 `tb_biz_type.workflow_definition_id`
+- 业务单据提交审批时，系统先根据 `tb_biz_apply.biz_code` 查询 `tb_biz_definition.workflow_definition_id`
 - 创建流程实例时，将该 `workflow_definition_id` 写入 `tb_workflow_instance.definition_id`
-- 若某业务类型后续改绑到新的流程定义版本，则只有改绑后新提交的单据会使用新的 `definition_id`
+- 若某业务定义后续改绑到新的流程定义版本，则只有改绑后新提交的单据会使用新的 `definition_id`
 - 已提交单据关联的 `workflow_instance_id` 不因流程发布新版本或业务重新绑定流程而变化
 
 示例：
@@ -1498,18 +1530,19 @@ CREATE TABLE `tb_workflow_approval_record` (
 实现建议：
 - “归档”在当前表结构中用 `tb_workflow_definition.status=2` 表达
 - 编辑已发布流程时，建议前端显式提示“将创建新版本草稿”
-- 复制审批人配置时，建议以 `code` 作为新旧节点映射依据，而不是旧节点主键 ID
+- 流程定义详情建议直接返回 `workFlowJson`，前端优先使用原始 JSON 回显画布
+- 审批人 direct 配置必须是一条记录一个主体，`approver_value` 不允许逗号拼接
 - 发布动作必须加事务，保证定义主表、节点、连线、审批人配置的版本切换一致
 
 ### 9.3 发起审批
 
 前置校验：
-- 根据业务类型查询 `tb_biz_type`，验证业务是否存在、是否启用，以及是否已配置 `workflow_definition_id`
-- 根据业务类型查询 `tb_biz_type_initiator`，验证当前用户所在角色是否有权发起该业务
-- 根据 `tb_biz_type.workflow_definition_id` 查询对应流程定义，确认流程定义存在且可用于发起
+- 根据业务定义查询 `tb_biz_definition`，验证业务是否存在、是否启用，以及是否已配置 `workflow_definition_id`
+- 根据业务定义查询 `tb_biz_definition_initiator`，验证当前用户所在角色是否有权发起该业务
+- 根据 `tb_biz_definition.workflow_definition_id` 查询对应流程定义，确认流程定义存在且可用于发起
 
 发起步骤：
-1. 业务单据提交时，先根据 `tb_biz_apply.biz_code` 查询 `tb_biz_type`，获取对应的 `workflow_definition_id`
+1. 业务单据提交时，先根据 `tb_biz_apply.biz_code` 查询 `tb_biz_definition`，获取对应的 `workflow_definition_id`
 2. 在 `tb_workflow_instance` 创建实例记录（`status=RUNNING`，`definition_id=workflow_definition_id`）
 3. 读取流程定义，找到 `START` 节点，激活从 `START` 出发的第一个节点
 4. 激活节点时：
@@ -1581,7 +1614,7 @@ CREATE TABLE `tb_workflow_approval_record` (
 
 ### 9.8 超时处理
 
-节点激活时根据 `timeout_hours` 计算 `deadline_at`，由定时任务扫描处理。
+节点激活时根据 `timeout_minutes` 计算 `deadline_at`，由定时任务扫描处理。
 
 ```sql
 SELECT * FROM tb_workflow_node_instance
@@ -1680,6 +1713,7 @@ PENDING ──────────────────────→ AC
 - 修改时 `username` 不允许修改，密码通过独立接口重置
 - 删除前检查是否存在进行中的审批任务
 - 用户角色与组织建议采用全量替换方式维护，变更后刷新权限缓存
+- 内置管理员账号 `admin` 作为系统保底账号，不允许执行修改、删除、重置密码、状态修改、角色分配、组织分配等写操作
 
 ### 11.2 角色管理
 
@@ -1698,6 +1732,7 @@ PENDING ──────────────────────→ AC
 - `code` 全局唯一且创建后不可修改
 - 停用角色后，不再参与新的权限加载和审批人解析
 - 删除角色前需先检查用户关联、业务发起权限引用和流程规则引用
+- 内置超级管理员角色 `ADMIN` 不允许修改、删除、停用、重分配菜单或重配数据权限
 
 ### 11.3 组织管理
 
@@ -1734,16 +1769,18 @@ PENDING ──────────────────────→ AC
 - 按钮类型必须配置 `permission`
 - `permission` 应保持全局唯一
 - 隐藏菜单不影响接口访问权限，只影响导航展示
+- 菜单 `type` 统一存储 `DIRECTORY/MENU/BUTTON` 字符串编码，不再使用 `1/2/3`
+- 新增菜单后自动授权给 `ADMIN` 角色，避免新菜单创建后无人可见
 
-### 11.5 业务类型管理
+### 11.5 业务定义管理
 
-业务类型管理维护系统支持的审批业务种类，是流程定义、业务申请和业务发起权限的基础配置。
+业务定义管理维护系统支持的审批业务种类，是流程定义、业务申请和业务发起权限的基础配置。
 
 核心功能：
-- 新增业务类型
-- 修改业务类型
-- 删除业务类型（软删除）
-- 查询业务类型列表
+- 新增业务定义
+- 修改业务定义
+- 删除业务定义（软删除）
+- 查询业务定义列表
 - 维护业务名称和业务说明
 - 配置默认流程定义
 - 配置业务发起权限
@@ -1751,11 +1788,11 @@ PENDING ──────────────────────→ AC
 
 关键规则：
 - `bizCode` 全局唯一且创建后不可修改
-- 业务类型通过 `workflow_definition_id` 直接绑定流程定义
+- 业务定义通过 `workflow_definition_id` 直接绑定流程定义
 - `workflow_definition_id` 必须指向有效流程定义，且应绑定到当前业务口径对应的流程
 - `tb_biz_apply.form_data` 仅保存业务申请数据快照，不再依赖独立业务配置明细表
-- 发起权限按业务类型配置在 `tb_biz_type_initiator` 中，不再按流程单独配置
-- 删除前需检查是否已被 `tb_biz_apply.biz_code` 或 `tb_biz_type_initiator.biz_code` 引用，并确认业务停用后再处理
+- 发起权限按业务定义配置在 `tb_biz_definition_initiator` 中，不再按流程单独配置
+- 删除前需检查是否已被 `tb_biz_apply.biz_code` 或 `tb_biz_definition_initiator.biz_code` 引用，并确认业务停用后再处理
 
 ### 11.6 字典管理
 
@@ -1883,15 +1920,15 @@ PENDING ──────────────────────→ AC
 - 用户名：`admin`
 - 密码：`admin123`
 
-### 12.6 业务类型模块 `/sys/biz`
+### 12.6 业务定义模块 `/sys/biz`
 
 | 接口路径 | 方法 | 说明 |
 |----------|------|------|
-| `/sys/biz/create` | POST | 新增业务类型 |
+| `/sys/biz/create` | POST | 新增业务定义 |
 | `/sys/biz/update` | POST | 修改业务名称、业务说明、默认流程定义、状态 |
-| `/sys/biz/delete` | POST | 删除业务类型 |
-| `/sys/biz/list` | GET | 查询业务列表 |
-| `/sys/biz/detail` | GET | 查询业务详情 |
+| `/sys/biz/delete` | POST | 删除业务定义 |
+| `/sys/biz/list` | GET | 查询业务定义列表 |
+| `/sys/biz/detail` | GET | 查询业务定义详情 |
 | `/sys/biz/initiators/update` | POST | 设置业务发起角色 |
 | `/sys/biz/initiators` | GET | 查询业务发起角色 |
 
@@ -1910,19 +1947,18 @@ PENDING ──────────────────────→ AC
 | `/sys/dict/item/delete` | POST | 删除字典项 |
 | `/sys/dict/item/status/update` | POST | 启用/停用字典项 |
 
-### 12.8 工作流模块 `/workflow`
+### 12.8 流程定义模块 `/sys/workflow-definition`
 
 | 接口 | 方法 | 说明 |
 |------|------|------|
-| `/workflow/definition/save` | POST | 创建/更新流程定义 |
-| `/workflow/definition/publish` | POST | 发布流程 |
-| `/workflow/instance/start` | POST | 发起审批 |
-| `/workflow/instance/approve` | POST | 审批通过 |
-| `/workflow/instance/reject` | POST | 审批拒绝 |
-| `/workflow/instance/delegate` | POST | 转交 |
-| `/workflow/instance/recall` | POST | 撤回 |
-| `/workflow/instance/records` | GET | 查询审批流水 |
-| `/workflow/task/todo` | GET | 查询当前用户待办任务 |
+| `/sys/workflow-definition/create` | POST | 新增流程定义 |
+| `/sys/workflow-definition/update` | POST | 修改流程定义 |
+| `/sys/workflow-definition/delete` | POST | 删除流程定义 |
+| `/sys/workflow-definition/list` | GET | 查询流程定义列表 |
+| `/sys/workflow-definition/page` | GET | 分页查询流程定义 |
+| `/sys/workflow-definition/detail` | GET | 查询流程定义详情 |
+| `/sys/workflow-definition/publish` | POST | 发布流程定义 |
+| `/sys/workflow-definition/disable` | POST | 停用流程定义 |
 
 ---
 
@@ -1930,13 +1966,13 @@ PENDING ──────────────────────→ AC
 
 ### 13.1 发起权限衔接
 
-- 流程与业务类型通过 `tb_biz_type.workflow_definition_id` 绑定
-- 发起权限配置在 `tb_biz_type_initiator`，按业务类型控制可发起角色范围
-- `tb_biz_type_initiator` 采用“一条记录对应一个角色”的方式存储，不在单条记录中混存多个角色 ID
+- 流程与业务定义通过 `tb_biz_definition.workflow_definition_id` 绑定
+- 发起权限配置在 `tb_biz_definition_initiator`，按业务定义控制可发起角色范围
+- `tb_biz_definition_initiator` 采用“一条记录对应一个角色”的方式存储，不在单条记录中混存多个角色 ID
 - 用户发起审批时，系统同时检查：
   - 用户状态正常
-  - 当前业务类型存在且状态正常
-  - 当前业务类型已配置有效的 `workflow_definition_id`
+  - 当前业务定义存在且状态正常
+  - 当前业务定义已配置有效的 `workflow_definition_id`
   - 当前用户至少存在一个有效角色命中该业务的发起配置
   - 若业务单据要求记录部门归属，则取主组织作为默认 `dept_id`
 
@@ -1946,11 +1982,12 @@ PENDING ──────────────────────→ AC
 - `tb_workflow_node_approver.approver_type=ROLE`：按角色找出有效用户集合
 - `tb_workflow_node_approver.approver_type=DEPT`：按组织找出候选审批人或组织主管
 - `tb_workflow_node_approver.approver_type=INITIATOR_DEPT_LEADER`：按发起人主组织的 `leader_id` 解析
+- `tb_workflow_node_approver_dept_expand`：保存 `DEPT` 类型审批人的向下展开结果，组织树变更后需按受影响审批配置重建
 
 ### 13.3 变更影响检查
 
 - 用户停用时：检查是否存在待办审批、是否担任部门主管、是否被直接配置为审批人
-- 角色停用时：检查是否被 `tb_biz_type_initiator`、`tb_workflow_node_approver` 引用
+- 角色停用时：检查是否被 `tb_biz_definition_initiator`、`tb_workflow_node_approver` 引用
 - 组织停用或移动时：检查是否影响业务发起权限配置、审批人解析路径、数据权限口径
 - 菜单调整时：仅影响后台功能入口与接口访问，不应直接改变历史流程实例数据
 
@@ -1962,9 +1999,9 @@ PENDING ──────────────────────→ AC
 
 ### 13.5 业务申请数据衔接
 
-- 用户发起业务前，系统先按 `biz_code` 确认业务类型是否启用、当前用户角色是否具备发起权限，以及 `tb_biz_type.workflow_definition_id` 是否已配置
-- 页面表单可按业务类型分别实现，提交时统一写入 `tb_biz_apply.form_data`
-- 用户提交后，后端按业务类型做基础参数校验；校验通过后先读取 `workflow_definition_id`，再进入流程发起
+- 用户发起业务前，系统先按 `biz_code` 确认业务定义是否启用、当前用户角色是否具备发起权限，以及 `tb_biz_definition.workflow_definition_id` 是否已配置
+- 页面表单可按业务定义分别实现，提交时统一写入 `tb_biz_apply.form_data`
+- 用户提交后，后端按业务定义做基础参数校验；校验通过后先读取 `workflow_definition_id`，再进入流程发起
 - `tb_biz_apply.form_data` 作为业务数据快照保存，不直接依赖独立业务表结构配置
 
 ### 13.6 申请字典衔接
@@ -1973,7 +2010,7 @@ PENDING ──────────────────────→ AC
 - 前端渲染页面时，可根据业务场景按需加载对应字典类型的数据作为候选值
 - 表单提交时，仅校验提交值是否为指定字典类型下的有效 `item_value`
 - 审批流转过程中，`form_data` 作为业务快照参与条件判断和展示，历史单据不因字典文案调整而变更
-- `tb_biz_type` 负责定义业务类型，字典表负责定义业务中可复用的枚举项，两者共同支撑业务申请和审批流转
+- `tb_biz_definition` 负责定义业务定义，字典表负责定义业务中可复用的枚举项，两者共同支撑业务申请和审批流转
 
 ---
 
@@ -2015,12 +2052,12 @@ PENDING ──────────────────────→ AC
 
 ### 14.6 业务申请相关
 
-- `biz_code` 必须与 `tb_biz_type.biz_code` 保持一致，且业务停用后不可再发起新单据
-- `tb_biz_type.workflow_definition_id` 不能为空，且必须指向有效流程定义；未配置流程时不允许提交审批
+- `biz_code` 必须与 `tb_biz_definition.biz_code` 保持一致，且业务停用后不可再发起新单据
+- `tb_biz_definition.workflow_definition_id` 不能为空，且必须指向有效流程定义；未配置流程时不允许提交审批
 - `tb_biz_apply.form_data` 中的字段由具体业务场景自行约定，后端至少应校验必需参数是否齐全
-- 同一业务类型的申请数据结构允许逐步演进，但历史单据按已存快照展示，不强制回写旧数据
-- 业务类型改绑新的 `workflow_definition_id` 后，仅影响新提交单据，已创建实例继续沿用原 `definition_id`
-- 删除业务类型前，需检查是否已存在历史业务申请或业务发起权限引用
+- 同一业务定义的申请数据结构允许逐步演进，但历史单据按已存快照展示，不强制回写旧数据
+- 业务定义改绑新的 `workflow_definition_id` 后，仅影响新提交单据，已创建实例继续沿用原 `definition_id`
+- 删除业务定义前，需检查是否已存在历史业务申请或业务发起权限引用
 
 ### 14.7 字典相关
 
@@ -2050,7 +2087,7 @@ PENDING ──────────────────────→ AC
 - 子流程：审批节点支持嵌套调用另一个流程定义
 - 消息模板：通知内容可按流程类型配置不同模板
 - 接口级权限：后续可独立抽象 `tb_sys_permission`、`sys_role_permission`
-- 审批人配置范式化：后续可将 `tb_workflow_node_approver` 演进为“一条审批主体一条记录”的更规范模型
+- 审批组织展开：可继续沿用 `tb_workflow_node_approver_dept_expand` 的 direct / expand 设计，向更多动态审批主体扩展
 
 ---
 
@@ -2058,6 +2095,6 @@ PENDING ──────────────────────→ AC
 
 - 优先以本文件作为单文档闭环，不再拆出第二套系统权限设计文档
 - 开发表结构时直接复用本文件中 `biz_*`、`user_*`、`sys_*` 和 `workflow_*` 命名，避免并行体系
-- 接口设计优先围绕“用户、角色、组织、菜单、认证上下文、业务类型、工作流”七个模块展开
-- 发起入口优先按业务类型建设，不暴露“用户先选流程再发起”的交互模式
+- 接口设计优先围绕“用户、角色、组织、菜单、认证上下文、业务定义、工作流”七个模块展开
+- 发起入口优先按业务定义建设，不暴露“用户先选流程再发起”的交互模式
 - 权限中台先实现当前设计，待出现接口级细粒度授权需求后，再演进到独立权限点模型

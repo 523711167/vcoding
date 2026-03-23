@@ -92,6 +92,7 @@
 
 关键规则：
 - `biz_code` 全局唯一。
+- 业务定义与流程定义的绑定关系仅由 `tb_biz_definition.workflow_definition_id` 维护，`tb_workflow_definition` 不再冗余保存 `biz_code`。
 - 删除前需检查历史业务申请和发起权限引用。
 - 改绑流程仅影响新提交单据，不影响历史实例。
 

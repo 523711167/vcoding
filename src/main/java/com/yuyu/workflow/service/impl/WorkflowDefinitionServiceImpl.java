@@ -128,11 +128,10 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
             return detail(entity.getId());
         }
 
-        WorkflowDefinition entity = buildPublishedVersionEntity(eto, oldEntity);
+        assertNoDraftVersion(oldEntity.getCode());
+        WorkflowDefinition entity = buildNextDraftVersionEntity(eto, oldEntity);
         workflowDefinitionMapper.insert(entity);
         persistChildren(entity.getId(), parsedWorkflow.nodes(), parsedWorkflow.transitions());
-        disableOldVersions(oldEntity.getCode(), entity.getId());
-        publishDefinition(entity.getId());
         return detail(entity.getId());
     }
 
@@ -282,16 +281,16 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
     }
 
     /**
-     * 构造基于旧版本的新发布版本实体。
+     * 构造基于旧版本的新草稿版本实体。
      */
-    private WorkflowDefinition buildPublishedVersionEntity(WorkflowDefinitionUpdateETO eto, WorkflowDefinition oldEntity) {
+    private WorkflowDefinition buildNextDraftVersionEntity(WorkflowDefinitionUpdateETO eto, WorkflowDefinition oldEntity) {
         WorkflowDefinition entity = new WorkflowDefinition();
         entity.setName(eto.getName());
         entity.setCode(oldEntity.getCode());
         entity.setVersion(resolveNextVersion(oldEntity.getCode()));
         entity.setDescription(eto.getDescription());
         entity.setWorkflowJson(eto.getWorkFlowJson());
-        entity.setStatus(WorkflowDefinitionStatusEnum.PUBLISHED.getId());
+        entity.setStatus(WorkflowDefinitionStatusEnum.DRAFT.getId());
         entity.setCreatedBy(requireCurrentUserId(eto.getCurrentUserId()));
         return entity;
     }
@@ -325,34 +324,6 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
         if (Objects.nonNull(draft)) {
             throw new BizException("同一流程编码已存在未发布草稿");
         }
-    }
-
-    /**
-     * 将同流程编码下的旧版本统一调整为停用。
-     */
-    private void disableOldVersions(String code, Long latestId) {
-        List<WorkflowDefinition> oldVersionList = workflowDefinitionMapper.selectList(new LambdaQueryWrapper<WorkflowDefinition>()
-                .eq(WorkflowDefinition::getCode, code)
-                .ne(WorkflowDefinition::getId, latestId));
-        for (WorkflowDefinition oldVersion : oldVersionList) {
-            if (WorkflowDefinitionStatusEnum.DISABLED.getId().equals(oldVersion.getStatus())) {
-                continue;
-            }
-            WorkflowDefinition disabledEntity = new WorkflowDefinition();
-            disabledEntity.setId(oldVersion.getId());
-            disabledEntity.setStatus(WorkflowDefinitionStatusEnum.DISABLED.getId());
-            workflowDefinitionMapper.updateById(disabledEntity);
-        }
-    }
-
-    /**
-     * 发布指定流程定义版本。
-     */
-    private void publishDefinition(Long definitionId) {
-        WorkflowDefinition publishedEntity = new WorkflowDefinition();
-        publishedEntity.setId(definitionId);
-        publishedEntity.setStatus(WorkflowDefinitionStatusEnum.PUBLISHED.getId());
-        workflowDefinitionMapper.updateById(publishedEntity);
     }
 
     /**
@@ -595,6 +566,7 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
                     : Collections.emptyList();
             for (WorkflowNodeApproverETO approverETO : approverList) {
                 WorkflowNodeApprover approver = workflowDefinitionStructMapper.toApproverEntity(approverETO);
+                approver.setDefinitionId(definitionId);
                 approver.setNodeId(node.getId());
                 approver.setSortOrder(Objects.nonNull(approverETO.getSortOrder()) ? approverETO.getSortOrder() : 0);
                 workflowNodeApproverMapper.insert(approver);

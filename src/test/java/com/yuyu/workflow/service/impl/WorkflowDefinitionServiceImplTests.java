@@ -139,6 +139,9 @@ class WorkflowDefinitionServiceImplTests {
                 transitionCaptor.getAllValues().stream().map(WorkflowTransition::getFromNodeId).toList());
         assertEquals(List.of(1002L, 1003L),
                 transitionCaptor.getAllValues().stream().map(WorkflowTransition::getToNodeId).toList());
+        ArgumentCaptor<WorkflowNodeApprover> approverCaptor = ArgumentCaptor.forClass(WorkflowNodeApprover.class);
+        verify(workflowNodeApproverMapper).insert(approverCaptor.capture());
+        assertEquals(100L, approverCaptor.getValue().getDefinitionId());
         verify(workflowNodeApproverDeptExpandService).rebuildByApproverIds(List.of(2001L));
         assertEquals(eto.getWorkFlowJson(), result.getWorkFlowJson());
     }
@@ -191,7 +194,7 @@ class WorkflowDefinitionServiceImplTests {
     }
 
     @Test
-    void shouldCreateNewPublishedVersionWhenUpdatingPublishedDefinition() {
+    void shouldCreateNewDraftVersionWhenUpdatingPublishedDefinition() {
         WorkflowDefinitionUpdateETO eto = new WorkflowDefinitionUpdateETO();
         eto.setId(11L);
         eto.setCurrentUserId(9L);
@@ -200,12 +203,12 @@ class WorkflowDefinitionServiceImplTests {
         eto.setWorkFlowJson(buildWorkflowJson("2"));
 
         WorkflowDefinition oldEntity = buildDefinition(11L, WorkflowDefinitionStatusEnum.PUBLISHED.getId(), "LEAVE_APPROVAL", 1, "old");
-        WorkflowDefinition newEntity = buildDefinition(200L, WorkflowDefinitionStatusEnum.PUBLISHED.getId(), "LEAVE_APPROVAL", 2, eto.getWorkFlowJson());
+        WorkflowDefinition newEntity = buildDefinition(200L, WorkflowDefinitionStatusEnum.DRAFT.getId(), "LEAVE_APPROVAL", 2, eto.getWorkFlowJson());
 
         when(workflowDefinitionMapper.selectById(11L)).thenReturn(oldEntity);
         when(workflowDefinitionMapper.selectMaxVersionByCode("LEAVE_APPROVAL")).thenReturn(1);
         when(workflowDefinitionMapper.selectById(200L)).thenReturn(newEntity);
-        when(workflowDefinitionMapper.selectList(any())).thenReturn(List.of(oldEntity));
+        when(workflowDefinitionMapper.selectOne(any())).thenReturn(null);
         when(workflowNodeMapper.selectList(any())).thenReturn(Collections.emptyList());
         when(workflowTransitionMapper.selectList(any())).thenReturn(Collections.emptyList());
 
@@ -227,20 +230,15 @@ class WorkflowDefinitionServiceImplTests {
         ArgumentCaptor<WorkflowDefinition> insertCaptor = ArgumentCaptor.forClass(WorkflowDefinition.class);
         verify(workflowDefinitionMapper).insert(insertCaptor.capture());
         assertEquals(2, insertCaptor.getValue().getVersion());
-        assertEquals(WorkflowDefinitionStatusEnum.PUBLISHED.getId(), insertCaptor.getValue().getStatus());
+        assertEquals(WorkflowDefinitionStatusEnum.DRAFT.getId(), insertCaptor.getValue().getStatus());
         assertEquals(9L, insertCaptor.getValue().getCreatedBy());
-
-        ArgumentCaptor<WorkflowDefinition> updateCaptor = ArgumentCaptor.forClass(WorkflowDefinition.class);
-        verify(workflowDefinitionMapper, times(2)).updateById(updateCaptor.capture());
-        assertEquals(List.of(11L, 200L), updateCaptor.getAllValues().stream().map(WorkflowDefinition::getId).toList());
-        assertEquals(List.of(WorkflowDefinitionStatusEnum.DISABLED.getId(), WorkflowDefinitionStatusEnum.PUBLISHED.getId()),
-                updateCaptor.getAllValues().stream().map(WorkflowDefinition::getStatus).toList());
+        verify(workflowDefinitionMapper, never()).updateById(any(WorkflowDefinition.class));
         verify(workflowNodeApproverDeptExpandService).rebuildByApproverIds(List.of(2001L));
         assertEquals(200L, result.getId());
     }
 
     @Test
-    void shouldCreateNewPublishedVersionWhenUpdatingDisabledDefinition() {
+    void shouldCreateNewDraftVersionWhenUpdatingDisabledDefinition() {
         WorkflowDefinitionUpdateETO eto = new WorkflowDefinitionUpdateETO();
         eto.setId(12L);
         eto.setCurrentUserId(9L);
@@ -249,13 +247,12 @@ class WorkflowDefinitionServiceImplTests {
         eto.setWorkFlowJson(buildWorkflowJson("2"));
 
         WorkflowDefinition disabledEntity = buildDefinition(12L, WorkflowDefinitionStatusEnum.DISABLED.getId(), "LEAVE_APPROVAL", 1, "old");
-        WorkflowDefinition publishedEntity = buildDefinition(13L, WorkflowDefinitionStatusEnum.PUBLISHED.getId(), "LEAVE_APPROVAL", 2, "old-published");
-        WorkflowDefinition newEntity = buildDefinition(201L, WorkflowDefinitionStatusEnum.PUBLISHED.getId(), "LEAVE_APPROVAL", 3, eto.getWorkFlowJson());
+        WorkflowDefinition newEntity = buildDefinition(201L, WorkflowDefinitionStatusEnum.DRAFT.getId(), "LEAVE_APPROVAL", 3, eto.getWorkFlowJson());
 
         when(workflowDefinitionMapper.selectById(12L)).thenReturn(disabledEntity);
         when(workflowDefinitionMapper.selectMaxVersionByCode("LEAVE_APPROVAL")).thenReturn(2);
         when(workflowDefinitionMapper.selectById(201L)).thenReturn(newEntity);
-        when(workflowDefinitionMapper.selectList(any())).thenReturn(List.of(disabledEntity, publishedEntity));
+        when(workflowDefinitionMapper.selectOne(any())).thenReturn(null);
         when(workflowNodeMapper.selectList(any())).thenReturn(Collections.emptyList());
         when(workflowTransitionMapper.selectList(any())).thenReturn(Collections.emptyList());
 
@@ -277,13 +274,8 @@ class WorkflowDefinitionServiceImplTests {
         ArgumentCaptor<WorkflowDefinition> insertCaptor = ArgumentCaptor.forClass(WorkflowDefinition.class);
         verify(workflowDefinitionMapper).insert(insertCaptor.capture());
         assertEquals(3, insertCaptor.getValue().getVersion());
-        assertEquals(WorkflowDefinitionStatusEnum.PUBLISHED.getId(), insertCaptor.getValue().getStatus());
-
-        ArgumentCaptor<WorkflowDefinition> updateCaptor = ArgumentCaptor.forClass(WorkflowDefinition.class);
-        verify(workflowDefinitionMapper, times(2)).updateById(updateCaptor.capture());
-        assertEquals(List.of(13L, 201L), updateCaptor.getAllValues().stream().map(WorkflowDefinition::getId).toList());
-        assertEquals(List.of(WorkflowDefinitionStatusEnum.DISABLED.getId(), WorkflowDefinitionStatusEnum.PUBLISHED.getId()),
-                updateCaptor.getAllValues().stream().map(WorkflowDefinition::getStatus).toList());
+        assertEquals(WorkflowDefinitionStatusEnum.DRAFT.getId(), insertCaptor.getValue().getStatus());
+        verify(workflowDefinitionMapper, never()).updateById(any(WorkflowDefinition.class));
         assertEquals(201L, result.getId());
     }
 

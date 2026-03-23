@@ -5,11 +5,55 @@
 -- 4. tb_workflow_definition 新增 workflow_json，保存前端流程设计原始 JSON。
 -- 5. tb_workflow_node 不再保留 code 字段，节点前端 ID 仅用于保存时解析，不再单独落库。
 -- 6. 工作流节点超时与提醒字段统一使用分钟口径。
+-- 7. tb_workflow_node_approver 冗余 definition_id，便于按流程定义直接查询审批人配置。
 
 USE `yuyu`;
 
 ALTER TABLE `tb_workflow_node_approver`
     MODIFY COLUMN `approver_value` VARCHAR(256) NOT NULL COMMENT '审批人值：单个用户ID/角色ID/组织ID，不允许逗号拼接多个值';
+
+SET @add_workflow_node_approver_definition_id_sql = (
+  SELECT IF(
+    EXISTS(
+      SELECT 1
+      FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'tb_workflow_node_approver'
+        AND COLUMN_NAME = 'definition_id'
+    ),
+    'SELECT 1',
+    'ALTER TABLE `tb_workflow_node_approver` ADD COLUMN `definition_id` BIGINT NULL COMMENT ''所属流程定义ID'' AFTER `id`'
+  )
+);
+PREPARE stmt_add_workflow_node_approver_definition_id FROM @add_workflow_node_approver_definition_id_sql;
+EXECUTE stmt_add_workflow_node_approver_definition_id;
+DEALLOCATE PREPARE stmt_add_workflow_node_approver_definition_id;
+
+UPDATE `tb_workflow_node_approver` approver
+INNER JOIN `tb_workflow_node` node
+   ON node.`id` = approver.`node_id`
+SET approver.`definition_id` = node.`definition_id`
+WHERE approver.`definition_id` IS NULL;
+
+ALTER TABLE `tb_workflow_node_approver`
+    MODIFY COLUMN `definition_id` BIGINT NOT NULL COMMENT '所属流程定义ID';
+
+SET @add_workflow_node_approver_definition_id_index_sql = (
+  SELECT IF(
+    EXISTS(
+      SELECT 1
+      FROM information_schema.STATISTICS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'tb_workflow_node_approver'
+        AND INDEX_NAME = 'idx_definition_id'
+    ),
+    'SELECT 1',
+    'ALTER TABLE `tb_workflow_node_approver` ADD INDEX `idx_definition_id` (`definition_id`)'
+  )
+);
+PREPARE stmt_add_workflow_node_approver_definition_id_index FROM @add_workflow_node_approver_definition_id_index_sql;
+EXECUTE stmt_add_workflow_node_approver_definition_id_index;
+DEALLOCATE PREPARE stmt_add_workflow_node_approver_definition_id_index;
 
 SET @drop_workflow_definition_biz_code_sql = (
   SELECT IF(
