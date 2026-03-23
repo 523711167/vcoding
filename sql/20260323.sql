@@ -6,6 +6,7 @@
 -- 5. tb_workflow_node 不再保留 code 字段，节点前端 ID 仅用于保存时解析，不再单独落库。
 -- 6. 工作流节点超时与提醒字段统一使用分钟口径。
 -- 7. tb_workflow_node_approver 冗余 definition_id，便于按流程定义直接查询审批人配置。
+-- 8. 业务定义表统一使用 tb_biz_definition，不再沿用 tb_biz_type 命名。
 
 USE `yuyu`;
 
@@ -254,3 +255,64 @@ INNER JOIN `tb_user_dept` target_dept
 WHERE approver.`is_deleted` = 0
   AND approver.`approver_type` = 'DEPT'
   AND approver.`approver_value` REGEXP '^[0-9]+$';
+
+SET @rename_biz_type_to_definition_sql = (
+  SELECT IF(
+    EXISTS(
+      SELECT 1
+      FROM information_schema.TABLES
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'tb_biz_type'
+    ) AND NOT EXISTS(
+      SELECT 1
+      FROM information_schema.TABLES
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'tb_biz_definition'
+    ),
+    'RENAME TABLE `tb_biz_type` TO `tb_biz_definition`',
+    'SELECT 1'
+  )
+);
+PREPARE stmt_rename_biz_type_to_definition FROM @rename_biz_type_to_definition_sql;
+EXECUTE stmt_rename_biz_type_to_definition;
+DEALLOCATE PREPARE stmt_rename_biz_type_to_definition;
+
+CREATE TABLE IF NOT EXISTS `tb_biz_definition` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `biz_code` VARCHAR(64) NOT NULL COMMENT '业务编码（全局唯一）',
+  `biz_name` VARCHAR(128) NOT NULL COMMENT '业务名称',
+  `biz_desc` VARCHAR(500) DEFAULT NULL COMMENT '业务描述',
+  `workflow_definition_id` BIGINT NOT NULL COMMENT '绑定的流程定义ID',
+  `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态：1=正常 0=停用',
+  `created_by` BIGINT NOT NULL COMMENT '创建人用户ID',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `is_deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '软删除标记：0=正常 1=已删除',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_biz_code` (`biz_code`),
+  KEY `idx_workflow_definition_id` (`workflow_definition_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='业务定义表';
+
+SET @add_biz_definition_created_by_sql = (
+  SELECT IF(
+    EXISTS(
+      SELECT 1
+      FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'tb_biz_definition'
+        AND COLUMN_NAME = 'created_by'
+    ),
+    'SELECT 1',
+    'ALTER TABLE `tb_biz_definition` ADD COLUMN `created_by` BIGINT NULL COMMENT ''创建人用户ID'' AFTER `status`'
+  )
+);
+PREPARE stmt_add_biz_definition_created_by FROM @add_biz_definition_created_by_sql;
+EXECUTE stmt_add_biz_definition_created_by;
+DEALLOCATE PREPARE stmt_add_biz_definition_created_by;
+
+UPDATE `tb_biz_definition`
+SET `created_by` = 1
+WHERE `created_by` IS NULL;
+
+ALTER TABLE `tb_biz_definition`
+    MODIFY COLUMN `created_by` BIGINT NOT NULL COMMENT '创建人用户ID';
