@@ -3,9 +3,7 @@ package com.yuyu.workflow.convert;
 import com.yuyu.workflow.common.mapstruct.BaseMapper;
 import com.yuyu.workflow.config.MapStructConfig;
 import com.yuyu.workflow.eto.workflow.WorkflowDefinitionCreateETO;
-import com.yuyu.workflow.eto.workflow.WorkflowDefinitionDisableETO;
 import com.yuyu.workflow.eto.workflow.WorkflowDefinitionNodeETO;
-import com.yuyu.workflow.eto.workflow.WorkflowDefinitionPublishETO;
 import com.yuyu.workflow.eto.workflow.WorkflowDefinitionUpdateETO;
 import com.yuyu.workflow.eto.workflow.WorkflowNodeApproverETO;
 import com.yuyu.workflow.eto.workflow.WorkflowTransitionETO;
@@ -27,6 +25,7 @@ import org.mapstruct.Mapping;
 public interface WorkflowDefinitionStructMapper extends BaseMapper<WorkflowDefinition, WorkflowDefinitionVO> {
 
     @Override
+    @Mapping(target = "workFlowJson", source = "workflowJson")
     @Mapping(target = "statusMsg", ignore = true)
     @Mapping(target = "nodeList", ignore = true)
     @Mapping(target = "transitionList", ignore = true)
@@ -39,6 +38,7 @@ public interface WorkflowDefinitionStructMapper extends BaseMapper<WorkflowDefin
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "isDeleted", ignore = true)
+    @Mapping(target = "workflowJson", source = "workFlowJson")
     WorkflowDefinition toEntity(WorkflowDefinitionCreateETO eto);
 
     @Mapping(target = "id", source = "oldEntity.id")
@@ -51,7 +51,7 @@ public interface WorkflowDefinitionStructMapper extends BaseMapper<WorkflowDefin
     @Mapping(target = "isDeleted", ignore = true)
     @Mapping(target = "name", source = "eto.name")
     @Mapping(target = "description", source = "eto.description")
-    @Mapping(target = "bizCode", source = "eto.bizCode")
+    @Mapping(target = "workflowJson", source = "eto.workFlowJson")
     WorkflowDefinition toUpdatedEntity(WorkflowDefinitionUpdateETO eto, WorkflowDefinition oldEntity);
 
     @Mapping(target = "id", ignore = true)
@@ -84,7 +84,5 @@ public interface WorkflowDefinitionStructMapper extends BaseMapper<WorkflowDefin
     @Mapping(target = "isDeleted", ignore = true)
     WorkflowTransition toTransitionEntity(WorkflowTransitionETO eto);
 
-    @Mapping(target = "fromNodeCode", ignore = true)
-    @Mapping(target = "toNodeCode", ignore = true)
     WorkflowTransitionVO toTransitionVO(WorkflowTransition entity);
 }

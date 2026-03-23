@@ -19,14 +19,8 @@ public class WorkflowTransitionVO {
     @Schema(description = "来源节点ID")
     private Long fromNodeId;
 
-    @Schema(description = "来源节点编码")
-    private String fromNodeCode;
-
     @Schema(description = "目标节点ID")
     private Long toNodeId;
-
-    @Schema(description = "目标节点编码")
-    private String toNodeCode;
 
     @Schema(description = "条件表达式")
     private String conditionExpr;

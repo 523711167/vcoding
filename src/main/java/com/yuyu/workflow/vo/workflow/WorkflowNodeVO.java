@@ -20,9 +20,6 @@ public class WorkflowNodeVO {
     @Schema(description = "流程定义ID")
     private Long definitionId;
 
-    @Schema(description = "节点编码")
-    private String code;
-
     @Schema(description = "节点名称")
     private String name;
 

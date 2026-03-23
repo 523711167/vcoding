@@ -2,26 +2,29 @@ package com.yuyu.workflow.service.impl;
 
 import com.yuyu.workflow.common.enums.WorkflowDefinitionStatusEnum;
 import com.yuyu.workflow.common.exception.BizException;
+import com.yuyu.workflow.common.util.ObjectMapperUtils;
+import com.yuyu.workflow.config.JacksonConfig;
 import com.yuyu.workflow.convert.WorkflowDefinitionStructMapper;
-import com.yuyu.workflow.eto.workflow.WorkflowDefinitionCreateETO;
-import com.yuyu.workflow.eto.workflow.WorkflowDefinitionDisableETO;
-import com.yuyu.workflow.eto.workflow.WorkflowDefinitionNodeETO;
-import com.yuyu.workflow.eto.workflow.WorkflowDefinitionPublishETO;
-import com.yuyu.workflow.eto.workflow.WorkflowNodeApproverETO;
-import com.yuyu.workflow.eto.workflow.WorkflowTransitionETO;
+import com.yuyu.workflow.entity.UserDept;
 import com.yuyu.workflow.entity.WorkflowDefinition;
 import com.yuyu.workflow.entity.WorkflowNode;
 import com.yuyu.workflow.entity.WorkflowNodeApprover;
 import com.yuyu.workflow.entity.WorkflowTransition;
+import com.yuyu.workflow.eto.workflow.WorkflowDefinitionCreateETO;
+import com.yuyu.workflow.eto.workflow.WorkflowDefinitionDisableETO;
+import com.yuyu.workflow.eto.workflow.WorkflowDefinitionPublishETO;
+import com.yuyu.workflow.mapper.UserDeptMapper;
 import com.yuyu.workflow.mapper.WorkflowDefinitionMapper;
 import com.yuyu.workflow.mapper.WorkflowNodeApproverMapper;
 import com.yuyu.workflow.mapper.WorkflowNodeMapper;
 import com.yuyu.workflow.mapper.WorkflowTransitionMapper;
+import com.yuyu.workflow.service.WorkflowNodeApproverDeptExpandService;
 import com.yuyu.workflow.vo.workflow.WorkflowDefinitionVO;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mapstruct.factory.Mappers;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -32,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -54,10 +58,29 @@ class WorkflowDefinitionServiceImplTests {
     private WorkflowTransitionMapper workflowTransitionMapper;
 
     @Mock
-    private WorkflowDefinitionStructMapper workflowDefinitionStructMapper;
+    private WorkflowNodeApproverDeptExpandService workflowNodeApproverDeptExpandService;
 
-    @InjectMocks
+    @Mock
+    private UserDeptMapper userDeptMapper;
+
     private WorkflowDefinitionServiceImpl workflowDefinitionService;
+
+    @BeforeEach
+    void setUp() {
+        WorkflowDefinitionStructMapper workflowDefinitionStructMapper =
+                Mappers.getMapper(WorkflowDefinitionStructMapper.class);
+        ObjectMapperUtils objectMapperUtils = new ObjectMapperUtils(new JacksonConfig().objectMapper());
+        workflowDefinitionService = new WorkflowDefinitionServiceImpl(
+                workflowDefinitionMapper,
+                workflowNodeMapper,
+                workflowNodeApproverMapper,
+                workflowTransitionMapper,
+                workflowDefinitionStructMapper,
+                workflowNodeApproverDeptExpandService,
+                userDeptMapper,
+                objectMapperUtils
+        );
+    }
 
     @Test
     void shouldCreateDefinitionAndResolveTransitionNodeIds() {
@@ -65,56 +88,25 @@ class WorkflowDefinitionServiceImplTests {
         eto.setCurrentUserId(9L);
         eto.setName("请假审批");
         eto.setCode("LEAVE_APPROVAL");
-        eto.setBizCode("LEAVE");
-
-        WorkflowDefinitionNodeETO start = new WorkflowDefinitionNodeETO();
-        start.setCode("start");
-        start.setName("开始");
-        start.setNodeType("START");
-
-        WorkflowDefinitionNodeETO approval = new WorkflowDefinitionNodeETO();
-        approval.setCode("leader");
-        approval.setName("主管审批");
-        approval.setNodeType("APPROVAL");
-        approval.setApproveMode("AND");
-        WorkflowNodeApproverETO approver = new WorkflowNodeApproverETO();
-        approver.setApproverType("ROLE");
-        approver.setApproverValue("1");
-        approval.setApproverList(List.of(approver));
-
-        WorkflowDefinitionNodeETO end = new WorkflowDefinitionNodeETO();
-        end.setCode("end");
-        end.setName("结束");
-        end.setNodeType("END");
-
-        WorkflowTransitionETO t1 = new WorkflowTransitionETO();
-        t1.setFromNodeCode("start");
-        t1.setToNodeCode("leader");
-        WorkflowTransitionETO t2 = new WorkflowTransitionETO();
-        t2.setFromNodeCode("leader");
-        t2.setToNodeCode("end");
-
-        eto.setNodes(List.of(start, approval, end));
-        eto.setTransitions(List.of(t1, t2));
+        eto.setWorkFlowJson(buildWorkflowJson("2"));
 
         WorkflowDefinition entity = new WorkflowDefinition();
+        entity.setId(100L);
         entity.setName("请假审批");
         entity.setCode("LEAVE_APPROVAL");
+        entity.setWorkflowJson(eto.getWorkFlowJson());
+        entity.setStatus(WorkflowDefinitionStatusEnum.DRAFT.getId());
 
         when(workflowDefinitionMapper.selectOne(any())).thenReturn(null);
         when(workflowDefinitionMapper.selectMaxVersionByCode("LEAVE_APPROVAL")).thenReturn(2);
-        when(workflowDefinitionStructMapper.toEntity(eto)).thenReturn(entity);
         when(workflowDefinitionMapper.selectById(100L)).thenReturn(entity);
-        when(workflowDefinitionStructMapper.toTarget(entity)).thenReturn(new WorkflowDefinitionVO());
         when(workflowNodeMapper.selectList(any())).thenReturn(Collections.emptyList());
         when(workflowTransitionMapper.selectList(any())).thenReturn(Collections.emptyList());
 
-        when(workflowDefinitionStructMapper.toNodeEntity(start)).thenReturn(new WorkflowNode());
-        when(workflowDefinitionStructMapper.toNodeEntity(approval)).thenReturn(new WorkflowNode());
-        when(workflowDefinitionStructMapper.toNodeEntity(end)).thenReturn(new WorkflowNode());
-        when(workflowDefinitionStructMapper.toApproverEntity(approver)).thenReturn(new WorkflowNodeApprover());
-        when(workflowDefinitionStructMapper.toTransitionEntity(t1)).thenReturn(new WorkflowTransition());
-        when(workflowDefinitionStructMapper.toTransitionEntity(t2)).thenReturn(new WorkflowTransition());
+        UserDept dept = new UserDept();
+        dept.setId(2L);
+        dept.setStatus(1);
+        when(userDeptMapper.selectById(2L)).thenReturn(dept);
 
         doAnswer(invocation -> {
             WorkflowDefinition argument = invocation.getArgument(0);
@@ -122,19 +114,38 @@ class WorkflowDefinitionServiceImplTests {
             return 1;
         }).when(workflowDefinitionMapper).insert(any(WorkflowDefinition.class));
         doAnswer(new NodeInsertAnswer()).when(workflowNodeMapper).insert(any(WorkflowNode.class));
+        doAnswer(new ApproverInsertAnswer()).when(workflowNodeApproverMapper).insert(any(WorkflowNodeApprover.class));
 
-        workflowDefinitionService.create(eto);
+        WorkflowDefinitionVO result = workflowDefinitionService.create(eto);
 
         ArgumentCaptor<WorkflowDefinition> definitionCaptor = ArgumentCaptor.forClass(WorkflowDefinition.class);
         verify(workflowDefinitionMapper).insert(definitionCaptor.capture());
         assertEquals(3, definitionCaptor.getValue().getVersion());
         assertEquals(WorkflowDefinitionStatusEnum.DRAFT.getId(), definitionCaptor.getValue().getStatus());
         assertEquals(9L, definitionCaptor.getValue().getCreatedBy());
+        assertEquals(eto.getWorkFlowJson(), definitionCaptor.getValue().getWorkflowJson());
 
         ArgumentCaptor<WorkflowTransition> transitionCaptor = ArgumentCaptor.forClass(WorkflowTransition.class);
-        verify(workflowTransitionMapper, org.mockito.Mockito.times(2)).insert(transitionCaptor.capture());
-        assertEquals(List.of(1001L, 1002L), transitionCaptor.getAllValues().stream().map(WorkflowTransition::getFromNodeId).toList());
-        assertEquals(List.of(1002L, 1003L), transitionCaptor.getAllValues().stream().map(WorkflowTransition::getToNodeId).toList());
+        verify(workflowTransitionMapper, times(2)).insert(transitionCaptor.capture());
+        assertEquals(List.of(1001L, 1002L),
+                transitionCaptor.getAllValues().stream().map(WorkflowTransition::getFromNodeId).toList());
+        assertEquals(List.of(1002L, 1003L),
+                transitionCaptor.getAllValues().stream().map(WorkflowTransition::getToNodeId).toList());
+        verify(workflowNodeApproverDeptExpandService).rebuildByApproverIds(List.of(2001L));
+        assertEquals(eto.getWorkFlowJson(), result.getWorkFlowJson());
+    }
+
+    @Test
+    void shouldRejectCommaSeparatedApproverValue() {
+        WorkflowDefinitionCreateETO eto = new WorkflowDefinitionCreateETO();
+        eto.setCurrentUserId(9L);
+        eto.setName("请假审批");
+        eto.setCode("LEAVE_APPROVAL");
+        eto.setWorkFlowJson(buildWorkflowJson("1,2"));
+
+        BizException exception = assertThrows(BizException.class, () -> workflowDefinitionService.create(eto));
+
+        assertEquals("approverValue不允许使用逗号拼接多个值", exception.getMessage());
     }
 
     @Test
@@ -170,6 +181,81 @@ class WorkflowDefinitionServiceImplTests {
     }
 
     /**
+     * 构造简化版流程设计 JSON。
+     */
+    private String buildWorkflowJson(String approverId) {
+        return """
+                {
+                  "nodes": [
+                    {
+                      "id": "START",
+                      "x": 120,
+                      "y": 220,
+                      "properties": {
+                        "nodeRole": "START_END",
+                        "approverIds": []
+                      },
+                      "text": {
+                        "value": "开始"
+                      }
+                    },
+                    {
+                      "id": "LEADER_APPROVAL",
+                      "x": 300,
+                      "y": 220,
+                      "properties": {
+                        "nodeRole": "APPROVAL",
+                        "approverType": "DEPT",
+                        "approverIds": ["%s"],
+                        "approveMode": "COUNTERSIGN",
+                        "timeoutStrategy": "REMIND_ONLY",
+                        "timeoutAfterMinutes": 90,
+                        "remindAfterMinutes": 30
+                      },
+                      "text": {
+                        "value": "主管审批"
+                      }
+                    },
+                    {
+                      "id": "END",
+                      "x": 480,
+                      "y": 220,
+                      "properties": {
+                        "nodeRole": "START_END",
+                        "approverIds": []
+                      },
+                      "text": {
+                        "value": "结束"
+                      }
+                    }
+                  ],
+                  "edges": [
+                    {
+                      "sourceNodeId": "START",
+                      "targetNodeId": "LEADER_APPROVAL",
+                      "properties": {
+                        "priority": 1
+                      },
+                      "text": {
+                        "value": "提交"
+                      }
+                    },
+                    {
+                      "sourceNodeId": "LEADER_APPROVAL",
+                      "targetNodeId": "END",
+                      "properties": {
+                        "priority": 2
+                      },
+                      "text": {
+                        "value": "结束"
+                      }
+                    }
+                  ]
+                }
+                """.formatted(approverId);
+    }
+
+    /**
      * 模拟节点插入后回填主键。
      */
     static class NodeInsertAnswer implements org.mockito.stubbing.Answer<Integer> {
@@ -181,6 +267,22 @@ class WorkflowDefinitionServiceImplTests {
             WorkflowNode node = invocation.getArgument(0);
             id++;
             node.setId(id);
+            return 1;
+        }
+    }
+
+    /**
+     * 模拟审批人插入后回填主键。
+     */
+    static class ApproverInsertAnswer implements org.mockito.stubbing.Answer<Integer> {
+
+        private long id = 2000L;
+
+        @Override
+        public Integer answer(org.mockito.invocation.InvocationOnMock invocation) {
+            WorkflowNodeApprover approver = invocation.getArgument(0);
+            id++;
+            approver.setId(id);
             return 1;
         }
     }

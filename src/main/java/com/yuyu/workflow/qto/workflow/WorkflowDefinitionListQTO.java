@@ -21,9 +21,6 @@ public class WorkflowDefinitionListQTO extends BaseQueryQTO {
     @Schema(description = "流程编码")
     private String code;
 
-    @Schema(description = "业务编码")
-    private String bizCode;
-
     @Schema(description = "状态：0=草稿 1=已发布 2=已停用")
     @EnumIdValid(enumClass = WorkflowDefinitionStatusEnum.class, message = "status不合法")
     private Integer status;

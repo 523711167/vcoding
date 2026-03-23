@@ -60,7 +60,7 @@
 
 ### 5.2 职责划分
 
-- `tb_workflow_definition`：保存流程定义主信息、版本与发布状态。
+- `tb_workflow_definition`：保存流程定义主信息、版本、发布状态，以及前端流程设计原始 JSON。
 - `tb_workflow_node`：保存流程节点结构、节点类型、节点配置。
 - `tb_workflow_node_approver`：保存审批节点对应的审批人配置。
 - `tb_workflow_transition`：保存节点之间的流转关系、优先级和条件表达式。
@@ -68,14 +68,16 @@
 ### 5.3 关键约束
 
 - 同一 `code` 下任一时刻只能有一个已发布版本。
-- 同一流程定义下 `code` 必须唯一。
+- 同一流程定义下前端节点 `id` 必须唯一，但该 `id` 仅用于保存时解析，不再单独落库。
 - `APPROVAL` 节点必须至少配置一个审批人。
 - 条件分支应尽量提供兜底路径，避免流程停滞。
 
 ### 5.4 前端设计器映射建议
 
 - `definition` 对应 `tb_workflow_definition`
+  流程设计器提交的整份 JSON 额外原样保存到 `tb_workflow_definition.workflow_json`，用于详情回显和前端直接渲染。
 - `nodes` 对应 `tb_workflow_node`
+  后端在保存时解析前端节点 `id`、`properties`、`text`，拆分并落到节点、审批人、连线表。
 - `transitions` 对应 `tb_workflow_transition`
 - `approvers` 对应 `tb_workflow_node_approver`
 

@@ -15,8 +15,6 @@ public class WorkflowNode extends BaseAuditEntity {
 
     private Long definitionId;
 
-    private String code;
-
     private String name;
 
     private String nodeType;

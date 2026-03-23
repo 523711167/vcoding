@@ -21,9 +21,8 @@ public class WorkflowDefinition extends BaseAuditEntity {
 
     private String description;
 
+    private String workflowJson;
+
     private Integer status;
-
-    private String bizCode;
-
     private Long createdBy;
 }

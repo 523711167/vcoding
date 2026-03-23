@@ -30,14 +30,14 @@ public class WorkflowDefinitionVO {
     @Schema(description = "流程描述")
     private String description;
 
+    @Schema(description = "前端流程设计JSON")
+    private String workFlowJson;
+
     @Schema(description = "状态")
     private Integer status;
 
     @Schema(description = "状态说明")
     private String statusMsg;
-
-    @Schema(description = "业务编码")
-    private String bizCode;
 
     @Schema(description = "创建人ID")
     private Long createdBy;

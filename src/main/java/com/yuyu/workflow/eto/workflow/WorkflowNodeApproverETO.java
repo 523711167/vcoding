@@ -4,6 +4,7 @@ import com.yuyu.workflow.common.enums.WorkflowApproverTypeEnum;
 import com.yuyu.workflow.common.validation.EnumCodeValid;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -19,9 +20,10 @@ public class WorkflowNodeApproverETO {
     @EnumCodeValid(enumClass = WorkflowApproverTypeEnum.class, allowNull = false, message = "approverType不合法")
     private String approverType;
 
-    @Schema(description = "审批人值", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "审批人值，单条记录只允许一个审批主体", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "approverValue不能为空")
     @Size(max = 256, message = "approverValue长度不能超过256")
+    @Pattern(regexp = "^[^,]+$", message = "approverValue不允许使用逗号拼接多个值")
     private String approverValue;
 
     @Schema(description = "顺序值")

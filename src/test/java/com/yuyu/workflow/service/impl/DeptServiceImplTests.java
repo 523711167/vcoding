@@ -16,6 +16,7 @@ import com.yuyu.workflow.mapper.UserDeptRelMapper;
 import com.yuyu.workflow.mapper.UserMapper;
 import com.yuyu.workflow.service.UserDeptRelExpandService;
 import com.yuyu.workflow.service.UserRoleDeptExpandService;
+import com.yuyu.workflow.service.WorkflowNodeApproverDeptExpandService;
 import com.yuyu.workflow.vo.dept.DeptVO;
 import com.yuyu.workflow.vo.role.UserSimpleVO;
 import org.junit.jupiter.api.Test;
@@ -61,6 +62,9 @@ class DeptServiceImplTests {
 
     @Mock
     private UserRoleDeptExpandService userRoleDeptExpandService;
+
+    @Mock
+    private WorkflowNodeApproverDeptExpandService workflowNodeApproverDeptExpandService;
 
     @InjectMocks
     private DeptServiceImpl deptService;
@@ -212,6 +216,7 @@ class DeptServiceImplTests {
         verify(userDeptMapper).updateById(argThat(dept -> "ARCHITECT".equals(dept.getPostType())));
         verify(userDeptRelExpandService).rebuildByDeptPaths(java.util.List.of("/1/2/3/"));
         verify(userRoleDeptExpandService).rebuildByDeptPaths(java.util.List.of("/1/2/3/"));
+        verify(workflowNodeApproverDeptExpandService).rebuildByDeptPaths(java.util.List.of("/1/2/3/"));
     }
 
     /**
@@ -235,6 +240,7 @@ class DeptServiceImplTests {
 
         verify(userDeptRelExpandService).rebuildByDeptPaths(java.util.List.of("/1/2/", "/8/9/2/"));
         verify(userRoleDeptExpandService).rebuildByDeptPaths(java.util.List.of("/1/2/", "/8/9/2/"));
+        verify(workflowNodeApproverDeptExpandService).rebuildByDeptPaths(java.util.List.of("/1/2/", "/8/9/2/"));
     }
 
     /**

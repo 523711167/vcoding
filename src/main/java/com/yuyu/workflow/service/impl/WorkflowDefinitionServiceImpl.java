@@ -3,6 +3,7 @@ package com.yuyu.workflow.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.yuyu.workflow.common.PageVo;
+import com.yuyu.workflow.common.enums.CommonStatusEnum;
 import com.yuyu.workflow.common.enums.RespCodeEnum;
 import com.yuyu.workflow.common.enums.WorkflowApproveModeEnum;
 import com.yuyu.workflow.common.enums.WorkflowApproverTypeEnum;
@@ -10,6 +11,7 @@ import com.yuyu.workflow.common.enums.WorkflowDefinitionStatusEnum;
 import com.yuyu.workflow.common.enums.WorkflowNodeTypeEnum;
 import com.yuyu.workflow.common.enums.WorkflowTimeoutActionEnum;
 import com.yuyu.workflow.common.exception.BizException;
+import com.yuyu.workflow.common.util.ObjectMapperUtils;
 import com.yuyu.workflow.convert.WorkflowDefinitionStructMapper;
 import com.yuyu.workflow.eto.workflow.WorkflowDefinitionCreateETO;
 import com.yuyu.workflow.eto.workflow.WorkflowDefinitionDisableETO;
@@ -18,10 +20,12 @@ import com.yuyu.workflow.eto.workflow.WorkflowDefinitionPublishETO;
 import com.yuyu.workflow.eto.workflow.WorkflowDefinitionUpdateETO;
 import com.yuyu.workflow.eto.workflow.WorkflowNodeApproverETO;
 import com.yuyu.workflow.eto.workflow.WorkflowTransitionETO;
+import com.yuyu.workflow.entity.UserDept;
 import com.yuyu.workflow.entity.WorkflowDefinition;
 import com.yuyu.workflow.entity.WorkflowNode;
 import com.yuyu.workflow.entity.WorkflowNodeApprover;
 import com.yuyu.workflow.entity.WorkflowTransition;
+import com.yuyu.workflow.mapper.UserDeptMapper;
 import com.yuyu.workflow.mapper.WorkflowDefinitionMapper;
 import com.yuyu.workflow.mapper.WorkflowNodeApproverMapper;
 import com.yuyu.workflow.mapper.WorkflowNodeMapper;
@@ -29,6 +33,7 @@ import com.yuyu.workflow.mapper.WorkflowTransitionMapper;
 import com.yuyu.workflow.qto.workflow.WorkflowDefinitionListQTO;
 import com.yuyu.workflow.qto.workflow.WorkflowDefinitionPageQTO;
 import com.yuyu.workflow.service.WorkflowDefinitionService;
+import com.yuyu.workflow.service.WorkflowNodeApproverDeptExpandService;
 import com.yuyu.workflow.vo.workflow.WorkflowDefinitionVO;
 import com.yuyu.workflow.vo.workflow.WorkflowNodeApproverVO;
 import com.yuyu.workflow.vo.workflow.WorkflowNodeVO;
@@ -49,7 +54,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -58,11 +62,20 @@ import java.util.stream.Collectors;
 @Service
 public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService {
 
+    private static final String FRONT_NODE_ROLE_START_END = "START_END";
+    private static final String FRONT_APPROVE_MODE_COUNTERSIGN = "COUNTERSIGN";
+    private static final String FRONT_APPROVE_MODE_OR_SIGN = "OR_SIGN";
+    private static final String FRONT_TIMEOUT_ACTION_REMIND_ONLY = "REMIND_ONLY";
+    private static final String FRONT_TIMEOUT_ACTION_AUTO_PASS = "AUTO_PASS";
+
     private final WorkflowDefinitionMapper workflowDefinitionMapper;
     private final WorkflowNodeMapper workflowNodeMapper;
     private final WorkflowNodeApproverMapper workflowNodeApproverMapper;
     private final WorkflowTransitionMapper workflowTransitionMapper;
     private final WorkflowDefinitionStructMapper workflowDefinitionStructMapper;
+    private final WorkflowNodeApproverDeptExpandService workflowNodeApproverDeptExpandService;
+    private final UserDeptMapper userDeptMapper;
+    private final ObjectMapperUtils objectMapperUtils;
 
     /**
      * 注入流程定义模块依赖。
@@ -71,18 +84,25 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
                                          WorkflowNodeMapper workflowNodeMapper,
                                          WorkflowNodeApproverMapper workflowNodeApproverMapper,
                                          WorkflowTransitionMapper workflowTransitionMapper,
-                                         WorkflowDefinitionStructMapper workflowDefinitionStructMapper) {
+                                         WorkflowDefinitionStructMapper workflowDefinitionStructMapper,
+                                         WorkflowNodeApproverDeptExpandService workflowNodeApproverDeptExpandService,
+                                         UserDeptMapper userDeptMapper,
+                                         ObjectMapperUtils objectMapperUtils) {
         this.workflowDefinitionMapper = workflowDefinitionMapper;
         this.workflowNodeMapper = workflowNodeMapper;
         this.workflowNodeApproverMapper = workflowNodeApproverMapper;
         this.workflowTransitionMapper = workflowTransitionMapper;
         this.workflowDefinitionStructMapper = workflowDefinitionStructMapper;
+        this.workflowNodeApproverDeptExpandService = workflowNodeApproverDeptExpandService;
+        this.userDeptMapper = userDeptMapper;
+        this.objectMapperUtils = objectMapperUtils;
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public WorkflowDefinitionVO create(WorkflowDefinitionCreateETO eto) {
-        validateDefinitionPayload(eto.getNodes(), eto.getTransitions());
+        ParsedWorkflow parsedWorkflow = parseWorkflowPayload(eto.getWorkFlowJson());
+        validateDefinitionPayload(parsedWorkflow.nodes(), parsedWorkflow.transitions());
         assertNoDraftVersion(eto.getCode());
 
         WorkflowDefinition entity = workflowDefinitionStructMapper.toEntity(eto);
@@ -90,7 +110,7 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
         entity.setStatus(WorkflowDefinitionStatusEnum.DRAFT.getId());
         entity.setCreatedBy(requireCurrentUserId(eto.getCurrentUserId()));
         workflowDefinitionMapper.insert(entity);
-        persistChildren(entity.getId(), eto.getNodes(), eto.getTransitions());
+        persistChildren(entity.getId(), parsedWorkflow.nodes(), parsedWorkflow.transitions());
         return detail(entity.getId());
     }
 
@@ -98,12 +118,13 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
     @Transactional(rollbackFor = Exception.class)
     public WorkflowDefinitionVO update(WorkflowDefinitionUpdateETO eto) {
         WorkflowDefinition oldEntity = getDraftDefinitionOrThrow(eto.getId());
-        validateDefinitionPayload(eto.getNodes(), eto.getTransitions());
+        ParsedWorkflow parsedWorkflow = parseWorkflowPayload(eto.getWorkFlowJson());
+        validateDefinitionPayload(parsedWorkflow.nodes(), parsedWorkflow.transitions());
 
         WorkflowDefinition entity = workflowDefinitionStructMapper.toUpdatedEntity(eto, oldEntity);
         workflowDefinitionMapper.updateById(entity);
         deleteChildren(List.of(entity.getId()));
-        persistChildren(entity.getId(), eto.getNodes(), eto.getTransitions());
+        persistChildren(entity.getId(), parsedWorkflow.nodes(), parsedWorkflow.transitions());
         return detail(entity.getId());
     }
 
@@ -121,14 +142,14 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
     @Override
     public List<WorkflowDefinitionVO> list(WorkflowDefinitionListQTO qto) {
         return buildSummaryVOList(workflowDefinitionMapper.selectList(
-                buildDefinitionQuery(qto.getName(), qto.getCode(), qto.getBizCode(), qto.getStatus())));
+                buildDefinitionQuery(qto.getName(), qto.getCode(), qto.getStatus())));
     }
 
     @Override
     public PageVo<WorkflowDefinitionVO> page(WorkflowDefinitionPageQTO qto) {
         IPage<WorkflowDefinition> page = workflowDefinitionMapper.selectPage(
                 new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(qto.getPageNum(), qto.getPageSize()),
-                buildDefinitionQuery(qto.getName(), qto.getCode(), qto.getBizCode(), qto.getStatus())
+                buildDefinitionQuery(qto.getName(), qto.getCode(), qto.getStatus())
         );
         return PageVo.of(page.getCurrent(), page.getSize(), page.getTotal(), buildSummaryVOList(page.getRecords()));
     }
@@ -142,9 +163,9 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
         List<WorkflowNode> nodeList = workflowNodeMapper.selectList(new LambdaQueryWrapper<WorkflowNode>()
                 .eq(WorkflowNode::getDefinitionId, id)
                 .orderByAsc(WorkflowNode::getId));
-        Map<Long, WorkflowNode> nodeMap = nodeList.stream()
-                .collect(Collectors.toMap(WorkflowNode::getId, Function.identity(), (left, right) -> left, LinkedHashMap::new));
-        Map<Long, List<WorkflowNodeApproverVO>> approverMap = buildApproverMap(nodeMap.keySet());
+        Map<Long, List<WorkflowNodeApproverVO>> approverMap = buildApproverMap(
+                nodeList.stream().map(WorkflowNode::getId).collect(Collectors.toCollection(LinkedHashSet::new))
+        );
 
         List<WorkflowNodeVO> nodeVOList = new ArrayList<>();
         for (WorkflowNode node : nodeList) {
@@ -160,16 +181,9 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
         List<WorkflowTransition> transitionList = workflowTransitionMapper.selectList(new LambdaQueryWrapper<WorkflowTransition>()
                 .eq(WorkflowTransition::getDefinitionId, id)
                 .orderByAsc(WorkflowTransition::getPriority, WorkflowTransition::getId));
-        List<WorkflowTransitionVO> transitionVOList = new ArrayList<>();
-        for (WorkflowTransition transition : transitionList) {
-            WorkflowTransitionVO transitionVO = workflowDefinitionStructMapper.toTransitionVO(transition);
-            WorkflowNode fromNode = nodeMap.get(transition.getFromNodeId());
-            WorkflowNode toNode = nodeMap.get(transition.getToNodeId());
-            transitionVO.setFromNodeCode(Objects.nonNull(fromNode) ? fromNode.getCode() : null);
-            transitionVO.setToNodeCode(Objects.nonNull(toNode) ? toNode.getCode() : null);
-            transitionVOList.add(transitionVO);
-        }
-        vo.setTransitionList(transitionVOList);
+        vo.setTransitionList(transitionList.stream()
+                .map(workflowDefinitionStructMapper::toTransitionVO)
+                .toList());
         return vo;
     }
 
@@ -211,12 +225,10 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
      */
     private LambdaQueryWrapper<WorkflowDefinition> buildDefinitionQuery(String name,
                                                                         String code,
-                                                                        String bizCode,
                                                                         Integer status) {
         return new LambdaQueryWrapper<WorkflowDefinition>()
                 .like(StringUtils.hasText(name), WorkflowDefinition::getName, name)
                 .like(StringUtils.hasText(code), WorkflowDefinition::getCode, code)
-                .like(StringUtils.hasText(bizCode), WorkflowDefinition::getBizCode, bizCode)
                 .eq(Objects.nonNull(status), WorkflowDefinition::getStatus, status)
                 .orderByDesc(WorkflowDefinition::getCode, WorkflowDefinition::getVersion);
     }
@@ -230,6 +242,7 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
         }
         return definitionList.stream().map(definition -> {
             WorkflowDefinitionVO vo = workflowDefinitionStructMapper.toTarget(definition);
+            vo.setWorkFlowJson(null);
             vo.setStatusMsg(WorkflowDefinitionStatusEnum.getMsgById(definition.getStatus()));
             return vo;
         }).toList();
@@ -292,6 +305,76 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
     }
 
     /**
+     * 解析前端流程设计 JSON。
+     */
+    private ParsedWorkflow parseWorkflowPayload(String workFlowJson) {
+        if (!StringUtils.hasText(workFlowJson)) {
+            throw new BizException("workFlowJson不能为空");
+        }
+        WorkflowGraphPayload payload;
+        try {
+            payload = objectMapperUtils.fromJson(workFlowJson, WorkflowGraphPayload.class);
+        } catch (IllegalArgumentException ex) {
+            throw new BizException("workFlowJson格式不正确");
+        }
+        List<WorkflowGraphNode> rawNodeList = Objects.nonNull(payload) && !CollectionUtils.isEmpty(payload.nodes)
+                ? payload.nodes
+                : Collections.emptyList();
+        List<WorkflowGraphEdge> rawEdgeList = Objects.nonNull(payload) && !CollectionUtils.isEmpty(payload.edges)
+                ? payload.edges
+                : Collections.emptyList();
+
+        Map<String, Integer> inDegreeMap = new HashMap<>();
+        Map<String, Integer> outDegreeMap = new HashMap<>();
+        for (WorkflowGraphEdge edge : rawEdgeList) {
+            String sourceNodeId = trimToNull(edge.sourceNodeId);
+            String targetNodeId = trimToNull(edge.targetNodeId);
+            if (StringUtils.hasText(sourceNodeId)) {
+                outDegreeMap.merge(sourceNodeId, 1, Integer::sum);
+            }
+            if (StringUtils.hasText(targetNodeId)) {
+                inDegreeMap.merge(targetNodeId, 1, Integer::sum);
+            }
+        }
+
+        List<WorkflowDefinitionNodeETO> nodeList = new ArrayList<>();
+        for (WorkflowGraphNode rawNode : rawNodeList) {
+            Map<String, Object> properties = Objects.nonNull(rawNode.properties) ? rawNode.properties : Collections.emptyMap();
+            String clientNodeId = trimToNull(rawNode.id);
+            WorkflowDefinitionNodeETO node = new WorkflowDefinitionNodeETO();
+            node.setCode(clientNodeId);
+            node.setName(resolveNodeName(rawNode));
+            node.setNodeType(resolveNodeType(clientNodeId,
+                    node.getName(),
+                    getString(properties, "nodeRole"),
+                    inDegreeMap.getOrDefault(clientNodeId, 0),
+                    outDegreeMap.getOrDefault(clientNodeId, 0)));
+            node.setApproveMode(resolveApproveMode(getString(properties, "approveMode")));
+            node.setTimeoutHours(toHours(getInteger(properties.get("timeoutAfterMinutes"))));
+            node.setTimeoutAction(resolveTimeoutAction(getString(properties, "timeoutStrategy")));
+            node.setRemindHours(toHours(getInteger(properties.get("remindAfterMinutes"))));
+            node.setPositionX(getInteger(rawNode.x));
+            node.setPositionY(getInteger(rawNode.y));
+            node.setConfigJson(objectMapperUtils.toJson(properties));
+            node.setApproverList(buildApproverList(getString(properties, "approverType"), properties.get("approverIds")));
+            nodeList.add(node);
+        }
+
+        List<WorkflowTransitionETO> transitionList = new ArrayList<>();
+        for (WorkflowGraphEdge rawEdge : rawEdgeList) {
+            Map<String, Object> properties = Objects.nonNull(rawEdge.properties) ? rawEdge.properties : Collections.emptyMap();
+            WorkflowTransitionETO transition = new WorkflowTransitionETO();
+            transition.setFromNodeCode(trimToNull(rawEdge.sourceNodeId));
+            transition.setToNodeCode(trimToNull(rawEdge.targetNodeId));
+            transition.setConditionExpr(trimToNull(getString(properties, "expression")));
+            transition.setPriority(getInteger(properties.get("priority")));
+            transition.setLabel(resolveEdgeLabel(rawEdge));
+            transitionList.add(transition);
+        }
+        return new ParsedWorkflow(nodeList, transitionList);
+    }
+
+    /**
      * 校验流程定义提交结构。
      */
     private void validateDefinitionPayload(List<WorkflowDefinitionNodeETO> nodes, List<WorkflowTransitionETO> transitions) {
@@ -305,16 +388,19 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
         long startCount = 0;
         long endCount = 0;
         for (WorkflowDefinitionNodeETO node : nodes) {
-            if (nodeMap.putIfAbsent(node.getCode(), node) != null) {
-                throw new BizException("节点编码不能重复");
+            if (!StringUtils.hasText(node.getCode())) {
+                throw new BizException("节点id不能为空");
             }
+            if (nodeMap.putIfAbsent(node.getCode(), node) != null) {
+                throw new BizException("节点id不能重复");
+            }
+            validateNodePayload(node);
             if (WorkflowNodeTypeEnum.START.getCode().equals(node.getNodeType())) {
                 startCount++;
             }
             if (WorkflowNodeTypeEnum.END.getCode().equals(node.getNodeType())) {
                 endCount++;
             }
-            validateNodePayload(node);
         }
         if (startCount != 1) {
             throw new BizException("必须且只能存在一个开始节点");
@@ -324,6 +410,9 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
         }
         Map<String, List<String>> adjacencyMap = new HashMap<>();
         for (WorkflowTransitionETO transition : transitions) {
+            if (!StringUtils.hasText(transition.getFromNodeCode()) || !StringUtils.hasText(transition.getToNodeCode())) {
+                throw new BizException("连线必须配置来源和目标节点");
+            }
             if (!nodeMap.containsKey(transition.getFromNodeCode()) || !nodeMap.containsKey(transition.getToNodeCode())) {
                 throw new BizException("连线引用了不存在的节点");
             }
@@ -344,12 +433,30 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
      * 校验节点级规则。
      */
     private void validateNodePayload(WorkflowDefinitionNodeETO node) {
+        if (!StringUtils.hasText(node.getName())) {
+            throw new BizException("节点名称不能为空");
+        }
+        if (!StringUtils.hasText(node.getNodeType()) || !WorkflowNodeTypeEnum.containsCode(node.getNodeType())) {
+            throw new BizException("nodeType不合法");
+        }
+        if (StringUtils.hasText(node.getTimeoutAction()) && !WorkflowTimeoutActionEnum.containsCode(node.getTimeoutAction())) {
+            throw new BizException("timeoutAction不合法");
+        }
         List<WorkflowNodeApproverETO> approverList = Objects.nonNull(node.getApproverList())
                 ? node.getApproverList()
                 : Collections.emptyList();
         if (WorkflowNodeTypeEnum.APPROVAL.getCode().equals(node.getNodeType())) {
+            if (!StringUtils.hasText(node.getApproveMode())) {
+                throw new BizException("审批节点必须配置approveMode");
+            }
+            if (!WorkflowApproveModeEnum.containsCode(node.getApproveMode())) {
+                throw new BizException("approveMode不合法");
+            }
             if (CollectionUtils.isEmpty(approverList)) {
                 throw new BizException("审批节点必须配置审批人");
+            }
+            for (WorkflowNodeApproverETO approver : approverList) {
+                validateApproverPayload(approver);
             }
             return;
         }
@@ -358,6 +465,38 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
         }
         if (StringUtils.hasText(node.getApproveMode())) {
             throw new BizException("非审批节点不能配置approveMode");
+        }
+    }
+
+    /**
+     * 校验审批人配置必须是一条记录一个审批主体，组织审批人必须指向有效组织。
+     */
+    private void validateApproverPayload(WorkflowNodeApproverETO approver) {
+        if (!StringUtils.hasText(approver.getApproverType())) {
+            throw new BizException("approverType不能为空");
+        }
+        if (!WorkflowApproverTypeEnum.containsCode(approver.getApproverType())) {
+            throw new BizException("approverType不合法");
+        }
+        if (!StringUtils.hasText(approver.getApproverValue())) {
+            throw new BizException("approverValue不能为空");
+        }
+        if (approver.getApproverValue().contains(",")) {
+            throw new BizException("approverValue不允许使用逗号拼接多个值");
+        }
+        if (!WorkflowApproverTypeEnum.DEPT.getCode().equals(approver.getApproverType())) {
+            return;
+        }
+        Long deptId = parseApproverDeptId(approver.getApproverValue());
+        if (Objects.isNull(deptId)) {
+            throw new BizException("组织审批人approverValue必须是单个组织ID");
+        }
+        UserDept dept = userDeptMapper.selectById(deptId);
+        if (Objects.isNull(dept)) {
+            throw new BizException("审批组织不存在");
+        }
+        if (!CommonStatusEnum.ENABLED.getId().equals(dept.getStatus())) {
+            throw new BizException("审批组织已停用");
         }
     }
 
@@ -391,6 +530,7 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
                                  List<WorkflowDefinitionNodeETO> nodes,
                                  List<WorkflowTransitionETO> transitions) {
         Map<String, Long> nodeIdMap = new LinkedHashMap<>();
+        List<Long> deptApproverIds = new ArrayList<>();
         for (WorkflowDefinitionNodeETO nodeETO : nodes) {
             WorkflowNode node = workflowDefinitionStructMapper.toNodeEntity(nodeETO);
             node.setDefinitionId(definitionId);
@@ -407,6 +547,9 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
                 approver.setNodeId(node.getId());
                 approver.setSortOrder(Objects.nonNull(approverETO.getSortOrder()) ? approverETO.getSortOrder() : 0);
                 workflowNodeApproverMapper.insert(approver);
+                if (WorkflowApproverTypeEnum.DEPT.getCode().equals(approverETO.getApproverType())) {
+                    deptApproverIds.add(approver.getId());
+                }
             }
         }
 
@@ -418,6 +561,7 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
             transition.setPriority(Objects.nonNull(transitionETO.getPriority()) ? transitionETO.getPriority() : 0);
             workflowTransitionMapper.insert(transition);
         }
+        workflowNodeApproverDeptExpandService.rebuildByApproverIds(deptApproverIds);
     }
 
     /**
@@ -431,6 +575,7 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
             List<WorkflowNodeApprover> approverList = workflowNodeApproverMapper.selectList(new LambdaQueryWrapper<WorkflowNodeApprover>()
                     .in(WorkflowNodeApprover::getNodeId, nodeIds));
             if (!CollectionUtils.isEmpty(approverList)) {
+                workflowNodeApproverDeptExpandService.removeByApproverIds(approverList.stream().map(WorkflowNodeApprover::getId).toList());
                 workflowNodeApproverMapper.removeByIds(approverList.stream().map(WorkflowNodeApprover::getId).toList());
             }
             workflowNodeMapper.removeByIds(nodeIds);
@@ -480,5 +625,243 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
             throw new BizException("idList不能为空");
         }
         return result;
+    }
+
+    /**
+     * 将组织审批人值解析为单个组织ID。
+     */
+    private Long parseApproverDeptId(String approverValue) {
+        if (!StringUtils.hasText(approverValue) || approverValue.contains(",")) {
+            return null;
+        }
+        try {
+            return Long.valueOf(approverValue);
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
+    /**
+     * 构造节点审批人集合。
+     */
+    private List<WorkflowNodeApproverETO> buildApproverList(String approverType, Object approverIdsValue) {
+        List<String> approverIdList = toStringList(approverIdsValue);
+        if (CollectionUtils.isEmpty(approverIdList)) {
+            return Collections.emptyList();
+        }
+        List<WorkflowNodeApproverETO> approverList = new ArrayList<>();
+        for (int i = 0; i < approverIdList.size(); i++) {
+            WorkflowNodeApproverETO approver = new WorkflowNodeApproverETO();
+            approver.setApproverType(trimToNull(approverType));
+            approver.setApproverValue(approverIdList.get(i));
+            approver.setSortOrder(i + 1);
+            approverList.add(approver);
+        }
+        return approverList;
+    }
+
+    /**
+     * 解析节点名称。
+     */
+    private String resolveNodeName(WorkflowGraphNode rawNode) {
+        if (Objects.nonNull(rawNode.text) && StringUtils.hasText(rawNode.text.value)) {
+            return rawNode.text.value.trim();
+        }
+        return trimToNull(rawNode.id);
+    }
+
+    /**
+     * 将前端节点角色映射为后端节点类型。
+     */
+    private String resolveNodeType(String clientNodeId,
+                                   String nodeName,
+                                   String nodeRole,
+                                   int inDegree,
+                                   int outDegree) {
+        String normalizedNodeRole = trimToNull(nodeRole);
+        if (WorkflowNodeTypeEnum.containsCode(normalizedNodeRole)) {
+            return normalizedNodeRole;
+        }
+        if (FRONT_NODE_ROLE_START_END.equals(normalizedNodeRole)) {
+            if (inDegree == 0 && outDegree > 0) {
+                return WorkflowNodeTypeEnum.START.getCode();
+            }
+            if (outDegree == 0 && inDegree > 0) {
+                return WorkflowNodeTypeEnum.END.getCode();
+            }
+            if ("START".equalsIgnoreCase(clientNodeId) || "开始".equals(nodeName)) {
+                return WorkflowNodeTypeEnum.START.getCode();
+            }
+            if ("END".equalsIgnoreCase(clientNodeId) || "结束".equals(nodeName)) {
+                return WorkflowNodeTypeEnum.END.getCode();
+            }
+        }
+        throw new BizException("nodeRole不合法");
+    }
+
+    /**
+     * 将前端审批模式映射为后端审批模式。
+     */
+    private String resolveApproveMode(String approveMode) {
+        String normalizedApproveMode = trimToNull(approveMode);
+        if (!StringUtils.hasText(normalizedApproveMode)) {
+            return null;
+        }
+        return switch (normalizedApproveMode) {
+            case FRONT_APPROVE_MODE_COUNTERSIGN -> WorkflowApproveModeEnum.AND.getCode();
+            case FRONT_APPROVE_MODE_OR_SIGN -> WorkflowApproveModeEnum.OR.getCode();
+            default -> normalizedApproveMode;
+        };
+    }
+
+    /**
+     * 将前端超时策略映射为后端超时策略。
+     */
+    private String resolveTimeoutAction(String timeoutStrategy) {
+        String normalizedTimeoutStrategy = trimToNull(timeoutStrategy);
+        if (!StringUtils.hasText(normalizedTimeoutStrategy)) {
+            return null;
+        }
+        return switch (normalizedTimeoutStrategy) {
+            case FRONT_TIMEOUT_ACTION_REMIND_ONLY -> WorkflowTimeoutActionEnum.NOTIFY_ONLY.getCode();
+            case FRONT_TIMEOUT_ACTION_AUTO_PASS -> WorkflowTimeoutActionEnum.AUTO_APPROVE.getCode();
+            default -> normalizedTimeoutStrategy;
+        };
+    }
+
+    /**
+     * 解析连线标签。
+     */
+    private String resolveEdgeLabel(WorkflowGraphEdge rawEdge) {
+        if (Objects.nonNull(rawEdge.text) && StringUtils.hasText(rawEdge.text.value)) {
+            return rawEdge.text.value.trim();
+        }
+        return null;
+    }
+
+    /**
+     * 将分钟换算为小时，向上取整。
+     */
+    private Integer toHours(Integer minutes) {
+        if (Objects.isNull(minutes)) {
+            return null;
+        }
+        if (minutes <= 0) {
+            return 0;
+        }
+        return (minutes + 59) / 60;
+    }
+
+    /**
+     * 将输入值转为整数。
+     */
+    private Integer getInteger(Object value) {
+        if (Objects.isNull(value)) {
+            return null;
+        }
+        if (value instanceof Integer integerValue) {
+            return integerValue;
+        }
+        if (value instanceof Number numberValue) {
+            return numberValue.intValue();
+        }
+        if (value instanceof String stringValue) {
+            String trimmed = trimToNull(stringValue);
+            if (!StringUtils.hasText(trimmed)) {
+                return null;
+            }
+            try {
+                return Integer.valueOf(trimmed);
+            } catch (NumberFormatException ex) {
+                throw new BizException("流程JSON中的数值字段格式不正确");
+            }
+        }
+        throw new BizException("流程JSON中的数值字段格式不正确");
+    }
+
+    /**
+     * 从属性中提取字符串值。
+     */
+    private String getString(Map<String, Object> properties, String key) {
+        if (CollectionUtils.isEmpty(properties)) {
+            return null;
+        }
+        Object value = properties.get(key);
+        if (Objects.isNull(value)) {
+            return null;
+        }
+        return String.valueOf(value);
+    }
+
+    /**
+     * 将输入对象规范化为字符串列表。
+     */
+    private List<String> toStringList(Object value) {
+        if (Objects.isNull(value)) {
+            return Collections.emptyList();
+        }
+        if (value instanceof List<?> listValue) {
+            return listValue.stream()
+                    .filter(Objects::nonNull)
+                    .map(String::valueOf)
+                    .map(this::trimToNull)
+                    .filter(StringUtils::hasText)
+                    .toList();
+        }
+        String singleValue = trimToNull(String.valueOf(value));
+        return StringUtils.hasText(singleValue) ? List.of(singleValue) : Collections.emptyList();
+    }
+
+    /**
+     * 统一去除空白字符串。
+     */
+    private String trimToNull(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        return value.trim();
+    }
+
+    /**
+     * 前端流程图解析结果。
+     */
+    private record ParsedWorkflow(List<WorkflowDefinitionNodeETO> nodes,
+                                  List<WorkflowTransitionETO> transitions) {
+    }
+
+    /**
+     * 前端流程图根对象。
+     */
+    private static class WorkflowGraphPayload {
+        public List<WorkflowGraphNode> nodes;
+        public List<WorkflowGraphEdge> edges;
+    }
+
+    /**
+     * 前端流程图节点对象。
+     */
+    private static class WorkflowGraphNode {
+        public String id;
+        public Object x;
+        public Object y;
+        public Map<String, Object> properties;
+        public WorkflowGraphText text;
+    }
+
+    /**
+     * 前端流程图连线对象。
+     */
+    private static class WorkflowGraphEdge {
+        public Map<String, Object> properties;
+        public String sourceNodeId;
+        public String targetNodeId;
+        public WorkflowGraphText text;
+    }
+
+    /**
+     * 前端流程图文本对象。
+     */
+    private static class WorkflowGraphText {
+        public String value;
     }
 }
