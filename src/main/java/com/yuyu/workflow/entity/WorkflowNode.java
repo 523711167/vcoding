@@ -21,11 +21,11 @@ public class WorkflowNode extends BaseAuditEntity {
 
     private String approveMode;
 
-    private Integer timeoutHours;
+    private Integer timeoutMinutes;
 
     private String timeoutAction;
 
-    private Integer remindHours;
+    private Integer remindMinutes;
 
     private Integer positionX;
 

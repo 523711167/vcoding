@@ -4,6 +4,7 @@
 -- 3. tb_workflow_definition 不再保留 biz_code 冗余字段。
 -- 4. tb_workflow_definition 新增 workflow_json，保存前端流程设计原始 JSON。
 -- 5. tb_workflow_node 不再保留 code 字段，节点前端 ID 仅用于保存时解析，不再单独落库。
+-- 6. 工作流节点超时与提醒字段统一使用分钟口径。
 
 USE `yuyu`;
 
@@ -77,6 +78,64 @@ SET @drop_workflow_node_code_sql = (
 PREPARE stmt_drop_workflow_node_code FROM @drop_workflow_node_code_sql;
 EXECUTE stmt_drop_workflow_node_code;
 DEALLOCATE PREPARE stmt_drop_workflow_node_code;
+
+SET @has_workflow_node_timeout_hours = (
+  SELECT COUNT(1)
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'tb_workflow_node'
+    AND COLUMN_NAME = 'timeout_hours'
+);
+SET @rename_workflow_node_timeout_minutes_sql = (
+  SELECT IF(
+    @has_workflow_node_timeout_hours > 0,
+    'ALTER TABLE `tb_workflow_node` CHANGE COLUMN `timeout_hours` `timeout_minutes` INT DEFAULT NULL COMMENT ''超时时限（分钟）''',
+    'SELECT 1'
+  )
+);
+PREPARE stmt_rename_workflow_node_timeout_minutes FROM @rename_workflow_node_timeout_minutes_sql;
+EXECUTE stmt_rename_workflow_node_timeout_minutes;
+DEALLOCATE PREPARE stmt_rename_workflow_node_timeout_minutes;
+
+SET @has_workflow_node_remind_hours = (
+  SELECT COUNT(1)
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'tb_workflow_node'
+    AND COLUMN_NAME = 'remind_hours'
+);
+SET @rename_workflow_node_remind_minutes_sql = (
+  SELECT IF(
+    @has_workflow_node_remind_hours > 0,
+    'ALTER TABLE `tb_workflow_node` CHANGE COLUMN `remind_hours` `remind_minutes` INT DEFAULT NULL COMMENT ''提醒时限（分钟）''',
+    'SELECT 1'
+  )
+);
+PREPARE stmt_rename_workflow_node_remind_minutes FROM @rename_workflow_node_remind_minutes_sql;
+EXECUTE stmt_rename_workflow_node_remind_minutes;
+DEALLOCATE PREPARE stmt_rename_workflow_node_remind_minutes;
+
+SET @migrate_workflow_node_timeout_minutes_sql = (
+  SELECT IF(
+    @has_workflow_node_timeout_hours > 0,
+    'UPDATE `tb_workflow_node` SET `timeout_minutes` = `timeout_minutes` * 60 WHERE `timeout_minutes` IS NOT NULL',
+    'SELECT 1'
+  )
+);
+PREPARE stmt_migrate_workflow_node_timeout_minutes FROM @migrate_workflow_node_timeout_minutes_sql;
+EXECUTE stmt_migrate_workflow_node_timeout_minutes;
+DEALLOCATE PREPARE stmt_migrate_workflow_node_timeout_minutes;
+
+SET @migrate_workflow_node_remind_minutes_sql = (
+  SELECT IF(
+    @has_workflow_node_remind_hours > 0,
+    'UPDATE `tb_workflow_node` SET `remind_minutes` = `remind_minutes` * 60 WHERE `remind_minutes` IS NOT NULL',
+    'SELECT 1'
+  )
+);
+PREPARE stmt_migrate_workflow_node_remind_minutes FROM @migrate_workflow_node_remind_minutes_sql;
+EXECUTE stmt_migrate_workflow_node_remind_minutes;
+DEALLOCATE PREPARE stmt_migrate_workflow_node_remind_minutes;
 
 CREATE TABLE IF NOT EXISTS `tb_workflow_node_approver_dept_expand` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',

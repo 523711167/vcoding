@@ -13,6 +13,7 @@ import com.yuyu.workflow.entity.WorkflowTransition;
 import com.yuyu.workflow.eto.workflow.WorkflowDefinitionCreateETO;
 import com.yuyu.workflow.eto.workflow.WorkflowDefinitionDisableETO;
 import com.yuyu.workflow.eto.workflow.WorkflowDefinitionPublishETO;
+import com.yuyu.workflow.eto.workflow.WorkflowDefinitionUpdateETO;
 import com.yuyu.workflow.mapper.UserDeptMapper;
 import com.yuyu.workflow.mapper.WorkflowDefinitionMapper;
 import com.yuyu.workflow.mapper.WorkflowNodeApproverMapper;
@@ -35,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -125,6 +127,12 @@ class WorkflowDefinitionServiceImplTests {
         assertEquals(9L, definitionCaptor.getValue().getCreatedBy());
         assertEquals(eto.getWorkFlowJson(), definitionCaptor.getValue().getWorkflowJson());
 
+        ArgumentCaptor<WorkflowNode> nodeCaptor = ArgumentCaptor.forClass(WorkflowNode.class);
+        verify(workflowNodeMapper, times(3)).insert(nodeCaptor.capture());
+        WorkflowNode approvalNode = nodeCaptor.getAllValues().get(1);
+        assertEquals(90, approvalNode.getTimeoutMinutes());
+        assertEquals(30, approvalNode.getRemindMinutes());
+
         ArgumentCaptor<WorkflowTransition> transitionCaptor = ArgumentCaptor.forClass(WorkflowTransition.class);
         verify(workflowTransitionMapper, times(2)).insert(transitionCaptor.capture());
         assertEquals(List.of(1001L, 1002L),
@@ -146,6 +154,137 @@ class WorkflowDefinitionServiceImplTests {
         BizException exception = assertThrows(BizException.class, () -> workflowDefinitionService.create(eto));
 
         assertEquals("approverValue不允许使用逗号拼接多个值", exception.getMessage());
+    }
+
+    @Test
+    void shouldUpdateDraftDefinitionDirectly() {
+        WorkflowDefinitionUpdateETO eto = new WorkflowDefinitionUpdateETO();
+        eto.setId(10L);
+        eto.setCurrentUserId(9L);
+        eto.setName("请假审批-草稿");
+        eto.setDescription("草稿直接修改");
+        eto.setWorkFlowJson(buildWorkflowJson("2"));
+
+        WorkflowDefinition oldEntity = buildDefinition(10L, WorkflowDefinitionStatusEnum.DRAFT.getId(), "LEAVE_APPROVAL", 1, "old");
+        WorkflowDefinition updatedEntity = buildDefinition(10L, WorkflowDefinitionStatusEnum.DRAFT.getId(), "LEAVE_APPROVAL", 1, eto.getWorkFlowJson());
+        when(workflowDefinitionMapper.selectById(10L)).thenReturn(oldEntity, updatedEntity);
+        when(workflowNodeMapper.selectList(any())).thenReturn(Collections.emptyList());
+        when(workflowTransitionMapper.selectList(any())).thenReturn(Collections.emptyList());
+
+        UserDept dept = new UserDept();
+        dept.setId(2L);
+        dept.setStatus(1);
+        when(userDeptMapper.selectById(2L)).thenReturn(dept);
+
+        doAnswer(new NodeInsertAnswer()).when(workflowNodeMapper).insert(any(WorkflowNode.class));
+        doAnswer(new ApproverInsertAnswer()).when(workflowNodeApproverMapper).insert(any(WorkflowNodeApprover.class));
+
+        WorkflowDefinitionVO result = workflowDefinitionService.update(eto);
+
+        ArgumentCaptor<WorkflowDefinition> updateCaptor = ArgumentCaptor.forClass(WorkflowDefinition.class);
+        verify(workflowDefinitionMapper).updateById(updateCaptor.capture());
+        assertEquals(10L, updateCaptor.getValue().getId());
+        assertEquals(1, updateCaptor.getValue().getVersion());
+        assertEquals(eto.getWorkFlowJson(), updateCaptor.getValue().getWorkflowJson());
+        verify(workflowDefinitionMapper, never()).insert(any(WorkflowDefinition.class));
+        assertEquals(10L, result.getId());
+    }
+
+    @Test
+    void shouldCreateNewPublishedVersionWhenUpdatingPublishedDefinition() {
+        WorkflowDefinitionUpdateETO eto = new WorkflowDefinitionUpdateETO();
+        eto.setId(11L);
+        eto.setCurrentUserId(9L);
+        eto.setName("请假审批-已发布");
+        eto.setDescription("发布版本修改");
+        eto.setWorkFlowJson(buildWorkflowJson("2"));
+
+        WorkflowDefinition oldEntity = buildDefinition(11L, WorkflowDefinitionStatusEnum.PUBLISHED.getId(), "LEAVE_APPROVAL", 1, "old");
+        WorkflowDefinition newEntity = buildDefinition(200L, WorkflowDefinitionStatusEnum.PUBLISHED.getId(), "LEAVE_APPROVAL", 2, eto.getWorkFlowJson());
+
+        when(workflowDefinitionMapper.selectById(11L)).thenReturn(oldEntity);
+        when(workflowDefinitionMapper.selectMaxVersionByCode("LEAVE_APPROVAL")).thenReturn(1);
+        when(workflowDefinitionMapper.selectById(200L)).thenReturn(newEntity);
+        when(workflowDefinitionMapper.selectList(any())).thenReturn(List.of(oldEntity));
+        when(workflowNodeMapper.selectList(any())).thenReturn(Collections.emptyList());
+        when(workflowTransitionMapper.selectList(any())).thenReturn(Collections.emptyList());
+
+        UserDept dept = new UserDept();
+        dept.setId(2L);
+        dept.setStatus(1);
+        when(userDeptMapper.selectById(2L)).thenReturn(dept);
+
+        doAnswer(invocation -> {
+            WorkflowDefinition argument = invocation.getArgument(0);
+            argument.setId(200L);
+            return 1;
+        }).when(workflowDefinitionMapper).insert(any(WorkflowDefinition.class));
+        doAnswer(new NodeInsertAnswer()).when(workflowNodeMapper).insert(any(WorkflowNode.class));
+        doAnswer(new ApproverInsertAnswer()).when(workflowNodeApproverMapper).insert(any(WorkflowNodeApprover.class));
+
+        WorkflowDefinitionVO result = workflowDefinitionService.update(eto);
+
+        ArgumentCaptor<WorkflowDefinition> insertCaptor = ArgumentCaptor.forClass(WorkflowDefinition.class);
+        verify(workflowDefinitionMapper).insert(insertCaptor.capture());
+        assertEquals(2, insertCaptor.getValue().getVersion());
+        assertEquals(WorkflowDefinitionStatusEnum.PUBLISHED.getId(), insertCaptor.getValue().getStatus());
+        assertEquals(9L, insertCaptor.getValue().getCreatedBy());
+
+        ArgumentCaptor<WorkflowDefinition> updateCaptor = ArgumentCaptor.forClass(WorkflowDefinition.class);
+        verify(workflowDefinitionMapper, times(2)).updateById(updateCaptor.capture());
+        assertEquals(List.of(11L, 200L), updateCaptor.getAllValues().stream().map(WorkflowDefinition::getId).toList());
+        assertEquals(List.of(WorkflowDefinitionStatusEnum.DISABLED.getId(), WorkflowDefinitionStatusEnum.PUBLISHED.getId()),
+                updateCaptor.getAllValues().stream().map(WorkflowDefinition::getStatus).toList());
+        verify(workflowNodeApproverDeptExpandService).rebuildByApproverIds(List.of(2001L));
+        assertEquals(200L, result.getId());
+    }
+
+    @Test
+    void shouldCreateNewPublishedVersionWhenUpdatingDisabledDefinition() {
+        WorkflowDefinitionUpdateETO eto = new WorkflowDefinitionUpdateETO();
+        eto.setId(12L);
+        eto.setCurrentUserId(9L);
+        eto.setName("请假审批-已停用");
+        eto.setDescription("停用版本修改");
+        eto.setWorkFlowJson(buildWorkflowJson("2"));
+
+        WorkflowDefinition disabledEntity = buildDefinition(12L, WorkflowDefinitionStatusEnum.DISABLED.getId(), "LEAVE_APPROVAL", 1, "old");
+        WorkflowDefinition publishedEntity = buildDefinition(13L, WorkflowDefinitionStatusEnum.PUBLISHED.getId(), "LEAVE_APPROVAL", 2, "old-published");
+        WorkflowDefinition newEntity = buildDefinition(201L, WorkflowDefinitionStatusEnum.PUBLISHED.getId(), "LEAVE_APPROVAL", 3, eto.getWorkFlowJson());
+
+        when(workflowDefinitionMapper.selectById(12L)).thenReturn(disabledEntity);
+        when(workflowDefinitionMapper.selectMaxVersionByCode("LEAVE_APPROVAL")).thenReturn(2);
+        when(workflowDefinitionMapper.selectById(201L)).thenReturn(newEntity);
+        when(workflowDefinitionMapper.selectList(any())).thenReturn(List.of(disabledEntity, publishedEntity));
+        when(workflowNodeMapper.selectList(any())).thenReturn(Collections.emptyList());
+        when(workflowTransitionMapper.selectList(any())).thenReturn(Collections.emptyList());
+
+        UserDept dept = new UserDept();
+        dept.setId(2L);
+        dept.setStatus(1);
+        when(userDeptMapper.selectById(2L)).thenReturn(dept);
+
+        doAnswer(invocation -> {
+            WorkflowDefinition argument = invocation.getArgument(0);
+            argument.setId(201L);
+            return 1;
+        }).when(workflowDefinitionMapper).insert(any(WorkflowDefinition.class));
+        doAnswer(new NodeInsertAnswer()).when(workflowNodeMapper).insert(any(WorkflowNode.class));
+        doAnswer(new ApproverInsertAnswer()).when(workflowNodeApproverMapper).insert(any(WorkflowNodeApprover.class));
+
+        WorkflowDefinitionVO result = workflowDefinitionService.update(eto);
+
+        ArgumentCaptor<WorkflowDefinition> insertCaptor = ArgumentCaptor.forClass(WorkflowDefinition.class);
+        verify(workflowDefinitionMapper).insert(insertCaptor.capture());
+        assertEquals(3, insertCaptor.getValue().getVersion());
+        assertEquals(WorkflowDefinitionStatusEnum.PUBLISHED.getId(), insertCaptor.getValue().getStatus());
+
+        ArgumentCaptor<WorkflowDefinition> updateCaptor = ArgumentCaptor.forClass(WorkflowDefinition.class);
+        verify(workflowDefinitionMapper, times(2)).updateById(updateCaptor.capture());
+        assertEquals(List.of(13L, 201L), updateCaptor.getAllValues().stream().map(WorkflowDefinition::getId).toList());
+        assertEquals(List.of(WorkflowDefinitionStatusEnum.DISABLED.getId(), WorkflowDefinitionStatusEnum.PUBLISHED.getId()),
+                updateCaptor.getAllValues().stream().map(WorkflowDefinition::getStatus).toList());
+        assertEquals(201L, result.getId());
     }
 
     @Test
@@ -253,6 +392,20 @@ class WorkflowDefinitionServiceImplTests {
                   ]
                 }
                 """.formatted(approverId);
+    }
+
+    /**
+     * 构造流程定义对象。
+     */
+    private WorkflowDefinition buildDefinition(Long id, Integer status, String code, Integer version, String workflowJson) {
+        WorkflowDefinition entity = new WorkflowDefinition();
+        entity.setId(id);
+        entity.setName("请假审批");
+        entity.setCode(code);
+        entity.setVersion(version);
+        entity.setWorkflowJson(workflowJson);
+        entity.setStatus(status);
+        return entity;
     }
 
     /**

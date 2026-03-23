@@ -35,8 +35,8 @@ public class WorkflowNodeVO {
     @Schema(description = "审批模式说明")
     private String approveModeMsg;
 
-    @Schema(description = "超时时限（小时）")
-    private Integer timeoutHours;
+    @Schema(description = "超时时限（分钟）")
+    private Integer timeoutMinutes;
 
     @Schema(description = "超时处理策略")
     private String timeoutAction;
@@ -44,8 +44,8 @@ public class WorkflowNodeVO {
     @Schema(description = "超时处理策略说明")
     private String timeoutActionMsg;
 
-    @Schema(description = "提醒时限（小时）")
-    private Integer remindHours;
+    @Schema(description = "提醒时限（分钟）")
+    private Integer remindMinutes;
 
     @Schema(description = "画布X坐标")
     private Integer positionX;

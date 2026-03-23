@@ -117,14 +117,22 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public WorkflowDefinitionVO update(WorkflowDefinitionUpdateETO eto) {
-        WorkflowDefinition oldEntity = getDraftDefinitionOrThrow(eto.getId());
+        WorkflowDefinition oldEntity = getDefinitionOrThrow(eto.getId());
         ParsedWorkflow parsedWorkflow = parseWorkflowPayload(eto.getWorkFlowJson());
         validateDefinitionPayload(parsedWorkflow.nodes(), parsedWorkflow.transitions());
+        if (WorkflowDefinitionStatusEnum.DRAFT.getId().equals(oldEntity.getStatus())) {
+            WorkflowDefinition entity = workflowDefinitionStructMapper.toUpdatedEntity(eto, oldEntity);
+            workflowDefinitionMapper.updateById(entity);
+            deleteChildren(List.of(entity.getId()));
+            persistChildren(entity.getId(), parsedWorkflow.nodes(), parsedWorkflow.transitions());
+            return detail(entity.getId());
+        }
 
-        WorkflowDefinition entity = workflowDefinitionStructMapper.toUpdatedEntity(eto, oldEntity);
-        workflowDefinitionMapper.updateById(entity);
-        deleteChildren(List.of(entity.getId()));
+        WorkflowDefinition entity = buildPublishedVersionEntity(eto, oldEntity);
+        workflowDefinitionMapper.insert(entity);
         persistChildren(entity.getId(), parsedWorkflow.nodes(), parsedWorkflow.transitions());
+        disableOldVersions(oldEntity.getCode(), entity.getId());
+        publishDefinition(entity.getId());
         return detail(entity.getId());
     }
 
@@ -274,6 +282,21 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
     }
 
     /**
+     * 构造基于旧版本的新发布版本实体。
+     */
+    private WorkflowDefinition buildPublishedVersionEntity(WorkflowDefinitionUpdateETO eto, WorkflowDefinition oldEntity) {
+        WorkflowDefinition entity = new WorkflowDefinition();
+        entity.setName(eto.getName());
+        entity.setCode(oldEntity.getCode());
+        entity.setVersion(resolveNextVersion(oldEntity.getCode()));
+        entity.setDescription(eto.getDescription());
+        entity.setWorkflowJson(eto.getWorkFlowJson());
+        entity.setStatus(WorkflowDefinitionStatusEnum.PUBLISHED.getId());
+        entity.setCreatedBy(requireCurrentUserId(eto.getCurrentUserId()));
+        return entity;
+    }
+
+    /**
      * 确保当前操作人存在。
      */
     private Long requireCurrentUserId(Long currentUserId) {
@@ -302,6 +325,34 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
         if (Objects.nonNull(draft)) {
             throw new BizException("同一流程编码已存在未发布草稿");
         }
+    }
+
+    /**
+     * 将同流程编码下的旧版本统一调整为停用。
+     */
+    private void disableOldVersions(String code, Long latestId) {
+        List<WorkflowDefinition> oldVersionList = workflowDefinitionMapper.selectList(new LambdaQueryWrapper<WorkflowDefinition>()
+                .eq(WorkflowDefinition::getCode, code)
+                .ne(WorkflowDefinition::getId, latestId));
+        for (WorkflowDefinition oldVersion : oldVersionList) {
+            if (WorkflowDefinitionStatusEnum.DISABLED.getId().equals(oldVersion.getStatus())) {
+                continue;
+            }
+            WorkflowDefinition disabledEntity = new WorkflowDefinition();
+            disabledEntity.setId(oldVersion.getId());
+            disabledEntity.setStatus(WorkflowDefinitionStatusEnum.DISABLED.getId());
+            workflowDefinitionMapper.updateById(disabledEntity);
+        }
+    }
+
+    /**
+     * 发布指定流程定义版本。
+     */
+    private void publishDefinition(Long definitionId) {
+        WorkflowDefinition publishedEntity = new WorkflowDefinition();
+        publishedEntity.setId(definitionId);
+        publishedEntity.setStatus(WorkflowDefinitionStatusEnum.PUBLISHED.getId());
+        workflowDefinitionMapper.updateById(publishedEntity);
     }
 
     /**
@@ -350,9 +401,9 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
                     inDegreeMap.getOrDefault(clientNodeId, 0),
                     outDegreeMap.getOrDefault(clientNodeId, 0)));
             node.setApproveMode(resolveApproveMode(getString(properties, "approveMode")));
-            node.setTimeoutHours(toHours(getInteger(properties.get("timeoutAfterMinutes"))));
+            node.setTimeoutMinutes(getInteger(properties.get("timeoutAfterMinutes")));
             node.setTimeoutAction(resolveTimeoutAction(getString(properties, "timeoutStrategy")));
-            node.setRemindHours(toHours(getInteger(properties.get("remindAfterMinutes"))));
+            node.setRemindMinutes(getInteger(properties.get("remindAfterMinutes")));
             node.setPositionX(getInteger(rawNode.x));
             node.setPositionY(getInteger(rawNode.y));
             node.setConfigJson(objectMapperUtils.toJson(properties));
@@ -737,19 +788,6 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
             return rawEdge.text.value.trim();
         }
         return null;
-    }
-
-    /**
-     * 将分钟换算为小时，向上取整。
-     */
-    private Integer toHours(Integer minutes) {
-        if (Objects.isNull(minutes)) {
-            return null;
-        }
-        if (minutes <= 0) {
-            return 0;
-        }
-        return (minutes + 59) / 60;
     }
 
     /**

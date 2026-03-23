@@ -39,15 +39,15 @@ public class WorkflowDefinitionNodeETO {
     @EnumCodeValid(enumClass = WorkflowApproveModeEnum.class, message = "approveMode不合法")
     private String approveMode;
 
-    @Schema(description = "超时时限（小时）")
-    private Integer timeoutHours;
+    @Schema(description = "超时时限（分钟）")
+    private Integer timeoutMinutes;
 
     @Schema(description = "超时处理策略：AUTO_APPROVE/AUTO_REJECT/NOTIFY_ONLY")
     @EnumCodeValid(enumClass = WorkflowTimeoutActionEnum.class, message = "timeoutAction不合法")
     private String timeoutAction;
 
-    @Schema(description = "提醒时限（小时）")
-    private Integer remindHours;
+    @Schema(description = "提醒时限（分钟）")
+    private Integer remindMinutes;
 
     @Schema(description = "画布X坐标")
     private Integer positionX;
