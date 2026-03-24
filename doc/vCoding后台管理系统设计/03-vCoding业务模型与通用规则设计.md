@@ -73,14 +73,16 @@
 - 用一张通用申请表覆盖请假、报销、合同等业务场景。
 - 通过 `biz_code` 区分不同业务定义。
 - 将差异化字段统一收敛到 `form_data` JSON。
+- 提交审批时冗余保存 `workflow_name`，便于历史单据直接展示流程名称。
 
 关键字段：
 - `biz_code`
 - `title`
-- `status`
+- `biz_status`
 - `applicant_id`
 - `dept_id`
 - `form_data`
+- `workflow_name`
 - `workflow_instance_id`
 
 ### 5.2 业务定义 `tb_biz_definition`

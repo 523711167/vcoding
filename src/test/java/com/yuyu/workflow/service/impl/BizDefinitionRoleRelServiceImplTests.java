@@ -63,7 +63,7 @@ class BizDefinitionRoleRelServiceImplTests {
 
         when(bizDefinitionMapper.selectById(1L)).thenReturn(bizDefinition);
         when(userRoleMapper.selectBatchIds(List.of(3L, 4L))).thenReturn(List.of(buildRole(3L), buildRole(4L)));
-        when(bizDefinitionRoleRelMapper.selectList(any())).thenReturn(List.of(oldRelation1, oldRelation2));
+        when(bizDefinitionRoleRelMapper.selectAnyListByBizDefinitionIds(List.of(1L))).thenReturn(List.of(oldRelation1, oldRelation2));
         doAnswer(invocation -> {
             BizDefinitionRoleRel relation = invocation.getArgument(0);
             relation.setId(100L);
@@ -115,7 +115,7 @@ class BizDefinitionRoleRelServiceImplTests {
      */
     @Test
     void shouldRemoveRolesByBizIds() {
-        when(bizDefinitionRoleRelMapper.selectList(any())).thenReturn(List.of(
+        when(bizDefinitionRoleRelMapper.selectAnyListByBizDefinitionIds(List.of(1L, 2L))).thenReturn(List.of(
                 buildRelation(21L, 1L, 3L),
                 buildRelation(22L, 2L, 4L)
         ));

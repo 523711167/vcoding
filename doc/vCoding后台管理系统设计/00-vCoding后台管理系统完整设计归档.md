@@ -342,6 +342,7 @@ tb_sys_dict_type ──────────────── tb_sys_dict_it
 - `tb_workflow_definition` 不再冗余保存 `biz_code`
 - `tb_biz_apply.biz_code` 标识“这张业务单据属于哪个业务定义”
 - `tb_biz_apply.form_data` 保存业务申请提交时的实际数据快照，字段结构由前后端按业务定义约定
+- `tb_biz_apply.workflow_name` 冗余保存提交时命中的流程定义名称，用于历史单据展示
 - 单据提交时，先根据 `tb_biz_apply.biz_code` 查询 `tb_biz_definition` 获取 `workflow_definition_id`，再创建 `tb_workflow_instance`
 - `tb_user_dept_rel` 只记录用户直接选中的组织节点及主组织语义
 - `tb_user_dept_rel_expand` 只记录系统按直接绑定关系向下展开后的当前生效节点，并保留来源关系
@@ -386,11 +387,12 @@ CREATE TABLE `tb_biz_apply` (
   `id`                   BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `biz_code`             VARCHAR(64)  NOT NULL               COMMENT '业务编码：LEAVE=请假 EXPENSE=报销 CONTRACT=合同 等',
   `title`                VARCHAR(200) NOT NULL               COMMENT '申请标题',
-  `status`               VARCHAR(16)  NOT NULL DEFAULT 'DRAFT' COMMENT '申请状态：DRAFT=草稿 PENDING=审批中 APPROVED=已通过 REJECTED=已拒绝 CANCELED=已撤回',
+  `biz_status`           VARCHAR(16)  NOT NULL DEFAULT 'DRAFT' COMMENT '业务申请状态：DRAFT=草稿 PENDING=审批中 APPROVED=已通过 REJECTED=已拒绝 CANCELED=已撤回',
   `applicant_id`         BIGINT       NOT NULL               COMMENT '申请人用户ID',
   `applicant_name`       VARCHAR(64)  NOT NULL               COMMENT '申请人姓名（冗余）',
   `dept_id`              BIGINT                              COMMENT '申请人所属部门ID（冗余）',
   `form_data`            JSON                                COMMENT '业务差异化字段（按biz_code存储申请数据快照）',
+  `workflow_name`        VARCHAR(100)                        COMMENT '流程名称（冗余快照，取提交流程定义名称）',
   `workflow_instance_id` BIGINT                              COMMENT '关联的审批工作流实例ID（tb_workflow_instance.id），提交后回写',
   `submitted_at`         DATETIME                            COMMENT '提交审批时间',
   `finished_at`          DATETIME                            COMMENT '审批完成时间',
@@ -399,7 +401,7 @@ CREATE TABLE `tb_biz_apply` (
   `is_deleted`           TINYINT      NOT NULL DEFAULT 0     COMMENT '软删除标记：0=正常 1=已删除',
   PRIMARY KEY (`id`),
   KEY `idx_applicant_id` (`applicant_id`),
-  KEY `idx_biz_code_status` (`biz_code`, `status`),
+  KEY `idx_biz_code_biz_status` (`biz_code`, `biz_status`),
   KEY `idx_workflow_instance_id` (`workflow_instance_id`)
 ) ENGINE=InnoDB COMMENT='通用业务申请表';
 ```
@@ -409,8 +411,9 @@ CREATE TABLE `tb_biz_apply` (
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `biz_code` | `VARCHAR(64)` | 业务定义编码，对应 `tb_biz_definition.biz_code` |
-| `status` | `VARCHAR(16)` | 申请单自身状态，随工作流实例状态同步更新 |
+| `biz_status` | `VARCHAR(16)` | 业务申请自身状态，随工作流实例状态同步更新 |
 | `form_data` | `JSON` | 按 `biz_code` 存储业务申请提交的数据快照；其中枚举类字段统一存字典项值，不存显示文案 |
+| `workflow_name` | `VARCHAR(100)` | 冗余保存提交时命中的流程定义名称，便于历史单据直接展示 |
 | `workflow_instance_id` | `BIGINT` | 提交审批后关联到 `tb_workflow_instance.id`，草稿阶段为 `NULL` |
 
 `form_data` 示例（请假申请）：
@@ -447,8 +450,9 @@ CREATE TABLE `tb_biz_apply` (
 
 关联关系说明：
 - `tb_biz_apply.workflow_instance_id` → `tb_workflow_instance.id`
+- 申请提交时同步冗余当前流程定义名称到 `tb_biz_apply.workflow_name`
 - 申请提交时创建工作流实例，将实例 ID 回写至 `tb_biz_apply.workflow_instance_id`
-- 工作流实例状态变更（通过/拒绝/撤回）时，同步更新 `tb_biz_apply.status`
+- 工作流实例状态变更（通过/拒绝/撤回）时，同步更新 `tb_biz_apply.biz_status`
 
 ### 5.2 业务定义表 `tb_biz_definition`
 
@@ -1515,8 +1519,9 @@ CREATE TABLE `tb_workflow_approval_record` (
 与业务单据的关系：
 - 业务单据提交审批时，系统先根据 `tb_biz_apply.biz_code` 查询 `tb_biz_definition.workflow_definition_id`
 - 创建流程实例时，将该 `workflow_definition_id` 写入 `tb_workflow_instance.definition_id`
+- 同时将当次命中的流程定义名称冗余写入 `tb_biz_apply.workflow_name`
 - 若某业务定义后续改绑到新的流程定义版本，则只有改绑后新提交的单据会使用新的 `definition_id`
-- 已提交单据关联的 `workflow_instance_id` 不因流程发布新版本或业务重新绑定流程而变化
+- 已提交单据关联的 `workflow_instance_id`、`workflow_name` 不因流程发布新版本、流程改名或业务重新绑定流程而回写变化
 
 示例：
 - 当前已发布版本：`tb_workflow_definition(id=100, code='LEAVE_APPROVAL', version=1, status=1)`
@@ -1542,13 +1547,14 @@ CREATE TABLE `tb_workflow_approval_record` (
 
 发起步骤：
 1. 业务单据提交时，先根据 `tb_biz_apply.biz_code` 查询 `tb_biz_definition`，获取对应的 `workflow_definition_id`
-2. 在 `tb_workflow_instance` 创建实例记录（`status=RUNNING`，`definition_id=workflow_definition_id`）
-3. 读取流程定义，找到 `START` 节点，激活从 `START` 出发的第一个节点
-4. 激活节点时：
+2. 同步将当前流程定义名称冗余写入 `tb_biz_apply.workflow_name`
+3. 在 `tb_workflow_instance` 创建实例记录（`status=RUNNING`，`definition_id=workflow_definition_id`）
+4. 读取流程定义，找到 `START` 节点，激活从 `START` 出发的第一个节点
+5. 激活节点时：
    - 在 `tb_workflow_node_instance` 创建记录（`status=ACTIVE`，计算 `deadline_at`）
    - 解析审批人配置，在 `tb_workflow_node_approver_instance` 为每位审批人创建记录
    - 向审批人发送待办通知
-5. 在 `tb_workflow_approval_record` 写入 `SUBMIT` 操作记录
+6. 在 `tb_workflow_approval_record` 写入 `SUBMIT` 操作记录
 
 ### 9.4 节点流转逻辑
 

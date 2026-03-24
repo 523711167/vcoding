@@ -76,9 +76,7 @@ public class BizDefinitionRoleRelServiceImpl implements BizDefinitionRoleRelServ
         if (CollectionUtils.isEmpty(normalizedBizDefinitionIds)) {
             return;
         }
-        List<BizDefinitionRoleRel> relations = bizDefinitionRoleRelMapper.selectList(
-                new LambdaQueryWrapper<BizDefinitionRoleRel>()
-                        .in(BizDefinitionRoleRel::getBizDefinitionId, normalizedBizDefinitionIds));
+        List<BizDefinitionRoleRel> relations = bizDefinitionRoleRelMapper.selectAnyListByBizDefinitionIds(normalizedBizDefinitionIds);
         if (CollectionUtils.isEmpty(relations)) {
             return;
         }
