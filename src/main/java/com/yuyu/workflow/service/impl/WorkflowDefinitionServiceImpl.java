@@ -392,7 +392,7 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
             transition.setFromNodeCode(trimToNull(rawEdge.sourceNodeId));
             transition.setToNodeCode(trimToNull(rawEdge.targetNodeId));
             transition.setConditionExpr(trimToNull(getString(properties, "expression")));
-            transition.setIsDefault(getYesNoFlag(properties.get("isDefault")));
+            transition.setIsDefault(getYesNoFlag(properties.get("is_default")));
             transition.setPriority(getInteger(properties.get("priority")));
             transition.setLabel(resolveEdgeLabel(rawEdge));
             transitionList.add(transition);

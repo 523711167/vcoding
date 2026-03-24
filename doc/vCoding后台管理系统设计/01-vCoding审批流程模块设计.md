@@ -85,7 +85,7 @@
 - `nodes` 对应 `tb_workflow_node`
   后端在保存时解析前端节点 `id`、`properties`、`text`，拆分并落到节点、审批人、连线表。
 - `transitions` 对应 `tb_workflow_transition`
-  后端在保存时解析边上的 `properties.expression`、`properties.priority`、`properties.isDefault`，分别落到 `condition_expr`、`priority`、`is_default`。
+  后端在保存时解析边上的 `properties.expression`、`properties.priority`、`properties.is_default`，分别落到 `condition_expr`、`priority`、`is_default`。
 - `approvers` 对应 `tb_workflow_node_approver`
   审批人保存时按数组逐项拆分，一条审批主体写一条 direct 记录；当 `approverType=DEPT` 时，再同步重建 `tb_workflow_node_approver_dept_expand`。
 

@@ -204,6 +204,44 @@ class WorkflowDefinitionServiceImplTests {
     }
 
     @Test
+    void shouldParseSnakeCaseDefaultFlagWhenCreatingDefinition() {
+        WorkflowDefinitionCreateETO eto = new WorkflowDefinitionCreateETO();
+        eto.setCurrentUserId(9L);
+        eto.setName("报销审批");
+        eto.setCode("EXPENSE_APPROVAL");
+        eto.setWorkFlowJson(buildConditionWorkflowJsonWithDefaultKey("is_default", false, true));
+
+        WorkflowDefinition entity = new WorkflowDefinition();
+        entity.setId(101L);
+        entity.setName("报销审批");
+        entity.setCode("EXPENSE_APPROVAL");
+        entity.setWorkflowJson(eto.getWorkFlowJson());
+        entity.setStatus(WorkflowDefinitionStatusEnum.DRAFT.getId());
+
+        when(workflowDefinitionMapper.selectOne(any())).thenReturn(null);
+        when(workflowDefinitionMapper.selectMaxVersionByCode("EXPENSE_APPROVAL")).thenReturn(null);
+        when(workflowDefinitionMapper.selectById(101L)).thenReturn(entity);
+        when(workflowNodeMapper.selectList(any())).thenReturn(Collections.emptyList());
+        when(workflowTransitionMapper.selectList(any())).thenReturn(Collections.emptyList());
+        when(userDeptMapper.selectById(2L)).thenReturn(buildEnabledDept(2L));
+
+        doAnswer(invocation -> {
+            WorkflowDefinition argument = invocation.getArgument(0);
+            argument.setId(101L);
+            return 1;
+        }).when(workflowDefinitionMapper).insert(any(WorkflowDefinition.class));
+        doAnswer(new NodeInsertAnswer()).when(workflowNodeMapper).insert(any(WorkflowNode.class));
+        doAnswer(new ApproverInsertAnswer()).when(workflowNodeApproverMapper).insert(any(WorkflowNodeApprover.class));
+
+        workflowDefinitionService.create(eto);
+
+        ArgumentCaptor<WorkflowTransition> transitionCaptor = ArgumentCaptor.forClass(WorkflowTransition.class);
+        verify(workflowTransitionMapper, times(4)).insert(transitionCaptor.capture());
+        assertEquals(List.of(0, 0, 1, 0),
+                transitionCaptor.getAllValues().stream().map(WorkflowTransition::getIsDefault).toList());
+    }
+
+    @Test
     void shouldUpdateDraftDefinitionDirectly() {
         WorkflowDefinitionUpdateETO eto = new WorkflowDefinitionUpdateETO();
         eto.setId(10L);
@@ -472,6 +510,13 @@ class WorkflowDefinitionServiceImplTests {
      * 构造条件节点多分支流程。
      */
     private String buildConditionWorkflowJson(boolean firstDefault, boolean secondDefault) {
+        return buildConditionWorkflowJsonWithDefaultKey("is_default", firstDefault, secondDefault);
+    }
+
+    /**
+     * 构造条件节点多分支流程，并指定默认分支字段名。
+     */
+    private String buildConditionWorkflowJsonWithDefaultKey(String defaultKey, boolean firstDefault, boolean secondDefault) {
         return """
                 {
                   "nodes": [
@@ -543,7 +588,7 @@ class WorkflowDefinitionServiceImplTests {
                       "properties": {
                         "expression": "amount > 5000",
                         "priority": 1,
-                        "isDefault": %s
+                        "%s": %s
                       },
                       "text": {
                         "value": "金额大于5000"
@@ -554,7 +599,7 @@ class WorkflowDefinitionServiceImplTests {
                       "targetNodeId": "END",
                       "properties": {
                         "priority": 99,
-                        "isDefault": %s
+                        "%s": %s
                       },
                       "text": {
                         "value": "默认结束"
@@ -572,7 +617,7 @@ class WorkflowDefinitionServiceImplTests {
                     }
                   ]
                 }
-                """.formatted(firstDefault, secondDefault);
+                """.formatted(defaultKey, firstDefault, defaultKey, secondDefault);
     }
 
     /**
@@ -664,7 +709,7 @@ class WorkflowDefinitionServiceImplTests {
                       "properties": {
                         "expression": "amount > 5000",
                         "priority": 1,
-                        "isDefault": %s
+                        "is_default": %s
                       },
                       "text": {
                         "value": "财务线"
@@ -676,7 +721,7 @@ class WorkflowDefinitionServiceImplTests {
                       "properties": {
                         "expression": "department != 'FINANCE'",
                         "priority": 2,
-                        "isDefault": %s
+                        "is_default": %s
                       },
                       "text": {
                         "value": "人事线"
