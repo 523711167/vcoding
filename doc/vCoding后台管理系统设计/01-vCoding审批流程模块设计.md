@@ -165,8 +165,8 @@
 ### 11.1 条件表达式变量来源
 
 - `tb_workflow_instance.form_data`
-- `initiator_id`
-- `initiator_dept_id`
+- `applicant_id`
+- `applicant_dept_id`
 - `current_time`
 
 ### 11.2 并行处理规则

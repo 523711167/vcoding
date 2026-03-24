@@ -1362,8 +1362,8 @@ CREATE TABLE `tb_workflow_instance` (
   `definition_code`  VARCHAR(64)  NOT NULL               COMMENT '流程编码（冗余，方便查询）',
   `title`            VARCHAR(200) NOT NULL               COMMENT '审批标题',
   `status`           VARCHAR(16)  NOT NULL DEFAULT 'RUNNING' COMMENT '实例状态：RUNNING=进行中 APPROVED=已通过 REJECTED=已拒绝 CANCELED=已撤回',
-  `initiator_id`     BIGINT       NOT NULL               COMMENT '发起人用户ID',
-  `initiator_name`   VARCHAR(64)  NOT NULL               COMMENT '发起人姓名（冗余）',
+  `applicant_id`     BIGINT       NOT NULL               COMMENT '申请人用户ID',
+  `applicant_name`   VARCHAR(64)  NOT NULL               COMMENT '申请人姓名（冗余）',
   `form_data`        JSON                                COMMENT '业务申请数据快照',
   `current_node_id`   BIGINT                              COMMENT '当前所在节点ID',
   `started_at`       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '发起时间',
@@ -1373,7 +1373,7 @@ CREATE TABLE `tb_workflow_instance` (
   `is_deleted`       TINYINT      NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   KEY `idx_definition_id` (`definition_id`),
-  KEY `idx_initiator_id` (`initiator_id`),
+  KEY `idx_applicant_id` (`applicant_id`),
   KEY `idx_status` (`status`)
 ) ENGINE=InnoDB COMMENT='流程实例表';
 ```
@@ -1586,7 +1586,7 @@ CREATE TABLE `tb_workflow_approval_record` (
 
 运行时变量来源：
 - `tb_workflow_instance.form_data` 中的字段
-- 内置变量：`initiator_id`、`initiator_dept_id`、`current_time`
+- 内置变量：`applicant_id`、`applicant_dept_id`、`current_time`
 
 建议为条件节点保留一条 `condition_expr = NULL` 的兜底分支，避免流程卡死。
 
