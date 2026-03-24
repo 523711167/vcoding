@@ -49,4 +49,19 @@ public interface UserRoleMapper extends BaseMapper<UserRole> {
             "</script>"
     })
     List<String> selectEnabledCodesByUserId(@Param("userId") Long userId);
+
+    /**
+     * 查询指定用户已启用角色主键集合。
+     */
+    @Select({
+            "<script>",
+            "SELECT DISTINCT r.id",
+            "FROM tb_user_role r",
+            "INNER JOIN tb_user_role_rel rel ON rel.role_id = r.id",
+            "WHERE rel.user_id = #{userId}",
+            "AND r.status = 1",
+            "AND r.is_deleted = 0",
+            "</script>"
+    })
+    List<Long> selectEnabledIdsByUserId(@Param("userId") Long userId);
 }

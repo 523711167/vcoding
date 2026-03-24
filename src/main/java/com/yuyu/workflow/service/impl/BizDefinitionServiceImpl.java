@@ -5,20 +5,26 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yuyu.workflow.common.PageVo;
 import com.yuyu.workflow.common.enums.CommonStatusEnum;
+import com.yuyu.workflow.common.enums.RoleCodeEnum;
 import com.yuyu.workflow.common.enums.RespCodeEnum;
 import com.yuyu.workflow.common.enums.WorkflowDefinitionStatusEnum;
 import com.yuyu.workflow.common.exception.BizException;
 import com.yuyu.workflow.convert.BizDefinitionStructMapper;
 import com.yuyu.workflow.entity.BizDefinition;
 import com.yuyu.workflow.entity.WorkflowDefinition;
+import com.yuyu.workflow.entity.UserRole;
 import com.yuyu.workflow.eto.biz.BizDefinitionCreateETO;
 import com.yuyu.workflow.eto.biz.BizDefinitionUpdateETO;
 import com.yuyu.workflow.mapper.BizDefinitionMapper;
+import com.yuyu.workflow.mapper.BizDefinitionRoleRelMapper;
+import com.yuyu.workflow.mapper.UserRoleMapper;
 import com.yuyu.workflow.mapper.WorkflowDefinitionMapper;
+import com.yuyu.workflow.qto.biz.BizDefinitionCurrentUserPageQTO;
 import com.yuyu.workflow.qto.biz.BizDefinitionListQTO;
 import com.yuyu.workflow.qto.biz.BizDefinitionPageQTO;
 import com.yuyu.workflow.service.BizDefinitionRoleRelService;
 import com.yuyu.workflow.service.BizDefinitionService;
+import com.yuyu.workflow.vo.biz.BizDefinitionCurrentUserVO;
 import com.yuyu.workflow.vo.biz.BizDefinitionVO;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,6 +48,8 @@ public class BizDefinitionServiceImpl implements BizDefinitionService {
 
     private final BizDefinitionMapper bizDefinitionMapper;
     private final WorkflowDefinitionMapper workflowDefinitionMapper;
+    private final BizDefinitionRoleRelMapper bizDefinitionRoleRelMapper;
+    private final UserRoleMapper userRoleMapper;
     private final BizDefinitionStructMapper bizDefinitionStructMapper;
     private final BizDefinitionRoleRelService bizDefinitionRoleRelService;
 
@@ -50,10 +58,14 @@ public class BizDefinitionServiceImpl implements BizDefinitionService {
      */
     public BizDefinitionServiceImpl(BizDefinitionMapper bizDefinitionMapper,
                                     WorkflowDefinitionMapper workflowDefinitionMapper,
+                                    BizDefinitionRoleRelMapper bizDefinitionRoleRelMapper,
+                                    UserRoleMapper userRoleMapper,
                                     BizDefinitionStructMapper bizDefinitionStructMapper,
                                     BizDefinitionRoleRelService bizDefinitionRoleRelService) {
         this.bizDefinitionMapper = bizDefinitionMapper;
         this.workflowDefinitionMapper = workflowDefinitionMapper;
+        this.bizDefinitionRoleRelMapper = bizDefinitionRoleRelMapper;
+        this.userRoleMapper = userRoleMapper;
         this.bizDefinitionStructMapper = bizDefinitionStructMapper;
         this.bizDefinitionRoleRelService = bizDefinitionRoleRelService;
     }
@@ -66,7 +78,7 @@ public class BizDefinitionServiceImpl implements BizDefinitionService {
         BizDefinition entity = bizDefinitionStructMapper.toEntity(eto);
         entity.setCreatedBy(requireCurrentUserId(eto.getCurrentUserId()));
         bizDefinitionMapper.insert(entity);
-        bizDefinitionRoleRelService.replaceRoles(entity.getId(), eto.getRoleIds());
+        bizDefinitionRoleRelService.replaceRoles(entity.getId(), appendAdminRoleId(eto.getRoleIds()));
         return detail(entity.getId());
     }
 
@@ -109,6 +121,32 @@ public class BizDefinitionServiceImpl implements BizDefinitionService {
     }
 
     @Override
+    public PageVo<BizDefinitionCurrentUserVO> currentUserPage(BizDefinitionCurrentUserPageQTO qto) {
+        Long currentUserId = requireCurrentUserId(qto.getCurrentUserId());
+        List<Long> roleIds = userRoleMapper.selectEnabledIdsByUserId(currentUserId);
+        if (CollectionUtils.isEmpty(roleIds)) {
+            return PageVo.of(qto.getPageNum(), qto.getPageSize(), 0, Collections.emptyList());
+        }
+        List<Long> rawBizDefinitionIds = bizDefinitionRoleRelMapper.selectBizDefinitionIdsByRoleIds(roleIds);
+        if (CollectionUtils.isEmpty(rawBizDefinitionIds)) {
+            return PageVo.of(qto.getPageNum(), qto.getPageSize(), 0, Collections.emptyList());
+        }
+        List<Long> bizDefinitionIds = rawBizDefinitionIds.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (CollectionUtils.isEmpty(bizDefinitionIds)) {
+            return PageVo.of(qto.getPageNum(), qto.getPageSize(), 0, Collections.emptyList());
+        }
+        IPage<BizDefinition> page = bizDefinitionMapper.selectPage(
+                new Page<>(qto.getPageNum(), qto.getPageSize()),
+                buildQuery(qto.getBizCode(), qto.getBizName(), null, qto.getStatus())
+                        .in(BizDefinition::getId, bizDefinitionIds)
+        );
+        return PageVo.of(page.getCurrent(), page.getSize(), page.getTotal(), buildBizDefinitionCurrentUserVOList(page.getRecords()));
+    }
+
+    @Override
     public BizDefinitionVO detail(Long id) {
         BizDefinition entity = getBizDefinitionOrThrow(id);
         return buildBizDefinitionVO(entity, getWorkflowDefinitionMap(List.of(entity)));
@@ -143,6 +181,18 @@ public class BizDefinitionServiceImpl implements BizDefinitionService {
     }
 
     /**
+     * 将业务定义实体列表统一组装为当前用户可见返回对象列表。
+     */
+    private List<BizDefinitionCurrentUserVO> buildBizDefinitionCurrentUserVOList(List<BizDefinition> entityList) {
+        if (CollectionUtils.isEmpty(entityList)) {
+            return Collections.emptyList();
+        }
+        return entityList.stream()
+                .map(this::buildBizDefinitionCurrentUserVO)
+                .toList();
+    }
+
+    /**
      * 将单个业务定义实体组装为返回对象。
      */
     private BizDefinitionVO buildBizDefinitionVO(BizDefinition entity, Map<Long, WorkflowDefinition> workflowDefinitionMap) {
@@ -153,6 +203,15 @@ public class BizDefinitionServiceImpl implements BizDefinitionService {
             vo.setWorkflowDefinitionCode(workflowDefinition.getCode());
             vo.setWorkflowDefinitionName(workflowDefinition.getName());
         }
+        return vo;
+    }
+
+    /**
+     * 将单个业务定义实体组装为当前用户可见返回对象。
+     */
+    private BizDefinitionCurrentUserVO buildBizDefinitionCurrentUserVO(BizDefinition entity) {
+        BizDefinitionCurrentUserVO vo = bizDefinitionStructMapper.toCurrentUserTarget(entity);
+        vo.setStatusMsg(CommonStatusEnum.getMsgById(entity.getStatus()));
         return vo;
     }
 
@@ -233,5 +292,23 @@ public class BizDefinitionServiceImpl implements BizDefinitionService {
             throw new BizException("当前登录用户不存在");
         }
         return currentUserId;
+    }
+
+    /**
+     * 新增业务定义时自动补充 ADMIN 角色关联。
+     */
+    private List<Long> appendAdminRoleId(List<Long> roleIds) {
+        UserRole adminRole = userRoleMapper.selectAnyByCode(RoleCodeEnum.ADMIN.getCode());
+        if (Objects.isNull(adminRole) || Objects.isNull(adminRole.getId())) {
+            throw new BizException("ADMIN角色不存在");
+        }
+        LinkedHashSet<Long> result = new LinkedHashSet<>();
+        if (!CollectionUtils.isEmpty(roleIds)) {
+            roleIds.stream()
+                    .filter(Objects::nonNull)
+                    .forEach(result::add);
+        }
+        result.add(adminRole.getId());
+        return result.stream().toList();
     }
 }

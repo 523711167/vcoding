@@ -1,17 +1,26 @@
 package com.yuyu.workflow.service.impl;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.yuyu.workflow.common.PageVo;
 import com.yuyu.workflow.common.enums.CommonStatusEnum;
+import com.yuyu.workflow.common.enums.RoleCodeEnum;
 import com.yuyu.workflow.common.enums.WorkflowDefinitionStatusEnum;
 import com.yuyu.workflow.common.exception.BizException;
 import com.yuyu.workflow.convert.BizDefinitionStructMapper;
 import com.yuyu.workflow.entity.BizDefinition;
+import com.yuyu.workflow.entity.UserRole;
 import com.yuyu.workflow.entity.WorkflowDefinition;
 import com.yuyu.workflow.eto.biz.BizDefinitionCreateETO;
 import com.yuyu.workflow.eto.biz.BizDefinitionUpdateETO;
 import com.yuyu.workflow.mapper.BizDefinitionMapper;
+import com.yuyu.workflow.mapper.BizDefinitionRoleRelMapper;
+import com.yuyu.workflow.mapper.UserRoleMapper;
 import com.yuyu.workflow.mapper.WorkflowDefinitionMapper;
+import com.yuyu.workflow.qto.biz.BizDefinitionCurrentUserPageQTO;
 import com.yuyu.workflow.qto.biz.BizDefinitionListQTO;
+import com.yuyu.workflow.qto.biz.BizDefinitionPageQTO;
 import com.yuyu.workflow.service.BizDefinitionRoleRelService;
+import com.yuyu.workflow.vo.biz.BizDefinitionCurrentUserVO;
 import com.yuyu.workflow.vo.biz.BizDefinitionVO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,6 +53,12 @@ class BizDefinitionServiceImplTests {
     private WorkflowDefinitionMapper workflowDefinitionMapper;
 
     @Mock
+    private BizDefinitionRoleRelMapper bizDefinitionRoleRelMapper;
+
+    @Mock
+    private UserRoleMapper userRoleMapper;
+
+    @Mock
     private BizDefinitionRoleRelService bizDefinitionRoleRelService;
 
     private BizDefinitionServiceImpl bizDefinitionService;
@@ -54,6 +69,8 @@ class BizDefinitionServiceImplTests {
         bizDefinitionService = new BizDefinitionServiceImpl(
                 bizDefinitionMapper,
                 workflowDefinitionMapper,
+                bizDefinitionRoleRelMapper,
+                userRoleMapper,
                 bizDefinitionStructMapper,
                 bizDefinitionRoleRelService
         );
@@ -79,6 +96,7 @@ class BizDefinitionServiceImplTests {
         when(bizDefinitionMapper.selectAnyByBizCode("LEAVE")).thenReturn(null);
         when(workflowDefinitionMapper.selectById(100L)).thenReturn(workflowDefinition);
         when(bizDefinitionMapper.selectById(1L)).thenReturn(savedEntity);
+        when(userRoleMapper.selectAnyByCode(RoleCodeEnum.ADMIN.getCode())).thenReturn(buildRole(1L, RoleCodeEnum.ADMIN.getCode()));
         when(workflowDefinitionMapper.selectBatchIds(any())).thenReturn(List.of(workflowDefinition));
         doAnswer(invocation -> {
             BizDefinition entity = invocation.getArgument(0);
@@ -90,7 +108,7 @@ class BizDefinitionServiceImplTests {
 
         ArgumentCaptor<BizDefinition> captor = ArgumentCaptor.forClass(BizDefinition.class);
         verify(bizDefinitionMapper).insert(captor.capture());
-        verify(bizDefinitionRoleRelService).replaceRoles(1L, List.of(3L, 4L));
+        verify(bizDefinitionRoleRelService).replaceRoles(1L, List.of(3L, 4L, 1L));
         assertEquals("LEAVE", captor.getValue().getBizCode());
         assertEquals(9L, captor.getValue().getCreatedBy());
         assertEquals("请假审批", result.getWorkflowDefinitionName());
@@ -174,6 +192,94 @@ class BizDefinitionServiceImplTests {
     }
 
     /**
+     * 当前用户分页查询可查看业务时应按绑定角色过滤结果。
+     */
+    @Test
+    void shouldPageCurrentUserVisibleBizDefinitionsByRole() {
+        BizDefinitionCurrentUserPageQTO qto = new BizDefinitionCurrentUserPageQTO();
+        qto.setCurrentUserId(9L);
+        qto.setPageNum(1L);
+        qto.setPageSize(10L);
+        qto.setStatus(CommonStatusEnum.ENABLED.getId());
+
+        BizDefinition entity = buildBizDefinition(1L, "LEAVE", "请假申请", 100L, CommonStatusEnum.ENABLED.getId(), 9L);
+        Page<BizDefinition> page = new Page<>(1L, 10L);
+        page.setTotal(1L);
+        page.setRecords(List.of(entity));
+
+        when(userRoleMapper.selectEnabledIdsByUserId(9L)).thenReturn(List.of(3L, 4L));
+        when(bizDefinitionRoleRelMapper.selectBizDefinitionIdsByRoleIds(List.of(3L, 4L))).thenReturn(List.of(1L, 1L, 2L));
+        when(bizDefinitionMapper.selectPage(any(Page.class), any())).thenReturn(page);
+
+        PageVo<BizDefinitionCurrentUserVO> result = bizDefinitionService.currentUserPage(qto);
+
+        assertEquals(1L, result.total());
+        assertEquals(1, result.records().size());
+        assertEquals("LEAVE", result.records().get(0).getBizCode());
+        verify(userRoleMapper).selectEnabledIdsByUserId(9L);
+        verify(bizDefinitionRoleRelMapper).selectBizDefinitionIdsByRoleIds(List.of(3L, 4L));
+    }
+
+    /**
+     * ADMIN 角色分页查询可查看业务时也应按业务绑定角色过滤结果。
+     */
+    @Test
+    void shouldPageBizDefinitionsForAdminByRoleBinding() {
+        BizDefinitionCurrentUserPageQTO qto = new BizDefinitionCurrentUserPageQTO();
+        qto.setCurrentUserId(1L);
+        qto.setPageNum(1L);
+        qto.setPageSize(10L);
+
+        BizDefinition entity = buildBizDefinition(3L, "MOYU", "客户摸鱼", 100L, CommonStatusEnum.ENABLED.getId(), 1L);
+        Page<BizDefinition> page = new Page<>(1L, 10L);
+        page.setTotal(1L);
+        page.setRecords(List.of(entity));
+
+        when(userRoleMapper.selectEnabledIdsByUserId(1L)).thenReturn(List.of(1L));
+        when(bizDefinitionRoleRelMapper.selectBizDefinitionIdsByRoleIds(List.of(1L))).thenReturn(List.of(3L));
+        when(bizDefinitionMapper.selectPage(any(Page.class), any())).thenReturn(page);
+
+        PageVo<BizDefinitionCurrentUserVO> result = bizDefinitionService.currentUserPage(qto);
+
+        assertEquals(1L, result.total());
+        assertEquals(1, result.records().size());
+        assertEquals("MOYU", result.records().get(0).getBizCode());
+        verify(userRoleMapper).selectEnabledIdsByUserId(1L);
+        verify(bizDefinitionRoleRelMapper).selectBizDefinitionIdsByRoleIds(List.of(1L));
+    }
+
+    /**
+     * 新增业务定义时若未传角色也应自动绑定 ADMIN 角色。
+     */
+    @Test
+    void shouldBindAdminRoleWhenCreatingBizDefinitionWithoutRoleIds() {
+        BizDefinitionCreateETO eto = new BizDefinitionCreateETO();
+        eto.setCurrentUserId(9L);
+        eto.setBizCode("EXPENSE");
+        eto.setBizName("报销申请");
+        eto.setWorkflowDefinitionId(100L);
+        eto.setStatus(CommonStatusEnum.ENABLED.getId());
+
+        WorkflowDefinition workflowDefinition = buildWorkflowDefinition(100L, "EXPENSE_APPROVAL", "报销审批", WorkflowDefinitionStatusEnum.PUBLISHED.getId());
+        BizDefinition savedEntity = buildBizDefinition(2L, "EXPENSE", "报销申请", 100L, CommonStatusEnum.ENABLED.getId(), 9L);
+
+        when(bizDefinitionMapper.selectAnyByBizCode("EXPENSE")).thenReturn(null);
+        when(workflowDefinitionMapper.selectById(100L)).thenReturn(workflowDefinition);
+        when(userRoleMapper.selectAnyByCode(RoleCodeEnum.ADMIN.getCode())).thenReturn(buildRole(1L, RoleCodeEnum.ADMIN.getCode()));
+        when(bizDefinitionMapper.selectById(2L)).thenReturn(savedEntity);
+        when(workflowDefinitionMapper.selectBatchIds(any())).thenReturn(List.of(workflowDefinition));
+        doAnswer(invocation -> {
+            BizDefinition entity = invocation.getArgument(0);
+            entity.setId(2L);
+            return 1;
+        }).when(bizDefinitionMapper).insert(any(BizDefinition.class));
+
+        bizDefinitionService.create(eto);
+
+        verify(bizDefinitionRoleRelService).replaceRoles(2L, List.of(1L));
+    }
+
+    /**
      * 删除业务定义时应同步清理业务发起权限。
      */
     @Test
@@ -216,5 +322,15 @@ class BizDefinitionServiceImplTests {
         entity.setName(name);
         entity.setStatus(status);
         return entity;
+    }
+
+    /**
+     * 构造角色测试对象。
+     */
+    private UserRole buildRole(Long id, String code) {
+        UserRole role = new UserRole();
+        role.setId(id);
+        role.setCode(code);
+        return role;
     }
 }

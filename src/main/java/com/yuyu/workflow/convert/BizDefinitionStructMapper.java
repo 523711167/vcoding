@@ -5,6 +5,7 @@ import com.yuyu.workflow.config.MapStructConfig;
 import com.yuyu.workflow.entity.BizDefinition;
 import com.yuyu.workflow.eto.biz.BizDefinitionCreateETO;
 import com.yuyu.workflow.eto.biz.BizDefinitionUpdateETO;
+import com.yuyu.workflow.vo.biz.BizDefinitionCurrentUserVO;
 import com.yuyu.workflow.vo.biz.BizDefinitionVO;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -23,6 +24,12 @@ public interface BizDefinitionStructMapper extends BaseMapper<BizDefinition, Biz
     @Mapping(target = "workflowDefinitionCode", ignore = true)
     @Mapping(target = "workflowDefinitionName", ignore = true)
     BizDefinitionVO toTarget(BizDefinition source);
+
+    /**
+     * 将业务定义实体转换为当前用户可见业务返回对象。
+     */
+    @Mapping(target = "statusMsg", ignore = true)
+    BizDefinitionCurrentUserVO toCurrentUserTarget(BizDefinition source);
 
     /**
      * 将新增入参转换为业务定义实体。

@@ -3,6 +3,7 @@ package com.yuyu.workflow.mapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.yuyu.workflow.entity.BizDefinitionRoleRel;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
@@ -32,4 +33,20 @@ public interface BizDefinitionRoleRelMapper extends BaseMapper<BizDefinitionRole
             "</script>"
     })
     int removeByIds(@Param("idList") List<Long> idList);
+
+    /**
+     * 按角色主键集合查询业务定义主键集合。
+     */
+    @Select({
+            "<script>",
+            "SELECT DISTINCT biz_definition_id",
+            "FROM tb_biz_definition_role_rel",
+            "WHERE is_deleted = 0",
+            "AND role_id IN ",
+            "<foreach collection='roleIdList' item='roleId' open='(' separator=',' close=')'>",
+            "#{roleId}",
+            "</foreach>",
+            "</script>"
+    })
+    List<Long> selectBizDefinitionIdsByRoleIds(@Param("roleIdList") List<Long> roleIdList);
 }

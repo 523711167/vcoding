@@ -3,8 +3,10 @@ package com.yuyu.workflow.service;
 import com.yuyu.workflow.common.PageVo;
 import com.yuyu.workflow.eto.biz.BizDefinitionCreateETO;
 import com.yuyu.workflow.eto.biz.BizDefinitionUpdateETO;
+import com.yuyu.workflow.qto.biz.BizDefinitionCurrentUserPageQTO;
 import com.yuyu.workflow.qto.biz.BizDefinitionListQTO;
 import com.yuyu.workflow.qto.biz.BizDefinitionPageQTO;
+import com.yuyu.workflow.vo.biz.BizDefinitionCurrentUserVO;
 import com.yuyu.workflow.vo.biz.BizDefinitionVO;
 
 import java.util.List;
@@ -38,6 +40,11 @@ public interface BizDefinitionService {
      * 分页查询业务定义列表。
      */
     PageVo<BizDefinitionVO> page(BizDefinitionPageQTO qto);
+
+    /**
+     * 分页查询当前用户可查看的业务定义。
+     */
+    PageVo<BizDefinitionCurrentUserVO> currentUserPage(BizDefinitionCurrentUserPageQTO qto);
 
     /**
      * 查询业务定义详情。

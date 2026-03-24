@@ -5,11 +5,17 @@ import com.yuyu.workflow.common.Resp;
 import com.yuyu.workflow.eto.base.BaseIdETO;
 import com.yuyu.workflow.eto.biz.BizDefinitionCreateETO;
 import com.yuyu.workflow.eto.biz.BizDefinitionUpdateETO;
+import com.yuyu.workflow.qto.biz.BizDefinitionCurrentUserPageQTO;
 import com.yuyu.workflow.qto.biz.BizDefinitionIdQTO;
 import com.yuyu.workflow.qto.biz.BizDefinitionListQTO;
 import com.yuyu.workflow.qto.biz.BizDefinitionPageQTO;
+import com.yuyu.workflow.qto.biz.BizDefinitionRolesQTO;
+import com.yuyu.workflow.service.BizDefinitionRoleRelService;
 import com.yuyu.workflow.service.BizDefinitionService;
+import com.yuyu.workflow.vo.biz.BizDefinitionCurrentUserVO;
+import com.yuyu.workflow.vo.biz.BizDefinitionRoleVO;
 import com.yuyu.workflow.vo.biz.BizDefinitionVO;
+import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -34,12 +40,15 @@ import java.util.List;
 public class BizDefinitionController {
 
     private final BizDefinitionService bizDefinitionService;
+    private final BizDefinitionRoleRelService bizDefinitionRoleRelService;
 
     /**
      * 注入业务定义服务。
      */
-    public BizDefinitionController(BizDefinitionService bizDefinitionService) {
+    public BizDefinitionController(BizDefinitionService bizDefinitionService,
+                                   BizDefinitionRoleRelService bizDefinitionRoleRelService) {
         this.bizDefinitionService = bizDefinitionService;
+        this.bizDefinitionRoleRelService = bizDefinitionRoleRelService;
     }
 
     /**
@@ -86,6 +95,27 @@ public class BizDefinitionController {
     @GetMapping("/page")
     public Resp<PageVo<BizDefinitionVO>> page(@Valid @ParameterObject BizDefinitionPageQTO qto) {
         return Resp.success(bizDefinitionService.page(qto));
+    }
+
+    /**
+     * 分页查询当前用户可查看的业务定义。
+     */
+    @Operation(summary = "分页查询当前用户可查看的业务定义")
+    @GetMapping("/current-user/page")
+    public Resp<PageVo<BizDefinitionCurrentUserVO>> currentUserPage(@Valid @ParameterObject BizDefinitionCurrentUserPageQTO qto) {
+        return Resp.success(bizDefinitionService.currentUserPage(qto));
+    }
+
+    /**
+     * 兼容旧前端保留的业务角色查询接口，不对外暴露到文档。
+     */
+    @Hidden
+    @GetMapping("/roles")
+    public Resp<BizDefinitionRoleVO> getRoles(@Valid @ParameterObject BizDefinitionRolesQTO qto) {
+        BizDefinitionRoleVO vo = new BizDefinitionRoleVO();
+        vo.setBizDefinitionId(qto.getBizDefinitionId());
+        vo.setRoleIds(bizDefinitionRoleRelService.listRoleIdsByBizDefinitionId(qto.getBizDefinitionId()));
+        return Resp.success(vo);
     }
 
     /**
