@@ -3,12 +3,15 @@ package com.yuyu.workflow.eto.biz;
 import com.yuyu.workflow.common.base.UserContextParam;
 import com.yuyu.workflow.common.enums.CommonStatusEnum;
 import com.yuyu.workflow.common.validation.EnumIdValid;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+
+import java.util.List;
 
 /**
  * 修改业务定义参数。
@@ -39,4 +42,7 @@ public class BizDefinitionUpdateETO extends UserContextParam {
     @NotNull(message = "status不能为空")
     @EnumIdValid(enumClass = CommonStatusEnum.class, allowNull = false, message = "status不合法")
     private Integer status;
+
+    @ArraySchema(schema = @Schema(description = "角色ID", example = "1"))
+    private List<Long> roleIds;
 }

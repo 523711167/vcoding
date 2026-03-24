@@ -66,6 +66,7 @@ public class BizDefinitionServiceImpl implements BizDefinitionService {
         BizDefinition entity = bizDefinitionStructMapper.toEntity(eto);
         entity.setCreatedBy(requireCurrentUserId(eto.getCurrentUserId()));
         bizDefinitionMapper.insert(entity);
+        bizDefinitionRoleRelService.replaceRoles(entity.getId(), eto.getRoleIds());
         return detail(entity.getId());
     }
 
@@ -75,6 +76,7 @@ public class BizDefinitionServiceImpl implements BizDefinitionService {
         validateWorkflowDefinitionId(eto.getWorkflowDefinitionId());
         BizDefinition entity = bizDefinitionStructMapper.toUpdatedEntity(eto, getBizDefinitionOrThrow(eto.getId()));
         bizDefinitionMapper.updateById(entity);
+        bizDefinitionRoleRelService.replaceRoles(entity.getId(), eto.getRoleIds());
         return detail(entity.getId());
     }
 

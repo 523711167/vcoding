@@ -71,6 +71,7 @@ class BizDefinitionServiceImplTests {
         eto.setBizDesc("请假业务");
         eto.setWorkflowDefinitionId(100L);
         eto.setStatus(CommonStatusEnum.ENABLED.getId());
+        eto.setRoleIds(List.of(3L, 4L));
 
         WorkflowDefinition workflowDefinition = buildWorkflowDefinition(100L, "LEAVE_APPROVAL", "请假审批", WorkflowDefinitionStatusEnum.PUBLISHED.getId());
         BizDefinition savedEntity = buildBizDefinition(1L, "LEAVE", "请假申请", 100L, CommonStatusEnum.ENABLED.getId(), 9L);
@@ -89,6 +90,7 @@ class BizDefinitionServiceImplTests {
 
         ArgumentCaptor<BizDefinition> captor = ArgumentCaptor.forClass(BizDefinition.class);
         verify(bizDefinitionMapper).insert(captor.capture());
+        verify(bizDefinitionRoleRelService).replaceRoles(1L, List.of(3L, 4L));
         assertEquals("LEAVE", captor.getValue().getBizCode());
         assertEquals(9L, captor.getValue().getCreatedBy());
         assertEquals("请假审批", result.getWorkflowDefinitionName());
@@ -129,6 +131,7 @@ class BizDefinitionServiceImplTests {
         eto.setBizDesc("新的描述");
         eto.setWorkflowDefinitionId(100L);
         eto.setStatus(CommonStatusEnum.DISABLED.getId());
+        eto.setRoleIds(List.of(5L, 6L));
 
         BizDefinition oldEntity = buildBizDefinition(1L, "LEAVE", "请假申请", 99L, CommonStatusEnum.ENABLED.getId(), 8L);
         WorkflowDefinition workflowDefinition = buildWorkflowDefinition(100L, "LEAVE_APPROVAL", "请假审批", WorkflowDefinitionStatusEnum.PUBLISHED.getId());
@@ -143,6 +146,7 @@ class BizDefinitionServiceImplTests {
 
         ArgumentCaptor<BizDefinition> captor = ArgumentCaptor.forClass(BizDefinition.class);
         verify(bizDefinitionMapper).updateById(captor.capture());
+        verify(bizDefinitionRoleRelService).replaceRoles(1L, List.of(5L, 6L));
         assertEquals("LEAVE", captor.getValue().getBizCode());
         assertEquals(8L, captor.getValue().getCreatedBy());
         assertEquals(CommonStatusEnum.DISABLED.getId(), result.getStatus());
