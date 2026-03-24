@@ -65,7 +65,7 @@
 - `tb_workflow_node`：保存流程节点结构、节点类型、节点配置。
 - `tb_workflow_node_approver`：保存审批节点对应的审批人直接配置，一条记录只对应一个审批主体，并冗余 `definition_id`。
 - `tb_workflow_node_approver_dept_expand`：保存 `DEPT` 类型审批人的向下展开结果，仅作为派生生效范围表使用。
-- `tb_workflow_transition`：保存节点之间的流转关系、优先级和条件表达式。
+- `tb_workflow_transition`：保存节点之间的流转关系、优先级、条件表达式和默认分支标记。
 
 ### 5.3 关键约束
 
@@ -76,7 +76,7 @@
 - 审批人 direct 配置必须满足“一条记录一个审批主体”，`approver_value` 不允许逗号拼接多个值。
 - `DEPT` 类型审批人除 direct 配置外，还需要维护组织展开表，且只保留当前有效组织节点。
 - 节点超时与提醒时长统一使用“分钟”作为存储和接口口径。
-- 条件分支应尽量提供兜底路径，避免流程停滞。
+- `CONDITION` 与 `PARALLEL_SPLIT` 节点在存在多条出边时，必须且只能配置一条默认分支，避免流程停滞。
 
 ### 5.4 前端设计器映射建议
 
@@ -85,6 +85,7 @@
 - `nodes` 对应 `tb_workflow_node`
   后端在保存时解析前端节点 `id`、`properties`、`text`，拆分并落到节点、审批人、连线表。
 - `transitions` 对应 `tb_workflow_transition`
+  后端在保存时解析边上的 `properties.expression`、`properties.priority`、`properties.isDefault`，分别落到 `condition_expr`、`priority`、`is_default`。
 - `approvers` 对应 `tb_workflow_node_approver`
   审批人保存时按数组逐项拆分，一条审批主体写一条 direct 记录；当 `approverType=DEPT` 时，再同步重建 `tb_workflow_node_approver_dept_expand`。
 
@@ -136,10 +137,11 @@
 ## 9. 节点流转机制
 
 - 当前节点处理完成后，按 `priority` 升序读取所有出边。
-- 依次计算 `condition_expr`。
-- 第一条命中的连线生效。
+- `CONDITION` 节点按优先级依次计算非默认分支的 `condition_expr`，第一条命中的连线生效。
+- `CONDITION` 节点若无条件命中，则走唯一默认分支；若不存在默认分支，则按流程配置错误处理。
 - 命中 `END` 时，流程实例结束。
-- 命中 `PARALLEL_SPLIT` 时，同时激活全部分支。
+- `PARALLEL_SPLIT` 节点遍历全部非默认分支，激活所有命中的分支。
+- `PARALLEL_SPLIT` 节点若没有任何条件分支命中，则走唯一默认分支；若不存在默认分支，则按流程配置错误处理。
 - 命中 `PARALLEL_JOIN` 时，等待全部预期分支完成后继续。
 
 ## 10. 多人审批模式

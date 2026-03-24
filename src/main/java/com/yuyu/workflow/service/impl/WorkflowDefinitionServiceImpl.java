@@ -67,6 +67,8 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
     private static final String FRONT_APPROVE_MODE_OR_SIGN = "OR_SIGN";
     private static final String FRONT_TIMEOUT_ACTION_REMIND_ONLY = "REMIND_ONLY";
     private static final String FRONT_TIMEOUT_ACTION_AUTO_PASS = "AUTO_PASS";
+    private static final Integer DEFAULT_BRANCH_NO = 0;
+    private static final Integer DEFAULT_BRANCH_YES = 1;
 
     private final WorkflowDefinitionMapper workflowDefinitionMapper;
     private final WorkflowNodeMapper workflowNodeMapper;
@@ -198,6 +200,7 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
     @Transactional(rollbackFor = Exception.class)
     public void publish(WorkflowDefinitionPublishETO eto) {
         WorkflowDefinition definition = getDraftDefinitionOrThrow(eto.getId());
+        validatePublishTransitionRules(definition.getId());
         List<WorkflowDefinition> publishedList = workflowDefinitionMapper.selectList(new LambdaQueryWrapper<WorkflowDefinition>()
                 .eq(WorkflowDefinition::getCode, definition.getCode())
                 .eq(WorkflowDefinition::getStatus, WorkflowDefinitionStatusEnum.PUBLISHED.getId()));
@@ -389,6 +392,7 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
             transition.setFromNodeCode(trimToNull(rawEdge.sourceNodeId));
             transition.setToNodeCode(trimToNull(rawEdge.targetNodeId));
             transition.setConditionExpr(trimToNull(getString(properties, "expression")));
+            transition.setIsDefault(getYesNoFlag(properties.get("isDefault")));
             transition.setPriority(getInteger(properties.get("priority")));
             transition.setLabel(resolveEdgeLabel(rawEdge));
             transitionList.add(transition);
@@ -443,6 +447,7 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
             }
             adjacencyMap.computeIfAbsent(transition.getFromNodeCode(), key -> new ArrayList<>()).add(transition.getToNodeCode());
         }
+        validateTransitionDefaultRule(nodeMap, transitions);
         String startCode = nodeMap.values().stream()
                 .filter(item -> WorkflowNodeTypeEnum.START.getCode().equals(item.getNodeType()))
                 .map(WorkflowDefinitionNodeETO::getCode)
@@ -581,10 +586,85 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
             transition.setDefinitionId(definitionId);
             transition.setFromNodeId(nodeIdMap.get(transitionETO.getFromNodeCode()));
             transition.setToNodeId(nodeIdMap.get(transitionETO.getToNodeCode()));
+            transition.setIsDefault(Objects.nonNull(transitionETO.getIsDefault()) ? transitionETO.getIsDefault() : DEFAULT_BRANCH_NO);
             transition.setPriority(Objects.nonNull(transitionETO.getPriority()) ? transitionETO.getPriority() : 0);
             workflowTransitionMapper.insert(transition);
         }
         workflowNodeApproverDeptExpandService.rebuildByApproverIds(deptApproverIds);
+    }
+
+    /**
+     * 校验条件节点和并行拆分节点的默认分支规则。
+     */
+    private void validateTransitionDefaultRule(Map<String, WorkflowDefinitionNodeETO> nodeMap,
+                                               List<WorkflowTransitionETO> transitions) {
+        Map<String, List<WorkflowTransitionETO>> transitionGroup = transitions.stream()
+                .collect(Collectors.groupingBy(WorkflowTransitionETO::getFromNodeCode, LinkedHashMap::new, Collectors.toList()));
+        for (Map.Entry<String, List<WorkflowTransitionETO>> entry : transitionGroup.entrySet()) {
+            WorkflowDefinitionNodeETO node = nodeMap.get(entry.getKey());
+            if (Objects.isNull(node)) {
+                continue;
+            }
+            if (!requiresDefaultBranch(node.getNodeType(), entry.getValue().size())) {
+                continue;
+            }
+            long defaultCount = entry.getValue().stream()
+                    .filter(item -> DEFAULT_BRANCH_YES.equals(normalizeDefaultFlag(item.getIsDefault())))
+                    .count();
+            if (defaultCount != 1) {
+                throw new BizException(node.getName() + "必须且只能配置一条默认分支");
+            }
+        }
+    }
+
+    /**
+     * 发布前按已落库数据再次校验默认分支规则。
+     */
+    private void validatePublishTransitionRules(Long definitionId) {
+        List<WorkflowNode> nodeList = workflowNodeMapper.selectList(new LambdaQueryWrapper<WorkflowNode>()
+                .eq(WorkflowNode::getDefinitionId, definitionId));
+        List<WorkflowTransition> transitionList = workflowTransitionMapper.selectList(new LambdaQueryWrapper<WorkflowTransition>()
+                .eq(WorkflowTransition::getDefinitionId, definitionId));
+        if (CollectionUtils.isEmpty(nodeList) || CollectionUtils.isEmpty(transitionList)) {
+            return;
+        }
+        Map<Long, WorkflowNode> nodeMap = nodeList.stream()
+                .collect(Collectors.toMap(WorkflowNode::getId, item -> item, (left, right) -> left, LinkedHashMap::new));
+        Map<Long, List<WorkflowTransition>> transitionGroup = transitionList.stream()
+                .collect(Collectors.groupingBy(WorkflowTransition::getFromNodeId, LinkedHashMap::new, Collectors.toList()));
+        for (Map.Entry<Long, List<WorkflowTransition>> entry : transitionGroup.entrySet()) {
+            WorkflowNode node = nodeMap.get(entry.getKey());
+            if (Objects.isNull(node)) {
+                continue;
+            }
+            if (!requiresDefaultBranch(node.getNodeType(), entry.getValue().size())) {
+                continue;
+            }
+            long defaultCount = entry.getValue().stream()
+                    .filter(item -> DEFAULT_BRANCH_YES.equals(normalizeDefaultFlag(item.getIsDefault())))
+                    .count();
+            if (defaultCount != 1) {
+                throw new BizException(node.getName() + "必须且只能配置一条默认分支");
+            }
+        }
+    }
+
+    /**
+     * 判断当前节点是否需要强制校验默认分支。
+     */
+    private boolean requiresDefaultBranch(String nodeType, int outDegree) {
+        if (outDegree <= 1) {
+            return false;
+        }
+        return WorkflowNodeTypeEnum.CONDITION.getCode().equals(nodeType)
+                || WorkflowNodeTypeEnum.PARALLEL_SPLIT.getCode().equals(nodeType);
+    }
+
+    /**
+     * 规范化默认分支标记。
+     */
+    private Integer normalizeDefaultFlag(Integer isDefault) {
+        return DEFAULT_BRANCH_YES.equals(isDefault) ? DEFAULT_BRANCH_YES : DEFAULT_BRANCH_NO;
     }
 
     /**
@@ -787,6 +867,34 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
             }
         }
         throw new BizException("流程JSON中的数值字段格式不正确");
+    }
+
+    /**
+     * 将输入值转为是否默认分支标记。
+     */
+    private Integer getYesNoFlag(Object value) {
+        if (Objects.isNull(value)) {
+            return DEFAULT_BRANCH_NO;
+        }
+        if (value instanceof Boolean booleanValue) {
+            return booleanValue ? DEFAULT_BRANCH_YES : DEFAULT_BRANCH_NO;
+        }
+        if (value instanceof Number numberValue) {
+            return numberValue.intValue() == 1 ? DEFAULT_BRANCH_YES : DEFAULT_BRANCH_NO;
+        }
+        if (value instanceof String stringValue) {
+            String trimmed = trimToNull(stringValue);
+            if (!StringUtils.hasText(trimmed)) {
+                return DEFAULT_BRANCH_NO;
+            }
+            if ("true".equalsIgnoreCase(trimmed) || "1".equals(trimmed)) {
+                return DEFAULT_BRANCH_YES;
+            }
+            if ("false".equalsIgnoreCase(trimmed) || "0".equals(trimmed)) {
+                return DEFAULT_BRANCH_NO;
+            }
+        }
+        throw new BizException("流程JSON中的默认分支字段格式不正确");
     }
 
     /**

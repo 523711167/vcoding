@@ -26,6 +26,9 @@ public class WorkflowTransitionETO {
     @Size(max = 512, message = "conditionExpr长度不能超过512")
     private String conditionExpr;
 
+    @Schema(description = "是否默认分支：0=否 1=是")
+    private Integer isDefault;
+
     @Schema(description = "优先级")
     private Integer priority;
 

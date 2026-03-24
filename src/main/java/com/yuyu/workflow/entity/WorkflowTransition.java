@@ -22,6 +22,8 @@ public class WorkflowTransition extends BaseCreateEntity {
 
     private String conditionExpr;
 
+    private Integer isDefault;
+
     private Integer priority;
 
     private String label;

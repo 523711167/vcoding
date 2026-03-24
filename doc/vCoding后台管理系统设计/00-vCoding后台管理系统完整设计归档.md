@@ -1241,7 +1241,8 @@ CREATE TABLE `tb_workflow_transition` (
   `definition_id`   BIGINT       NOT NULL               COMMENT '所属流程定义ID',
   `from_node_id`    BIGINT       NOT NULL               COMMENT '来源节点ID',
   `to_node_id`      BIGINT       NOT NULL               COMMENT '目标节点ID',
-  `condition_expr`  VARCHAR(512)                        COMMENT '条件表达式（为NULL则无条件流转）',
+  `condition_expr`  VARCHAR(512)                        COMMENT '条件表达式（为NULL表示无条件流转；默认分支通过is_default标识）',
+  `is_default`      TINYINT      NOT NULL DEFAULT 0     COMMENT '是否默认分支：0=否 1=是',
   `priority`        INT          NOT NULL DEFAULT 0     COMMENT '条件优先级（值越小越先判断）',
   `label`           VARCHAR(64)                         COMMENT '连线标签',
   `created_at`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1254,18 +1255,21 @@ CREATE TABLE `tb_workflow_transition` (
 字段作用说明：
 - `from_node_id`：表示从哪个节点流出
 - `to_node_id`：表示流转到哪个目标节点
-- `condition_expr`：表示该连线命中的条件；为 `NULL` 时表示默认路径或无条件路径
-- `priority`：当同一节点存在多条出边时，按优先级从小到大依次判断
+- `condition_expr`：表示该连线命中的条件；为 `NULL` 时仅表示无条件，不再隐式代表默认分支
+- `is_default`：表示该连线是否为默认分支；仅在没有任何条件分支命中时才生效
+- `priority`：当同一节点存在多条条件出边时，按优先级从小到大依次判断
 - `label`：用于流程设计器展示，例如“金额大于5000”“默认分支”
+- 若 `CONDITION` 或 `PARALLEL_SPLIT` 节点存在多条出边，则必须且只能存在一条 `is_default=1` 的默认分支
 
 运行时作用过程：
 1. 当前节点处理完成后，系统根据当前流程实例绑定的 `definition_id` 和当前节点 `id` 查询所有出边
 2. 从 `tb_workflow_transition` 中读取 `from_node_id = 当前节点ID` 的所有记录
-3. 按 `priority` 升序依次判断每条连线的 `condition_expr`
-4. 若 `condition_expr` 为 `NULL`，表示该连线可作为无条件或兜底路径
-5. 第一条满足条件的连线生效，系统激活对应的 `to_node_id` 节点
-6. 若目标节点是 `END`，则流程结束；若目标节点是普通审批节点，则创建对应节点实例并继续审批
-7. 若目标节点是 `PARALLEL_SPLIT`，则其所有出边都将被同时激活；若目标节点是 `PARALLEL_JOIN`，则需等待所有预期分支完成后再继续向后流转
+3. 若当前节点类型为 `CONDITION`，则按 `priority` 升序依次判断所有非默认分支的 `condition_expr`
+4. `CONDITION` 节点只取第一条命中的条件分支；若都未命中，则尝试命中唯一一条 `is_default=1` 的默认分支
+5. 若当前节点类型为 `PARALLEL_SPLIT`，则遍历全部非默认分支，激活所有条件命中的分支
+6. `PARALLEL_SPLIT` 节点若没有任何条件分支命中，则尝试激活唯一一条 `is_default=1` 的默认分支；若仍不存在默认分支，则视为流程配置错误
+7. 若目标节点是 `END`，则流程结束；若目标节点是普通审批节点，则创建对应节点实例并继续审批
+8. 若目标节点是 `PARALLEL_JOIN`，则需等待所有预期分支完成后再继续向后流转
 
 设计理解：
 - `tb_workflow_node` 负责定义“有哪些节点”
@@ -1286,18 +1290,18 @@ CREATE TABLE `tb_workflow_transition` (
 
 则 `tb_workflow_transition` 可以配置为：
 
-| definition_id | from_node_id | to_node_id | condition_expr | priority | label |
-|---------------|--------------|------------|----------------|----------|-------|
-| 20 | `1001` | `1002` | `NULL` | 1 | 开始 |
-| 20 | `1002` | `1003` | `amount > 5000` | 1 | 金额大于5000 |
-| 20 | `1002` | `1004` | `NULL` | 99 | 默认结束 |
-| 20 | `1003` | `1004` | `NULL` | 1 | 审批完成 |
+| definition_id | from_node_id | to_node_id | condition_expr | is_default | priority | label |
+|---------------|--------------|------------|----------------|------------|----------|-------|
+| 20 | `1001` | `1002` | `NULL` | 0 | 1 | 开始 |
+| 20 | `1002` | `1003` | `amount > 5000` | 0 | 1 | 金额大于5000 |
+| 20 | `1002` | `1004` | `NULL` | 1 | 99 | 默认结束 |
+| 20 | `1003` | `1004` | `NULL` | 0 | 1 | 审批完成 |
 
 示例运行过程：
 - 当报销单金额为 `3000`：
   - 开始节点完成后，无条件流转到部门负责人审批节点
   - 部门负责人审批通过后，先判断 `amount > 5000`，结果为 false
-  - 再命中 `condition_expr = NULL` 的默认分支
+  - 再命中 `is_default = 1` 的默认分支
   - 流程流转到结束节点，审批结束
 - 当报销单金额为 `12000`：
   - 开始节点完成后，无条件流转到部门负责人审批节点
@@ -1343,7 +1347,9 @@ ASCII 流程图示例：
 ```
 
 实现建议：
-- 同一节点建议保留一条 `condition_expr = NULL` 的兜底分支，避免所有条件都不命中导致流程卡住
+- `CONDITION` 节点在存在多条出边时，必须配置且只能配置一条默认分支；按 `priority` 仅选择第一条命中的条件分支，若都未命中，再走默认分支
+- `PARALLEL_SPLIT` 节点在存在多条出边时，必须配置且只能配置一条默认分支；遍历全部条件分支并激活所有命中的分支，若都未命中，再走默认分支
+- 同一节点默认分支使用 `is_default=1` 显式标识，不再仅依赖 `condition_expr = NULL`
 - 条件表达式所使用的变量应明确来源于 `tb_workflow_instance.form_data` 和内置上下文变量
 - `priority` 应用于解决多条连线同时可能命中的判断顺序问题
 
@@ -1465,6 +1471,7 @@ CREATE TABLE `tb_workflow_approval_record` (
    - 必须有且仅有一个 `START` 节点和至少一个 `END` 节点
    - 所有节点可达，不存在孤立节点
    - `APPROVAL` 节点必须配置至少一个审批人
+   - `CONDITION` 与 `PARALLEL_SPLIT` 节点若存在多条出边，必须且只能存在一条 `is_default=1` 的默认分支
 4. 流程定义新增、修改时，前端统一提交 `workFlowJson`，后端负责解析并落到定义、节点、审批人、连线表
 5. `DEPT` 类型审批人保存后，需同步全量重建 `tb_workflow_node_approver_dept_expand`
 6. 修改已发布或已停用流程时，需新建版本（递增 `version`），旧版本保持原状态，直到新草稿被手动发布
@@ -1503,6 +1510,7 @@ CREATE TABLE `tb_workflow_approval_record` (
    - 至少存在一个 `END` 节点
    - 所有节点可达，不存在孤立节点
    - `APPROVAL` 节点必须存在审批人配置
+   - `CONDITION` 与 `PARALLEL_SPLIT` 节点若存在多条出边，必须且只能存在一条 `is_default=1` 的默认分支
 2. 在同一事务内执行版本切换：
    - 将同 `code` 下原 `status=1` 的版本更新为 `status=2`
    - 将当前草稿版本从 `status=0` 更新为 `status=1`
@@ -1588,7 +1596,7 @@ CREATE TABLE `tb_workflow_approval_record` (
 - `tb_workflow_instance.form_data` 中的字段
 - 内置变量：`applicant_id`、`applicant_dept_id`、`current_time`
 
-建议为条件节点保留一条 `condition_expr = NULL` 的兜底分支，避免流程卡死。
+`CONDITION` 或 `PARALLEL_SPLIT` 节点在存在多条出边时，必须配置一条且只能配置一条 `is_default = 1` 的默认分支，避免流程卡死。
 
 ### 9.6 多人审批模式
 

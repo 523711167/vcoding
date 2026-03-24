@@ -139,6 +139,8 @@ class WorkflowDefinitionServiceImplTests {
                 transitionCaptor.getAllValues().stream().map(WorkflowTransition::getFromNodeId).toList());
         assertEquals(List.of(1002L, 1003L),
                 transitionCaptor.getAllValues().stream().map(WorkflowTransition::getToNodeId).toList());
+        assertEquals(List.of(0, 0),
+                transitionCaptor.getAllValues().stream().map(WorkflowTransition::getIsDefault).toList());
         ArgumentCaptor<WorkflowNodeApprover> approverCaptor = ArgumentCaptor.forClass(WorkflowNodeApprover.class);
         verify(workflowNodeApproverMapper).insert(approverCaptor.capture());
         assertEquals(100L, approverCaptor.getValue().getDefinitionId());
@@ -157,6 +159,48 @@ class WorkflowDefinitionServiceImplTests {
         BizException exception = assertThrows(BizException.class, () -> workflowDefinitionService.create(eto));
 
         assertEquals("approverValue不允许使用逗号拼接多个值", exception.getMessage());
+    }
+
+    @Test
+    void shouldRejectConditionNodeWithoutDefaultBranchWhenMultipleTransitions() {
+        WorkflowDefinitionCreateETO eto = new WorkflowDefinitionCreateETO();
+        eto.setCurrentUserId(9L);
+        eto.setName("报销审批");
+        eto.setCode("EXPENSE_APPROVAL");
+        eto.setWorkFlowJson(buildConditionWorkflowJson(false, false));
+        when(userDeptMapper.selectById(2L)).thenReturn(buildEnabledDept(2L));
+
+        BizException exception = assertThrows(BizException.class, () -> workflowDefinitionService.create(eto));
+
+        assertEquals("金额判断必须且只能配置一条默认分支", exception.getMessage());
+    }
+
+    @Test
+    void shouldRejectParallelSplitWithoutDefaultBranchWhenMultipleTransitions() {
+        WorkflowDefinitionCreateETO eto = new WorkflowDefinitionCreateETO();
+        eto.setCurrentUserId(9L);
+        eto.setName("报销审批");
+        eto.setCode("EXPENSE_APPROVAL");
+        eto.setWorkFlowJson(buildParallelSplitWorkflowJson(false, false));
+        when(userDeptMapper.selectById(2L)).thenReturn(buildEnabledDept(2L));
+
+        BizException exception = assertThrows(BizException.class, () -> workflowDefinitionService.create(eto));
+
+        assertEquals("并行拆分必须且只能配置一条默认分支", exception.getMessage());
+    }
+
+    @Test
+    void shouldRejectConditionNodeWithMultipleDefaultBranches() {
+        WorkflowDefinitionCreateETO eto = new WorkflowDefinitionCreateETO();
+        eto.setCurrentUserId(9L);
+        eto.setName("报销审批");
+        eto.setCode("EXPENSE_APPROVAL");
+        eto.setWorkFlowJson(buildConditionWorkflowJson(true, true));
+        when(userDeptMapper.selectById(2L)).thenReturn(buildEnabledDept(2L));
+
+        BizException exception = assertThrows(BizException.class, () -> workflowDefinitionService.create(eto));
+
+        assertEquals("金额判断必须且只能配置一条默认分支", exception.getMessage());
     }
 
     @Test
@@ -296,6 +340,44 @@ class WorkflowDefinitionServiceImplTests {
     }
 
     @Test
+    void shouldRejectPublishingDraftDefinitionWithoutRequiredDefaultBranch() {
+        WorkflowDefinitionPublishETO eto = new WorkflowDefinitionPublishETO();
+        eto.setId(3L);
+
+        WorkflowDefinition definition = new WorkflowDefinition();
+        definition.setId(3L);
+        definition.setCode("EXPENSE_APPROVAL");
+        definition.setStatus(WorkflowDefinitionStatusEnum.DRAFT.getId());
+        when(workflowDefinitionMapper.selectById(3L)).thenReturn(definition);
+
+        WorkflowNode conditionNode = new WorkflowNode();
+        conditionNode.setId(100L);
+        conditionNode.setName("金额判断");
+        conditionNode.setNodeType("CONDITION");
+        when(workflowNodeMapper.selectList(any())).thenReturn(List.of(conditionNode));
+
+        WorkflowTransition first = new WorkflowTransition();
+        first.setId(1L);
+        first.setDefinitionId(3L);
+        first.setFromNodeId(100L);
+        first.setToNodeId(101L);
+        first.setIsDefault(0);
+        first.setPriority(1);
+        WorkflowTransition second = new WorkflowTransition();
+        second.setId(2L);
+        second.setDefinitionId(3L);
+        second.setFromNodeId(100L);
+        second.setToNodeId(102L);
+        second.setIsDefault(0);
+        second.setPriority(2);
+        when(workflowTransitionMapper.selectList(any())).thenReturn(List.of(first, second));
+
+        BizException exception = assertThrows(BizException.class, () -> workflowDefinitionService.publish(eto));
+
+        assertEquals("金额判断必须且只能配置一条默认分支", exception.getMessage());
+    }
+
+    @Test
     void shouldDisableDefinitionWhenRequested() {
         WorkflowDefinitionDisableETO eto = new WorkflowDefinitionDisableETO();
         eto.setId(2L);
@@ -387,6 +469,245 @@ class WorkflowDefinitionServiceImplTests {
     }
 
     /**
+     * 构造条件节点多分支流程。
+     */
+    private String buildConditionWorkflowJson(boolean firstDefault, boolean secondDefault) {
+        return """
+                {
+                  "nodes": [
+                    {
+                      "id": "START",
+                      "x": 120,
+                      "y": 220,
+                      "properties": {
+                        "nodeRole": "START_END",
+                        "approverIds": []
+                      },
+                      "text": {
+                        "value": "开始"
+                      }
+                    },
+                    {
+                      "id": "CONDITION_NODE",
+                      "x": 300,
+                      "y": 220,
+                      "properties": {
+                        "nodeRole": "CONDITION",
+                        "approverIds": []
+                      },
+                      "text": {
+                        "value": "金额判断"
+                      }
+                    },
+                    {
+                      "id": "APPROVAL_A",
+                      "x": 480,
+                      "y": 160,
+                      "properties": {
+                        "nodeRole": "APPROVAL",
+                        "approverType": "DEPT",
+                        "approverIds": ["2"],
+                        "approveMode": "COUNTERSIGN"
+                      },
+                      "text": {
+                        "value": "主管审批A"
+                      }
+                    },
+                    {
+                      "id": "END",
+                      "x": 660,
+                      "y": 220,
+                      "properties": {
+                        "nodeRole": "START_END",
+                        "approverIds": []
+                      },
+                      "text": {
+                        "value": "结束"
+                      }
+                    }
+                  ],
+                  "edges": [
+                    {
+                      "sourceNodeId": "START",
+                      "targetNodeId": "CONDITION_NODE",
+                      "properties": {
+                        "priority": 1
+                      },
+                      "text": {
+                        "value": "提交"
+                      }
+                    },
+                    {
+                      "sourceNodeId": "CONDITION_NODE",
+                      "targetNodeId": "APPROVAL_A",
+                      "properties": {
+                        "expression": "amount > 5000",
+                        "priority": 1,
+                        "isDefault": %s
+                      },
+                      "text": {
+                        "value": "金额大于5000"
+                      }
+                    },
+                    {
+                      "sourceNodeId": "CONDITION_NODE",
+                      "targetNodeId": "END",
+                      "properties": {
+                        "priority": 99,
+                        "isDefault": %s
+                      },
+                      "text": {
+                        "value": "默认结束"
+                      }
+                    },
+                    {
+                      "sourceNodeId": "APPROVAL_A",
+                      "targetNodeId": "END",
+                      "properties": {
+                        "priority": 2
+                      },
+                      "text": {
+                        "value": "通过"
+                      }
+                    }
+                  ]
+                }
+                """.formatted(firstDefault, secondDefault);
+    }
+
+    /**
+     * 构造并行拆分多分支流程。
+     */
+    private String buildParallelSplitWorkflowJson(boolean firstDefault, boolean secondDefault) {
+        return """
+                {
+                  "nodes": [
+                    {
+                      "id": "START",
+                      "x": 120,
+                      "y": 220,
+                      "properties": {
+                        "nodeRole": "START_END",
+                        "approverIds": []
+                      },
+                      "text": {
+                        "value": "开始"
+                      }
+                    },
+                    {
+                      "id": "PARALLEL_NODE",
+                      "x": 300,
+                      "y": 220,
+                      "properties": {
+                        "nodeRole": "PARALLEL_SPLIT",
+                        "approverIds": []
+                      },
+                      "text": {
+                        "value": "并行拆分"
+                      }
+                    },
+                    {
+                      "id": "APPROVAL_A",
+                      "x": 480,
+                      "y": 160,
+                      "properties": {
+                        "nodeRole": "APPROVAL",
+                        "approverType": "DEPT",
+                        "approverIds": ["2"],
+                        "approveMode": "COUNTERSIGN"
+                      },
+                      "text": {
+                        "value": "财务审批"
+                      }
+                    },
+                    {
+                      "id": "APPROVAL_B",
+                      "x": 480,
+                      "y": 280,
+                      "properties": {
+                        "nodeRole": "APPROVAL",
+                        "approverType": "DEPT",
+                        "approverIds": ["2"],
+                        "approveMode": "COUNTERSIGN"
+                      },
+                      "text": {
+                        "value": "人事审批"
+                      }
+                    },
+                    {
+                      "id": "END",
+                      "x": 660,
+                      "y": 220,
+                      "properties": {
+                        "nodeRole": "START_END",
+                        "approverIds": []
+                      },
+                      "text": {
+                        "value": "结束"
+                      }
+                    }
+                  ],
+                  "edges": [
+                    {
+                      "sourceNodeId": "START",
+                      "targetNodeId": "PARALLEL_NODE",
+                      "properties": {
+                        "priority": 1
+                      },
+                      "text": {
+                        "value": "提交"
+                      }
+                    },
+                    {
+                      "sourceNodeId": "PARALLEL_NODE",
+                      "targetNodeId": "APPROVAL_A",
+                      "properties": {
+                        "expression": "amount > 5000",
+                        "priority": 1,
+                        "isDefault": %s
+                      },
+                      "text": {
+                        "value": "财务线"
+                      }
+                    },
+                    {
+                      "sourceNodeId": "PARALLEL_NODE",
+                      "targetNodeId": "APPROVAL_B",
+                      "properties": {
+                        "expression": "department != 'FINANCE'",
+                        "priority": 2,
+                        "isDefault": %s
+                      },
+                      "text": {
+                        "value": "人事线"
+                      }
+                    },
+                    {
+                      "sourceNodeId": "APPROVAL_A",
+                      "targetNodeId": "END",
+                      "properties": {
+                        "priority": 3
+                      },
+                      "text": {
+                        "value": "通过A"
+                      }
+                    },
+                    {
+                      "sourceNodeId": "APPROVAL_B",
+                      "targetNodeId": "END",
+                      "properties": {
+                        "priority": 4
+                      },
+                      "text": {
+                        "value": "通过B"
+                      }
+                    }
+                  ]
+                }
+                """.formatted(firstDefault, secondDefault);
+    }
+
+    /**
      * 构造流程定义对象。
      */
     private WorkflowDefinition buildDefinition(Long id, Integer status, String code, Integer version, String workflowJson) {
@@ -398,6 +719,16 @@ class WorkflowDefinitionServiceImplTests {
         entity.setWorkflowJson(workflowJson);
         entity.setStatus(status);
         return entity;
+    }
+
+    /**
+     * 构造有效组织。
+     */
+    private UserDept buildEnabledDept(Long id) {
+        UserDept dept = new UserDept();
+        dept.setId(id);
+        dept.setStatus(1);
+        return dept;
     }
 
     /**
