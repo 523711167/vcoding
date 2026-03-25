@@ -1478,9 +1478,15 @@ CREATE TABLE `tb_workflow_approval_record` (
   `operator_id`      BIGINT       NOT NULL               COMMENT '操作人用户ID',
   `operator_name`    VARCHAR(64)  NOT NULL               COMMENT '操作人姓名',
   `action`           VARCHAR(16)  NOT NULL               COMMENT '操作类型：SUBMIT=提交 APPROVE=通过 REJECT=拒绝 DELEGATE=转交 RECALL=撤回 URGE=催办 TIMEOUT=超时自动',
+  `node_instance_type` VARCHAR(32)                        COMMENT '节点实例类型（冗余）',
+  `node_instance_name` VARCHAR(100)                       COMMENT '节点实例名称（冗余）',
   `comment`          VARCHAR(500)                        COMMENT '操作备注',
   `from_node_id`     BIGINT                              COMMENT '操作时所在节点ID',
+  `from_node_type`   VARCHAR(32)                         COMMENT '来源节点实例类型（冗余）',
+  `from_node_name`   VARCHAR(100)                        COMMENT '来源节点实例名称（冗余）',
   `to_node_id`       BIGINT                              COMMENT '流转到的节点ID（通过时有值）',
+  `to_node_type`     VARCHAR(32)                         COMMENT '目标节点实例类型（冗余）',
+  `to_node_name`     VARCHAR(100)                        COMMENT '目标节点实例名称（冗余）',
   `extra_data`       JSON                                COMMENT '附加数据（如附件列表、转交目标等）',
   `operated_at`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '操作时间',
   PRIMARY KEY (`id`),
@@ -1488,6 +1494,11 @@ CREATE TABLE `tb_workflow_approval_record` (
   KEY `idx_operator_id` (`operator_id`)
 ) ENGINE=InnoDB COMMENT='审批操作记录表';
 ```
+
+字段语义补充：
+- `node_instance_*`：本次审批动作实际发生所在的节点实例快照
+- `from_node_*`：本次流转的来源节点实例快照，通常与 `node_instance_*` 一致
+- `to_node_*`：本次流转命中的目标节点实例快照；无目标节点时为空
 
 ---
 

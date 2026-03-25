@@ -25,11 +25,23 @@ public class WorkflowApprovalRecord extends BaseIdEntity {
 
     private String action;
 
+    private String nodeInstanceType;
+
+    private String nodeInstanceName;
+
     private String comment;
 
     private Long fromNodeId;
 
+    private String fromNodeType;
+
+    private String fromNodeName;
+
     private Long toNodeId;
+
+    private String toNodeType;
+
+    private String toNodeName;
 
     private String extraData;
 
