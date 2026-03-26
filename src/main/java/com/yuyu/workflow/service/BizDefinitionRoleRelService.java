@@ -1,11 +1,14 @@
 package com.yuyu.workflow.service;
 
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.yuyu.workflow.entity.BizDefinitionRoleRel;
+
 import java.util.List;
 
 /**
  * 业务定义角色关联服务接口。
  */
-public interface BizDefinitionRoleRelService {
+public interface BizDefinitionRoleRelService extends IService<BizDefinitionRoleRel> {
 
     /**
      * 按业务定义主键全量替换绑定角色。

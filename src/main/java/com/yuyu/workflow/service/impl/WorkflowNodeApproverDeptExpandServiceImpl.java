@@ -1,6 +1,7 @@
 package com.yuyu.workflow.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yuyu.workflow.common.enums.CommonStatusEnum;
 import com.yuyu.workflow.common.enums.DeptRelationTypeEnum;
 import com.yuyu.workflow.common.enums.OrgTypeEnum;
@@ -34,7 +35,7 @@ import java.util.stream.Collectors;
  * 工作流节点审批组织展开关系维护服务实现。
  */
 @Service
-public class WorkflowNodeApproverDeptExpandServiceImpl implements WorkflowNodeApproverDeptExpandService {
+public class WorkflowNodeApproverDeptExpandServiceImpl extends ServiceImpl<WorkflowNodeApproverDeptExpandMapper, WorkflowNodeApproverDeptExpand> implements WorkflowNodeApproverDeptExpandService {
 
     private final WorkflowNodeApproverMapper workflowNodeApproverMapper;
     private final WorkflowNodeApproverDeptExpandMapper workflowNodeApproverDeptExpandMapper;
@@ -45,6 +46,7 @@ public class WorkflowNodeApproverDeptExpandServiceImpl implements WorkflowNodeAp
                                                      WorkflowNodeApproverDeptExpandMapper workflowNodeApproverDeptExpandMapper,
                                                      WorkflowNodeMapper workflowNodeMapper,
                                                      UserDeptMapper userDeptMapper) {
+        this.baseMapper = workflowNodeApproverDeptExpandMapper;
         this.workflowNodeApproverMapper = workflowNodeApproverMapper;
         this.workflowNodeApproverDeptExpandMapper = workflowNodeApproverDeptExpandMapper;
         this.workflowNodeMapper = workflowNodeMapper;

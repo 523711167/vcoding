@@ -3,6 +3,7 @@ package com.yuyu.workflow.service.impl;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yuyu.workflow.common.PageVo;
 import com.yuyu.workflow.common.enums.CommonStatusEnum;
 import com.yuyu.workflow.common.enums.DataScopeEnum;
@@ -51,7 +52,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
-public class RoleServiceImpl implements RoleService {
+public class RoleServiceImpl extends ServiceImpl<UserRoleMapper, UserRole> implements RoleService {
 
     private static final String BUILT_IN_ADMIN_ROLE_PROTECT_MESSAGE = "ADMIN超级管理员角色不允许修改";
 
@@ -79,6 +80,7 @@ public class RoleServiceImpl implements RoleService {
                            UserRoleStructMapper userRoleStructMapper,
                            UserStructMapper userStructMapper,
                            UserRoleDeptExpandService userRoleDeptExpandService) {
+        this.baseMapper = userRoleMapper;
         this.userRoleMapper = userRoleMapper;
         this.userRoleDeptMapper = userRoleDeptMapper;
         this.userRoleMenuMapper = userRoleMenuMapper;

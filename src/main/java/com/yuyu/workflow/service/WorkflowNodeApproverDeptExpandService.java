@@ -1,11 +1,14 @@
 package com.yuyu.workflow.service;
 
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.yuyu.workflow.entity.WorkflowNodeApproverDeptExpand;
+
 import java.util.List;
 
 /**
  * 工作流节点审批组织展开关系维护服务。
  */
-public interface WorkflowNodeApproverDeptExpandService {
+public interface WorkflowNodeApproverDeptExpandService extends IService<WorkflowNodeApproverDeptExpand> {
 
     /**
      * 按审批人配置主键集合全量重建展开关系。

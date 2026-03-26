@@ -2,8 +2,10 @@ package com.yuyu.workflow.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.yuyu.workflow.entity.WorkflowApprovalRecord;
+import com.yuyu.workflow.entity.WorkflowNodeInstance;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 import java.util.List;
 
@@ -30,4 +32,13 @@ public interface WorkflowApprovalRecordMapper extends BaseMapper<WorkflowApprova
             "</script>"
     })
     int removeByIds(@Param("idList") List<Long> idList);
+
+
+    @Select("""
+            select t.* from tb_workflow_approval_record t 
+                left join tb_workflow_node_instance y on y.id = t.node_instance_id
+                where 
+                    t.from_node_id = #{parallelNodeId} 
+             """)
+    List<WorkflowNodeInstance> selectBranchNode(@Param("parallelNodeId") Long parallelNodeId);
 }

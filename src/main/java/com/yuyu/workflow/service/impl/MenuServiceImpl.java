@@ -1,6 +1,7 @@
 package com.yuyu.workflow.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yuyu.workflow.common.enums.CommonStatusEnum;
 import com.yuyu.workflow.common.enums.MenuTypeEnum;
 import com.yuyu.workflow.common.enums.RoleCodeEnum;
@@ -36,7 +37,7 @@ import java.util.Objects;
  * 菜单服务实现。
  */
 @Service
-public class MenuServiceImpl implements MenuService {
+public class MenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> implements MenuService {
 
     private final SysMenuMapper sysMenuMapper;
     private final UserRoleMapper userRoleMapper;
@@ -50,6 +51,7 @@ public class MenuServiceImpl implements MenuService {
                            UserRoleMapper userRoleMapper,
                            UserRoleMenuMapper userRoleMenuMapper,
                            MenuStructMapper menuStructMapper) {
+        this.baseMapper = sysMenuMapper;
         this.sysMenuMapper = sysMenuMapper;
         this.userRoleMapper = userRoleMapper;
         this.userRoleMenuMapper = userRoleMenuMapper;

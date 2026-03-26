@@ -1,6 +1,8 @@
 package com.yuyu.workflow.service;
 
+import com.baomidou.mybatisplus.extension.service.IService;
 import com.yuyu.workflow.common.PageVo;
+import com.yuyu.workflow.entity.WorkflowDefinition;
 import com.yuyu.workflow.eto.workflow.WorkflowDefinitionCreateETO;
 import com.yuyu.workflow.eto.workflow.WorkflowDefinitionDisableETO;
 import com.yuyu.workflow.eto.workflow.WorkflowDefinitionPublishETO;
@@ -14,7 +16,7 @@ import java.util.List;
 /**
  * 流程定义服务接口。
  */
-public interface WorkflowDefinitionService {
+public interface WorkflowDefinitionService extends IService<WorkflowDefinition> {
 
     WorkflowDefinitionVO create(WorkflowDefinitionCreateETO eto);
 

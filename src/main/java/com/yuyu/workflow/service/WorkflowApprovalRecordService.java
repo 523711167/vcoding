@@ -1,26 +1,16 @@
 package com.yuyu.workflow.service;
 
+import com.baomidou.mybatisplus.extension.service.IService;
 import com.yuyu.workflow.entity.WorkflowApprovalRecord;
 import com.yuyu.workflow.entity.WorkflowNodeInstance;
 import com.yuyu.workflow.eto.workflow.WorkflowAuditETO;
-import com.yuyu.workflow.eto.workflow.WorkflowRejectAuditETO;
 
 import java.util.List;
 
 /**
  * 审批操作记录服务接口。
  */
-public interface WorkflowApprovalRecordService {
-
-    /**
-     * 新增审批操作记录。
-     */
-    void save(WorkflowApprovalRecord workflowApprovalRecord);
-
-    /**
-     * 批量新增审批操作记录。
-     */
-    void saveBatch(List<WorkflowApprovalRecord> workflowApprovalRecordList);
+public interface WorkflowApprovalRecordService extends IService<WorkflowApprovalRecord> {
 
     /**
      * 按流程实例主键集合查询审批操作记录。
@@ -38,7 +28,8 @@ public interface WorkflowApprovalRecordService {
     void insertRecordForReject(WorkflowAuditETO eto, WorkflowNodeInstance workflowNodeInstance);
 
     /**
-     * 判断当前驳回节点的上一跳是否来自并行拆分节点
+     * 判断并行分支是否全部结束
      */
-    boolean isPreviousNodeParallelSplit(Long instanceId, Long nodeInstanceId);
+    List<WorkflowNodeInstance> isALLBranchFinish(Long parallelNodeId, Long nodeInstanceId);
+
 }

@@ -1,5 +1,7 @@
 package com.yuyu.workflow.service;
 
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.yuyu.workflow.entity.SysMenu;
 import com.yuyu.workflow.eto.menu.MenuCreateETO;
 import com.yuyu.workflow.eto.menu.MenuUpdateETO;
 import com.yuyu.workflow.qto.menu.MenuTreeQTO;
@@ -8,7 +10,7 @@ import com.yuyu.workflow.vo.menu.MenuVO;
 
 import java.util.List;
 
-public interface MenuService {
+public interface MenuService extends IService<SysMenu> {
 
     /**
      * 创建菜单。

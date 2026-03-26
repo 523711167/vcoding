@@ -1,6 +1,8 @@
 package com.yuyu.workflow.service;
 
+import com.baomidou.mybatisplus.extension.service.IService;
 import com.yuyu.workflow.common.PageVo;
+import com.yuyu.workflow.entity.BizDefinition;
 import com.yuyu.workflow.eto.biz.BizDefinitionCreateETO;
 import com.yuyu.workflow.eto.biz.BizDefinitionUpdateETO;
 import com.yuyu.workflow.qto.biz.BizDefinitionCurrentUserPageQTO;
@@ -14,7 +16,7 @@ import java.util.List;
 /**
  * 业务定义服务接口。
  */
-public interface BizDefinitionService {
+public interface BizDefinitionService extends IService<BizDefinition> {
 
     /**
      * 创建业务定义。

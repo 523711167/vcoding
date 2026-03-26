@@ -1,6 +1,7 @@
 package com.yuyu.workflow.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yuyu.workflow.common.exception.BizException;
 import com.yuyu.workflow.entity.BizDefinition;
 import com.yuyu.workflow.entity.BizDefinitionRoleRel;
@@ -24,7 +25,7 @@ import java.util.stream.Collectors;
  * 业务定义角色关联服务实现。
  */
 @Service
-public class BizDefinitionRoleRelServiceImpl implements BizDefinitionRoleRelService {
+public class BizDefinitionRoleRelServiceImpl extends ServiceImpl<BizDefinitionRoleRelMapper, BizDefinitionRoleRel> implements BizDefinitionRoleRelService {
 
     private final BizDefinitionRoleRelMapper bizDefinitionRoleRelMapper;
     private final BizDefinitionMapper bizDefinitionMapper;
@@ -36,6 +37,7 @@ public class BizDefinitionRoleRelServiceImpl implements BizDefinitionRoleRelServ
     public BizDefinitionRoleRelServiceImpl(BizDefinitionRoleRelMapper bizDefinitionRoleRelMapper,
                                            BizDefinitionMapper bizDefinitionMapper,
                                            UserRoleMapper userRoleMapper) {
+        this.baseMapper = bizDefinitionRoleRelMapper;
         this.bizDefinitionRoleRelMapper = bizDefinitionRoleRelMapper;
         this.bizDefinitionMapper = bizDefinitionMapper;
         this.userRoleMapper = userRoleMapper;

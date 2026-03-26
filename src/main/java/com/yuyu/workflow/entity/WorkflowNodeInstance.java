@@ -5,8 +5,10 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import com.yuyu.workflow.entity.base.BaseAuditEntity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import org.apache.commons.lang3.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 /**
  * 节点实例持久化对象。
@@ -18,14 +20,13 @@ public class WorkflowNodeInstance extends BaseAuditEntity {
 
     private Long instanceId;
 
-    @TableField("node_id")
     private Long definitionNodeId;
 
-    @TableField("node_name")
     private String definitionNodeName;
 
-    @TableField("node_type")
     private String definitionNodeType;
+
+    private Long parallelBranchRootId;
 
     private String status;
 
@@ -42,4 +43,9 @@ public class WorkflowNodeInstance extends BaseAuditEntity {
     private Integer isReminded;
 
     private String remark;
+
+
+    public boolean isSpawnParallelSplitNode() {
+        return Objects.nonNull(parallelBranchRootId);
+    }
 }

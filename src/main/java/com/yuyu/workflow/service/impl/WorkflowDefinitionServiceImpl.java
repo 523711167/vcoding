@@ -2,6 +2,7 @@ package com.yuyu.workflow.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yuyu.workflow.common.PageVo;
 import com.yuyu.workflow.common.enums.CommonStatusEnum;
 import com.yuyu.workflow.common.enums.RespCodeEnum;
@@ -60,7 +61,7 @@ import java.util.stream.Collectors;
  * 流程定义服务实现。
  */
 @Service
-public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService {
+public class WorkflowDefinitionServiceImpl extends ServiceImpl<WorkflowDefinitionMapper, WorkflowDefinition> implements WorkflowDefinitionService {
 
     private static final String FRONT_NODE_ROLE_START_END = "START_END";
     private static final String FRONT_APPROVE_MODE_COUNTERSIGN = "COUNTERSIGN";
@@ -90,6 +91,7 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
                                          WorkflowNodeApproverDeptExpandService workflowNodeApproverDeptExpandService,
                                          UserDeptMapper userDeptMapper,
                                          ObjectMapperUtils objectMapperUtils) {
+        this.baseMapper = workflowDefinitionMapper;
         this.workflowDefinitionMapper = workflowDefinitionMapper;
         this.workflowNodeMapper = workflowNodeMapper;
         this.workflowNodeApproverMapper = workflowNodeApproverMapper;

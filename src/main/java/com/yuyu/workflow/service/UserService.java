@@ -1,6 +1,8 @@
 package com.yuyu.workflow.service;
 
+import com.baomidou.mybatisplus.extension.service.IService;
 import com.yuyu.workflow.common.PageVo;
+import com.yuyu.workflow.entity.User;
 import com.yuyu.workflow.eto.user.UserCreateETO;
 import com.yuyu.workflow.eto.user.UserDeptsUpdateETO;
 import com.yuyu.workflow.eto.user.UserPasswordResetETO;
@@ -15,7 +17,7 @@ import com.yuyu.workflow.vo.user.UserVO;
 
 import java.util.List;
 
-public interface UserService {
+public interface UserService extends IService<User> {
 
     /**
      * 创建用户。

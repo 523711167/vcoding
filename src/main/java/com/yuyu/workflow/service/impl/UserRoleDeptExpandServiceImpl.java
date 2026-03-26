@@ -1,6 +1,7 @@
 package com.yuyu.workflow.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yuyu.workflow.common.enums.CommonStatusEnum;
 import com.yuyu.workflow.common.enums.DataScopeEnum;
 import com.yuyu.workflow.common.enums.DeptRelationTypeEnum;
@@ -34,7 +35,7 @@ import java.util.stream.Collectors;
  * 角色数据权限组织展开关系维护服务。
  */
 @Service
-public class UserRoleDeptExpandServiceImpl implements UserRoleDeptExpandService {
+public class UserRoleDeptExpandServiceImpl extends ServiceImpl<UserRoleDeptExpandMapper, UserRoleDeptExpand> implements UserRoleDeptExpandService {
 
     private final UserRoleDeptMapper userRoleDeptMapper;
     private final UserRoleDeptExpandMapper userRoleDeptExpandMapper;
@@ -45,6 +46,7 @@ public class UserRoleDeptExpandServiceImpl implements UserRoleDeptExpandService 
                                          UserRoleDeptExpandMapper userRoleDeptExpandMapper,
                                          UserRoleMapper userRoleMapper,
                                          UserDeptMapper userDeptMapper) {
+        this.baseMapper = userRoleDeptExpandMapper;
         this.userRoleDeptMapper = userRoleDeptMapper;
         this.userRoleDeptExpandMapper = userRoleDeptExpandMapper;
         this.userRoleMapper = userRoleMapper;

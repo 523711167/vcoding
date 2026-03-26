@@ -2,6 +2,7 @@ package com.yuyu.workflow.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yuyu.workflow.common.PageVo;
 import com.yuyu.workflow.common.enums.CommonStatusEnum;
@@ -44,7 +45,7 @@ import java.util.stream.Collectors;
  * 业务定义服务实现。
  */
 @Service
-public class BizDefinitionServiceImpl implements BizDefinitionService {
+public class BizDefinitionServiceImpl extends ServiceImpl<BizDefinitionMapper, BizDefinition> implements BizDefinitionService {
 
     private final BizDefinitionMapper bizDefinitionMapper;
     private final WorkflowDefinitionMapper workflowDefinitionMapper;
@@ -62,6 +63,7 @@ public class BizDefinitionServiceImpl implements BizDefinitionService {
                                     UserRoleMapper userRoleMapper,
                                     BizDefinitionStructMapper bizDefinitionStructMapper,
                                     BizDefinitionRoleRelService bizDefinitionRoleRelService) {
+        this.baseMapper = bizDefinitionMapper;
         this.bizDefinitionMapper = bizDefinitionMapper;
         this.workflowDefinitionMapper = workflowDefinitionMapper;
         this.bizDefinitionRoleRelMapper = bizDefinitionRoleRelMapper;

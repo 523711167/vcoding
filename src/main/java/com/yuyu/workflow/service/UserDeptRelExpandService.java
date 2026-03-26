@@ -1,8 +1,11 @@
 package com.yuyu.workflow.service;
 
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.yuyu.workflow.entity.UserDeptRelExpand;
+
 import java.util.List;
 
-public interface UserDeptRelExpandService {
+public interface UserDeptRelExpandService extends IService<UserDeptRelExpand> {
 
     /**
      * 按用户集合全量重建展开关系。

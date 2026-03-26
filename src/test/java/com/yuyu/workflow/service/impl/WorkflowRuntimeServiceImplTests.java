@@ -63,13 +63,7 @@ class WorkflowRuntimeServiceImplTests {
         workflowInstanceService = new WorkflowInstanceServiceImpl(workflowInstanceMapper);
         workflowNodeInstanceService = new WorkflowNodeInstanceServiceImpl(workflowNodeInstanceMapper);
         workflowApprovalRecordService = new WorkflowApprovalRecordServiceImpl(workflowApprovalRecordMapper, workflowNodeMapper);
-        workflowNodeApproverInstanceService = new WorkflowNodeApproverInstanceServiceImpl(
-                workflowNodeApproverInstanceMapper,
-                workflowApprovalRecordMapper,
-                workflowNodeInstanceService,
-                workflowInstanceService,
-                workflowApprovalRecordService
-        );
+        workflowNodeApproverInstanceService = new WorkflowNodeApproverInstanceServiceImpl(workflowNodeApproverInstanceMapper);
     }
 
     @Test

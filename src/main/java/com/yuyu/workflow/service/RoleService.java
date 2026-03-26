@@ -1,6 +1,8 @@
 package com.yuyu.workflow.service;
 
+import com.baomidou.mybatisplus.extension.service.IService;
 import com.yuyu.workflow.common.PageVo;
+import com.yuyu.workflow.entity.UserRole;
 import com.yuyu.workflow.eto.role.RoleCreateETO;
 import com.yuyu.workflow.eto.role.RoleDataScopeUpdateETO;
 import com.yuyu.workflow.eto.role.RoleMenusUpdateETO;
@@ -14,7 +16,7 @@ import com.yuyu.workflow.vo.role.UserSimpleVO;
 
 import java.util.List;
 
-public interface RoleService {
+public interface RoleService extends IService<UserRole> {
 
     /**
      * 创建角色。

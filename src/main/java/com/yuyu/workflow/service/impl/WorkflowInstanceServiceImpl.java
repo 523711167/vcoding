@@ -1,5 +1,6 @@
 package com.yuyu.workflow.service.impl;
 
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yuyu.workflow.common.context.OperationTimeContext;
 import com.yuyu.workflow.common.enums.WorkflowInstanceStatusEnum;
 import com.yuyu.workflow.common.exception.BizException;
@@ -8,8 +9,10 @@ import com.yuyu.workflow.mapper.WorkflowInstanceMapper;
 import com.yuyu.workflow.service.WorkflowInstanceService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -19,26 +22,25 @@ import java.util.Objects;
  * 流程实例服务实现。
  */
 @Service
-public class WorkflowInstanceServiceImpl implements WorkflowInstanceService {
-
-    private final WorkflowInstanceMapper workflowInstanceMapper;
+public class WorkflowInstanceServiceImpl extends ServiceImpl<WorkflowInstanceMapper, WorkflowInstance> implements WorkflowInstanceService {
 
     /**
      * 注入流程实例服务依赖。
      */
     public WorkflowInstanceServiceImpl(WorkflowInstanceMapper workflowInstanceMapper) {
-        this.workflowInstanceMapper = workflowInstanceMapper;
+        this.baseMapper = workflowInstanceMapper;
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void save(WorkflowInstance workflowInstance) {
+    public boolean save(WorkflowInstance workflowInstance) {
         if (Objects.isNull(workflowInstance)) {
             throw new BizException("流程实例不能为空");
         }
-        if (workflowInstanceMapper.insert(workflowInstance) != 1) {
+        if (baseMapper.insert(workflowInstance) != 1) {
             throw new BizException("流程实例保存失败");
         }
+        return true;
     }
 
     @Override
@@ -46,7 +48,7 @@ public class WorkflowInstanceServiceImpl implements WorkflowInstanceService {
         if (Objects.isNull(id)) {
             throw new BizException("id不能为空");
         }
-        WorkflowInstance instance = workflowInstanceMapper.selectById(id);
+        WorkflowInstance instance = getById(id);
         if (Objects.isNull(instance)) {
             throw new BizException("流程实例不存在");
         }
@@ -55,13 +57,14 @@ public class WorkflowInstanceServiceImpl implements WorkflowInstanceService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void updateById(WorkflowInstance workflowInstance) {
+    public boolean updateById(WorkflowInstance workflowInstance) {
         if (Objects.isNull(workflowInstance) || Objects.isNull(workflowInstance.getId())) {
             throw new BizException("流程实例id不能为空");
         }
-        if (workflowInstanceMapper.updateById(workflowInstance) != 1) {
+        if (!super.updateById(workflowInstance)) {
             throw new BizException("流程实例更新失败");
         }
+        return true;
     }
 
     @Override
@@ -70,27 +73,41 @@ public class WorkflowInstanceServiceImpl implements WorkflowInstanceService {
         workflowInstance.setId(instanceId);
         workflowInstance.setStatus(WorkflowInstanceStatusEnum.REJECTED.getCode());
         workflowInstance.setFinishedAt(OperationTimeContext.get());
-        workflowInstanceMapper.updateById(workflowInstance);
+        baseMapper.updateById(workflowInstance);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void removeByIds(List<Long> idList) {
+    public boolean removeByIds(Collection<?> idList) {
         List<Long> normalizedIds = normalizeIds(idList);
         if (CollectionUtils.isEmpty(normalizedIds)) {
-            return;
+            return true;
         }
-        workflowInstanceMapper.removeByIds(normalizedIds);
+        return baseMapper.removeByIds(normalizedIds) > 0;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean saveBatch(Collection<WorkflowInstance> entityList) {
+        if (CollectionUtils.isEmpty(entityList)) {
+            return true;
+        }
+        for (WorkflowInstance entity : entityList) {
+            save(entity);
+        }
+        return true;
     }
 
     /**
      * 规范化主键集合。
      */
-    private List<Long> normalizeIds(List<Long> idList) {
+    private List<Long> normalizeIds(Collection<?> idList) {
         if (CollectionUtils.isEmpty(idList)) {
             return Collections.emptyList();
         }
         return idList.stream()
+                .peek(id -> Assert.isInstanceOf(Long.class, id, "主键类型必须为Long"))
+                .map(Long.class::cast)
                 .filter(Objects::nonNull)
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new))
                 .stream()

@@ -1,6 +1,7 @@
 package com.yuyu.workflow.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yuyu.workflow.common.enums.CommonStatusEnum;
 import com.yuyu.workflow.common.enums.DeptRelationTypeEnum;
 import com.yuyu.workflow.common.enums.OrgTypeEnum;
@@ -31,7 +32,7 @@ import java.util.stream.Collectors;
  * 用户组织展开关系维护服务。
  */
 @Service
-public class UserDeptRelExpandServiceImpl implements UserDeptRelExpandService {
+public class UserDeptRelExpandServiceImpl extends ServiceImpl<UserDeptRelExpandMapper, UserDeptRelExpand> implements UserDeptRelExpandService {
 
     private final UserDeptRelMapper userDeptRelMapper;
     private final UserDeptRelExpandMapper userDeptRelExpandMapper;
@@ -40,6 +41,7 @@ public class UserDeptRelExpandServiceImpl implements UserDeptRelExpandService {
     public UserDeptRelExpandServiceImpl(UserDeptRelMapper userDeptRelMapper,
                                         UserDeptRelExpandMapper userDeptRelExpandMapper,
                                         UserDeptMapper userDeptMapper) {
+        this.baseMapper = userDeptRelExpandMapper;
         this.userDeptRelMapper = userDeptRelMapper;
         this.userDeptRelExpandMapper = userDeptRelExpandMapper;
         this.userDeptMapper = userDeptMapper;

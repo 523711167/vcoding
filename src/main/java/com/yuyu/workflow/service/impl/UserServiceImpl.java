@@ -3,6 +3,7 @@ package com.yuyu.workflow.service.impl;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yuyu.workflow.common.PageVo;
 import com.yuyu.workflow.common.enums.CommonStatusEnum;
 import com.yuyu.workflow.common.enums.OrgTypeEnum;
@@ -54,7 +55,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
-public class UserServiceImpl implements UserService {
+public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
 
     private static final String BUILT_IN_ADMIN_USERNAME = "admin";
     private static final String BUILT_IN_ADMIN_USER_PROTECT_MESSAGE = "admin内置管理员账号不允许修改";
@@ -83,6 +84,7 @@ public class UserServiceImpl implements UserService {
                            UserDeptStructMapper userDeptStructMapper,
                            PasswordEncoder passwordEncoder,
                            UserDeptRelExpandService userDeptRelExpandService) {
+        this.baseMapper = userMapper;
         this.userMapper = userMapper;
         this.userRoleMapper = userRoleMapper;
         this.userDeptMapper = userDeptMapper;

@@ -1,5 +1,7 @@
 package com.yuyu.workflow.service;
 
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.yuyu.workflow.entity.UserDept;
 import com.yuyu.workflow.eto.dept.DeptCreateETO;
 import com.yuyu.workflow.eto.dept.DeptMoveETO;
 import com.yuyu.workflow.eto.dept.DeptUpdateETO;
@@ -10,7 +12,7 @@ import com.yuyu.workflow.vo.role.UserSimpleVO;
 
 import java.util.List;
 
-public interface DeptService {
+public interface DeptService extends IService<UserDept> {
 
     /**
      * 创建部门。

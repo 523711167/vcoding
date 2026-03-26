@@ -257,6 +257,49 @@ class WorkflowLaunchServiceImplTests {
         assertNotNull(updatedWorkflowInstanceCaptor.getValue().getFinishedAt());
     }
 
+    @Test
+    void shouldInheritParallelBranchRootIdForNodesInsideParallelBranch() {
+        BizApply bizApply = buildBizApply();
+        WorkflowDefinition workflowDefinition = buildWorkflowDefinition();
+        WorkflowNode startNode = buildNode(10L, "开始", WorkflowNodeTypeEnum.START.getCode());
+        WorkflowNode splitNode = buildNode(11L, "并行拆分", WorkflowNodeTypeEnum.PARALLEL_SPLIT.getCode());
+        WorkflowNode conditionNode = buildNode(12L, "条件判断", WorkflowNodeTypeEnum.CONDITION.getCode());
+        WorkflowNode branchApprovalNode = buildNode(13L, "分支B审批", WorkflowNodeTypeEnum.APPROVAL.getCode());
+        WorkflowNode nestedApprovalNode = buildNode(14L, "分支A审批", WorkflowNodeTypeEnum.APPROVAL.getCode());
+        WorkflowTransition startTransition = buildTransition(10L, 11L, null, 0, 1);
+        WorkflowTransition splitToCondition = buildTransition(11L, 12L, null, 0, 10);
+        WorkflowTransition splitToApproval = buildTransition(11L, 13L, null, 0, 20);
+        WorkflowTransition conditionToApproval = buildTransition(12L, 14L, null, 0, 30);
+        WorkflowNodeApprover branchApprover = buildApprover(13L, WorkflowApproverTypeEnum.USER.getCode(), "2", 1);
+        WorkflowNodeApprover nestedApprover = buildApprover(14L, WorkflowApproverTypeEnum.USER.getCode(), "3", 1);
+
+        mockCommonSubmitContext(
+                bizApply,
+                workflowDefinition,
+                List.of(startNode, splitNode, conditionNode, branchApprovalNode, nestedApprovalNode),
+                List.of(startTransition, splitToCondition, splitToApproval, conditionToApproval),
+                List.of(branchApprover, nestedApprover)
+        );
+        when(userMapper.selectById(2L)).thenReturn(buildUser(2L, "branch_b", "分支B审批人"));
+        when(userMapper.selectById(3L)).thenReturn(buildUser(3L, "branch_a", "分支A审批人"));
+
+        workflowLaunchService.startWorkflow(new WorkflowStartCommand(1L, 1L));
+
+        ArgumentCaptor<WorkflowNodeInstance> nodeInstanceCaptor = ArgumentCaptor.forClass(WorkflowNodeInstance.class);
+        verify(workflowNodeInstanceService, times(4)).save(nodeInstanceCaptor.capture());
+        List<WorkflowNodeInstance> nodeInstances = nodeInstanceCaptor.getAllValues();
+
+        WorkflowNodeInstance splitInstance = nodeInstances.get(0);
+        WorkflowNodeInstance conditionInstance = nodeInstances.get(1);
+        WorkflowNodeInstance nestedApprovalInstance = nodeInstances.get(2);
+        WorkflowNodeInstance branchApprovalInstance = nodeInstances.get(3);
+
+        assertNull(splitInstance.getParallelBranchRootId());
+        assertEquals(splitInstance.getId(), conditionInstance.getParallelBranchRootId());
+        assertEquals(splitInstance.getId(), nestedApprovalInstance.getParallelBranchRootId());
+        assertEquals(splitInstance.getId(), branchApprovalInstance.getParallelBranchRootId());
+    }
+
     private void mockCommonSubmitContext(BizApply bizApply,
                                          WorkflowDefinition workflowDefinition,
                                          List<WorkflowNode> nodeList,
@@ -278,12 +321,12 @@ class WorkflowLaunchServiceImplTests {
         doAnswer(invocation -> {
             WorkflowInstance entity = invocation.getArgument(0);
             entity.setId(workflowInstanceId.get());
-            return null;
+            return true;
         }).when(workflowInstanceService).save(any(WorkflowInstance.class));
         doAnswer(invocation -> {
             WorkflowNodeInstance entity = invocation.getArgument(0);
             entity.setId(nodeInstanceId.getAndIncrement());
-            return null;
+            return true;
         }).when(workflowNodeInstanceService).save(any(WorkflowNodeInstance.class));
     }
 
