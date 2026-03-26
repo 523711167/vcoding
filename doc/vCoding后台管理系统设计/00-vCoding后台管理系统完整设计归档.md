@@ -1425,7 +1425,7 @@ CREATE TABLE `tb_workflow_node_instance` (
   `node_id`         BIGINT      NOT NULL               COMMENT '对应的节点定义ID',
   `node_name`       VARCHAR(100) NOT NULL              COMMENT '节点名称（冗余）',
   `node_type`       VARCHAR(32) NOT NULL               COMMENT '节点类型（冗余）',
-  `status`          VARCHAR(16) NOT NULL DEFAULT 'PENDING' COMMENT '状态：PENDING=待激活 ACTIVE=进行中 APPROVED=已通过 REJECTED=已拒绝 SKIPPED=已跳过 TIMEOUT=已超时',
+  `status` VARCHAR(16) NOT NULL DEFAULT 'PENDING' COMMENT '状态：PENDING=待激活 ACTIVE=进行中 APPROVED=已通过 REJECTED=已拒绝 SKIPPED=已跳过 CANCELED=已取消 TIMEOUT=已超时',
   `approve_mode`    VARCHAR(16)                        COMMENT '审批模式（冗余）',
   `activated_at`    DATETIME                           COMMENT '节点激活时间',
   `finished_at`     DATETIME                           COMMENT '节点完成时间',
@@ -1452,12 +1452,17 @@ CREATE TABLE `tb_workflow_node_approver_instance` (
   `instance_id`         BIGINT      NOT NULL               COMMENT '流程实例ID（冗余，方便查询）',
   `approver_id`         BIGINT      NOT NULL               COMMENT '审批人用户ID',
   `approver_name`       VARCHAR(64) NOT NULL               COMMENT '审批人姓名（冗余）',
+  `node_name`                   VARCHAR(100) NOT NULL COMMENT '所属节点名称（冗余）',
+  `node_type`                   VARCHAR(32)  NOT NULL COMMENT '所属节点类型（冗余）',
+  `relation_type`               VARCHAR(16)  NOT NULL DEFAULT 'ORIGINAL' COMMENT '来源关系类型：ORIGINAL=原始审批人 ADD_SIGN=加签审批人',
+  `source_approver_instance_id` BIGINT COMMENT '来源审批人实例ID（加签审批人时指向发起加签的审批人实例）',
   `sort_order`          INT         NOT NULL DEFAULT 0     COMMENT '顺签顺序',
-  `status`              VARCHAR(16) NOT NULL DEFAULT 'PENDING' COMMENT '状态：PENDING=待处理 APPROVED=已通过 REJECTED=已拒绝 DELEGATED=已转交 CANCELED=已取消',
+  `status`                      VARCHAR(16)  NOT NULL DEFAULT 'PENDING' COMMENT '状态：PENDING=待处理 WAITING_ADD_SIGN=等待加签 APPROVED=已通过 REJECTED=已拒绝 DELEGATED=已转交 CANCELED=已取消',
   `is_active`           TINYINT     NOT NULL DEFAULT 0     COMMENT '是否当前需要操作（顺签场景下只有当前人为1）',
-  `handled_at`          DATETIME                            COMMENT '处理时间',
+  `finished_at`                 DATETIME COMMENT '完成时间',
   `comment`             VARCHAR(500)                        COMMENT '审批意见',
   `delegate_to`         BIGINT                              COMMENT '转交目标用户ID（DELEGATED状态时有值）',
+  `delegate_to_name`            VARCHAR(64) COMMENT '转交目标用户姓名（冗余）',
   `created_at`          DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at`          DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -1477,7 +1482,7 @@ CREATE TABLE `tb_workflow_approval_record` (
   `node_instance_id` BIGINT       NOT NULL               COMMENT '节点实例ID',
   `operator_id`      BIGINT       NOT NULL               COMMENT '操作人用户ID',
   `operator_name`    VARCHAR(64)  NOT NULL               COMMENT '操作人姓名',
-  `action`           VARCHAR(16)  NOT NULL               COMMENT '操作类型：SUBMIT=提交 APPROVE=通过 REJECT=拒绝 DELEGATE=转交 RECALL=撤回 URGE=催办 TIMEOUT=超时自动',
+  `action` VARCHAR(16) NOT NULL COMMENT '操作类型：SUBMIT=提交申请 APPROVE=审批通过 REJECT=审批拒绝 DELEGATE=审批转交 RECALL=发起人撤回 ADD_SIGN=发起加签 ROUTE=系统自动路由 SPLIT_TRIGGER=系统触发并行拆分 JOIN_ARRIVE=分支到达并行聚合节点 JOIN_PASS=并行聚合完成并继续流转 AUTO_APPROVE=系统自动审核通过 AUTO_REJECT=系统自动审批拒绝 TIMEOUT=节点超时自动处理触发记录 REMIND=节点超时后发送提醒',
   `node_instance_type` VARCHAR(32)                        COMMENT '节点实例类型（冗余）',
   `node_instance_name` VARCHAR(100)                       COMMENT '节点实例名称（冗余）',
   `comment`          VARCHAR(500)                        COMMENT '操作备注',
@@ -1499,6 +1504,14 @@ CREATE TABLE `tb_workflow_approval_record` (
 - `node_instance_*`：本次审批动作实际发生所在的节点实例快照
 - `from_node_*`：本次流转的来源节点实例快照，通常与 `node_instance_*` 一致
 - `to_node_*`：本次流转命中的目标节点实例快照；无目标节点时为空
+
+审批人实例补充说明：
+
+- `tb_workflow_node_approver_instance.node_name`、`node_type` 冗余保存所属节点实例的名称和类型
+- `relation_type` 区分当前审批人实例是原始审批人还是加签审批人
+- `source_approver_instance_id` 用于记录加签审批人的来源审批人实例链路
+- 审批人待办、已办查询可直接使用审批人实例表展示节点信息，无需额外回查节点实例表
+- 冗余值以审批人实例创建时的节点快照为准，后续不回写
 
 ---
 
@@ -1599,11 +1612,17 @@ CREATE TABLE `tb_workflow_approval_record` (
 2. 同步将当前流程定义名称冗余写入 `tb_biz_apply.workflow_name`
 3. 在 `tb_workflow_instance` 创建实例记录（`status=RUNNING`，`definition_id=workflow_definition_id`）
 4. 读取流程定义，找到 `START` 节点，激活从 `START` 出发的第一个节点
+    - `START`、`END` 不创建节点实例
+    - `APPROVAL`、`CONDITION`、`PARALLEL_SPLIT`、`PARALLEL_JOIN` 创建节点实例
+    - 节点实例按需创建，只为实际进入运行的节点创建实例
 5. 激活节点时：
-   - 在 `tb_workflow_node_instance` 创建记录（`status=ACTIVE`，计算 `deadline_at`）
-   - 解析审批人配置，在 `tb_workflow_node_approver_instance` 为每位审批人创建记录
+    - `CONDITION`、`PARALLEL_SPLIT` 为瞬时网关，创建后立即完成，`status=APPROVED`
+    - `PARALLEL_JOIN` 首个分支到达时创建，初始 `status=ACTIVE`
+    - 审批节点激活时，在 `tb_workflow_node_instance` 创建记录（`status=ACTIVE`，计算 `deadline_at`）
+    - 解析审批人配置，在 `tb_workflow_node_approver_instance` 为每位审批人创建记录，同时写入节点名称、节点类型冗余值
    - 向审批人发送待办通知
 6. 在 `tb_workflow_approval_record` 写入 `SUBMIT` 操作记录
+7. 系统自动流转动作同样写入 `tb_workflow_approval_record`
 
 ### 10.4 节点流转逻辑
 
@@ -1623,6 +1642,7 @@ CREATE TABLE `tb_workflow_approval_record` (
 - 目标节点为 `END`：将流程实例更新为 `APPROVED`
 - 目标节点为 `PARALLEL_SPLIT`：同时激活所有出边对应节点
 - 目标节点为 `PARALLEL_JOIN`：等待所有进边来源节点完成后才继续
+- 未命中的条件分支或并行分支节点，不创建 `node_instance`
 
 ### 10.5 条件分支
 
@@ -1651,8 +1671,11 @@ CREATE TABLE `tb_workflow_approval_record` (
 - 所有人均拒绝则节点拒绝
 
 #### SEQUENTIAL（顺签）
+
+- 节点激活时一次性创建全部审批人实例
+- 第一位 `is_active=1`，其余 `is_active=0`
 - 按 `sort_order` 升序逐一激活
-- 当前人通过后激活下一人
+- 当前人通过后激活下一人，不再新增审批人实例
 - 任意一人拒绝则节点拒绝
 - 所有人通过则节点通过
 
@@ -1660,11 +1683,14 @@ CREATE TABLE `tb_workflow_approval_record` (
 
 并行拆分（`PARALLEL_SPLIT`）：
 - 激活所有出边对应的下一个节点，多个节点同时处于 `ACTIVE`
+- 若没有任何分支命中，则走唯一默认分支
+- 并行分支中某一审批节点拒绝时，不立即终止整单，其他分支继续执行
 
 并行聚合（`PARALLEL_JOIN`）：
 - 每当一条并行分支完成后，检查所有分支状态
 - 当所有预期分支均完成后，激活后续节点
 - `config_json.expect_branch_count` 记录需要等待的分支数
+- `PARALLEL_JOIN.status` 表达并行段最终结果，而不是仅表达网关执行成功
 
 ### 10.8 超时处理
 
@@ -1687,15 +1713,27 @@ WHERE status = 'ACTIVE'
 
 ### 10.9 审批操作
 
-| 操作 | 说明 | 前置条件 |
-|------|------|----------|
-| 通过（APPROVE） | 当前审批人同意 | 当前用户在审批人实例中且 `is_active=1` |
-| 拒绝（REJECT） | 当前审批人驳回 | 同上 |
-| 转交（DELEGATE） | 将审批任务转给他人 | 同上 |
-| 撤回（RECALL） | 发起人撤销流程 | 流程 `status=RUNNING` |
-| 加签 | 临时增加审批人 | 当前审批人在 `ACTIVE` 节点上操作 |
+| 操作           | 说明        | 前置条件                       |
+|--------------|-----------|----------------------------|
+| 通过（APPROVE）  | 当前审批人同意   | 当前用户在审批人实例中且 `is_active=1` |
+| 拒绝（REJECT）   | 当前审批人驳回   | 同上                         |
+| 转交（DELEGATE） | 将审批任务转给他人 | 同上                         |
+| 撤回（RECALL）   | 发起人撤销流程   | 流程 `status=RUNNING`        |
+| 加签（ADD_SIGN） | 临时增加审批人   | 当前审批人在 `ACTIVE` 节点上操作      |
+
+系统动作：
+
+- `ROUTE`：系统自动路由
+- `SPLIT_TRIGGER`：系统触发并行拆分
+- `JOIN_ARRIVE`：分支到达并行聚合节点
+- `JOIN_PASS`：并行聚合完成并继续流转
+- `AUTO_APPROVE`：系统自动审核通过
+- `AUTO_REJECT`：系统自动审批拒绝
+- `TIMEOUT`：节点超时自动处理触发记录
+- `REMIND`：节点超时后发送提醒
 
 所有操作均写入 `tb_workflow_approval_record`。
+系统动作统一使用固定系统账号写入审批记录：`operator_id=0`、`operator_name=SYSTEM`。
 
 ### 10.10 消息通知
 
@@ -1731,14 +1769,14 @@ INIT ─────────→ RUNNING
                 定时任务激活
 PENDING ──────────────────────→ ACTIVE
                                 │
-                  ┌─────────────┼─────────────┐
-                  ↓             ↓             ↓
-               APPROVED      REJECTED      TIMEOUT
-                                            │
-                           ┌────────────────┤
-                           ↓                ↓
-                      (AUTO_APPROVE)  (AUTO_REJECT)
-                        →APPROVED     →REJECTED
+                  ┌─────────────┼──────────────┬─────────────┐
+                  ↓             ↓              ↓             ↓
+               APPROVED      REJECTED       CANCELED      TIMEOUT
+                                                             │
+                                            ┌────────────────┤
+                                            ↓                ↓
+                                       (AUTO_APPROVE)  (AUTO_REJECT)
+                                         →APPROVED     →REJECTED
 ```
 
 ---

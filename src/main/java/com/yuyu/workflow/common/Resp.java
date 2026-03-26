@@ -33,7 +33,7 @@ public record Resp<T>(
      */
     @SuppressWarnings("unchecked")
     public static <T> Resp<T> success() {
-        return new Resp<>(RespCodeEnum.SUCCESS.getId(), RespCodeEnum.SUCCESS.getMsg(), (T) EMPTY_DATA);
+        return new Resp<>(RespCodeEnum.SUCCESS.getId(), RespCodeEnum.SUCCESS.getName(), (T) EMPTY_DATA);
     }
 
     /**
@@ -41,7 +41,7 @@ public record Resp<T>(
      */
     @SuppressWarnings("unchecked")
     public static <T> Resp<T> success(T data) {
-        return data == null ? success() : new Resp<>(RespCodeEnum.SUCCESS.getId(), RespCodeEnum.SUCCESS.getMsg(), data);
+        return data == null ? success() : new Resp<>(RespCodeEnum.SUCCESS.getId(), RespCodeEnum.SUCCESS.getName(), data);
     }
 
     /**

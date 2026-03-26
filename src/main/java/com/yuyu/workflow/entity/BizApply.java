@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 @TableName("tb_biz_apply")
 public class BizApply extends BaseAuditEntity {
 
-    private String bizCode;
+    private Long bizDefinitionId;
 
     private String title;
 

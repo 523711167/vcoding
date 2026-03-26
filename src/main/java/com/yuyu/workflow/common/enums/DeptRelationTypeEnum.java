@@ -26,7 +26,7 @@ public enum DeptRelationTypeEnum implements BaseEnum {
     }
 
     @Override
-    public String getMsg() {
+    public String getName() {
         return msg;
     }
 }

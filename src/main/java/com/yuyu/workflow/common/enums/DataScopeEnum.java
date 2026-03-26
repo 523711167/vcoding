@@ -41,7 +41,7 @@ public enum DataScopeEnum implements BaseEnum {
      * 获取数据权限说明。
      */
     @Override
-    public String getMsg() {
+    public String getName() {
         return msg;
     }
 

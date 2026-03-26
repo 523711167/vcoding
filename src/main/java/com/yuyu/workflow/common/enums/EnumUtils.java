@@ -16,7 +16,7 @@ public final class EnumUtils {
     public static <E extends Enum<E> & BaseEnum> String getMsgById(E[] values, Integer id) {
         for (E item : values) {
             if (Objects.equals(item.getId(), id)) {
-                return item.getMsg();
+                return item.getName();
             }
         }
         return "";
@@ -28,7 +28,7 @@ public final class EnumUtils {
     public static <E extends Enum<E> & BaseEnum> String getMsgByCode(E[] values, String code) {
         for (E item : values) {
             if (Objects.equals(item.getCode(), code)) {
-                return item.getMsg();
+                return item.getName();
             }
         }
         return "";

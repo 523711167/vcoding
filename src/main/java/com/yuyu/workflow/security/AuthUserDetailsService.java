@@ -61,7 +61,7 @@ public class AuthUserDetailsService implements UserDetailsService {
     public LoginUserDetails loadUserById(Long userId) {
         User user = userMapper.selectById(userId);
         if (Objects.isNull(user)) {
-            throw new BizException(RespCodeEnum.UNAUTHORIZED.getId(), RespCodeEnum.UNAUTHORIZED.getMsg());
+            throw new BizException(RespCodeEnum.UNAUTHORIZED.getId(), RespCodeEnum.UNAUTHORIZED.getName());
         }
         return buildLoginUser(user);
     }

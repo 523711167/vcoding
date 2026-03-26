@@ -80,7 +80,11 @@ public interface WorkflowDefinitionStructMapper extends BaseMapper<WorkflowDefin
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "definitionId", ignore = true)
     @Mapping(target = "fromNodeId", ignore = true)
+    @Mapping(target = "fromNodeName", ignore = true)
+    @Mapping(target = "fromNodeType", ignore = true)
     @Mapping(target = "toNodeId", ignore = true)
+    @Mapping(target = "toNodeName", ignore = true)
+    @Mapping(target = "toNodeType", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "isDeleted", ignore = true)
     WorkflowTransition toTransitionEntity(WorkflowTransitionETO eto);

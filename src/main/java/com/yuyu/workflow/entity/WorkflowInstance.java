@@ -15,6 +15,8 @@ import java.time.LocalDateTime;
 @TableName("tb_workflow_instance")
 public class WorkflowInstance extends BaseAuditEntity {
 
+    private Long bizId;
+
     private Long definitionId;
 
     private String definitionCode;
@@ -30,6 +32,10 @@ public class WorkflowInstance extends BaseAuditEntity {
     private String formData;
 
     private Long currentNodeId;
+
+    private String currentNodeName;
+
+    private String currentNodeType;
 
     private LocalDateTime startedAt;
 

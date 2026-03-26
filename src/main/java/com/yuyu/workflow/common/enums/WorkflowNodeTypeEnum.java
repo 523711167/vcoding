@@ -17,12 +17,12 @@ public enum WorkflowNodeTypeEnum implements BaseEnum {
 
     private final Integer id;
     private final String code;
-    private final String msg;
+    private final String name;
 
-    WorkflowNodeTypeEnum(Integer id, String code, String msg) {
+    WorkflowNodeTypeEnum(Integer id, String code, String name) {
         this.id = id;
         this.code = code;
-        this.msg = msg;
+        this.name = name;
     }
 
     @Override
@@ -36,8 +36,8 @@ public enum WorkflowNodeTypeEnum implements BaseEnum {
     }
 
     @Override
-    public String getMsg() {
-        return msg;
+    public String getName() {
+        return name;
     }
 
     public static String getMsgByCode(String code) {

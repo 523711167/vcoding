@@ -76,7 +76,7 @@ public class GlobalExceptionHandler {
         if (ex instanceof DisabledException) {
             return Resp.fail(RespCodeEnum.UNAUTHORIZED.getId(), "用户已停用");
         }
-        return Resp.fail(RespCodeEnum.UNAUTHORIZED.getId(), RespCodeEnum.UNAUTHORIZED.getMsg());
+        return Resp.fail(RespCodeEnum.UNAUTHORIZED.getId(), RespCodeEnum.UNAUTHORIZED.getName());
     }
 
     /**
@@ -84,7 +84,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(AccessDeniedException.class)
     public Resp<Void> handleAccessDeniedException(AccessDeniedException ex) {
-        return Resp.fail(RespCodeEnum.FORBIDDEN.getId(), RespCodeEnum.FORBIDDEN.getMsg());
+        return Resp.fail(RespCodeEnum.FORBIDDEN.getId(), RespCodeEnum.FORBIDDEN.getName());
     }
 
     /**
@@ -125,7 +125,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public Resp<Void> handleException(Exception ex) {
         log.error("system exception", ex);
-        return Resp.fail(RespCodeEnum.SYSTEM_ERROR.getId(), RespCodeEnum.SYSTEM_ERROR.getMsg());
+        return Resp.fail(RespCodeEnum.SYSTEM_ERROR.getId(), RespCodeEnum.SYSTEM_ERROR.getName());
     }
 
     /**

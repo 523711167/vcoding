@@ -10,6 +10,11 @@ import java.util.List;
 public interface BizApplyService {
 
     /**
+     * 新增业务申请。
+     */
+    void save(BizApply bizApply);
+
+    /**
      * 按主键查询业务申请，不存在时抛出异常。
      */
     BizApply getByIdOrThrow(Long id);
@@ -18,6 +23,11 @@ public interface BizApplyService {
      * 按流程实例主键集合查询业务申请。
      */
     List<BizApply> listByWorkflowInstanceIds(List<Long> workflowInstanceIdList);
+
+    /**
+     * 按主键更新业务申请。
+     */
+    void updateById(BizApply bizApply);
 
     /**
      * 按主键集合删除业务申请。

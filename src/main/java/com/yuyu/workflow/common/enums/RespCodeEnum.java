@@ -39,7 +39,7 @@ public enum RespCodeEnum implements BaseEnum {
      * 获取响应码说明。
      */
     @Override
-    public String getMsg() {
+    public String getName() {
         return msg;
     }
 

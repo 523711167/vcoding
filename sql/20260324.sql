@@ -3,6 +3,8 @@
 -- 2. 支持 CONDITION / PARALLEL_SPLIT 多分支时按默认分支规则做发布与保存校验。
 -- 3. 按设计文档落地业务申请表和工作流运行层五张核心表。
 -- 4. 审批操作记录增加节点实例、来源节点、目标节点的类型和名称冗余字段。
+-- 5. 对齐运行层状态与动作口径，并为节点审批人实例补充节点名称、节点类型冗余字段。
+-- 6. 节点审批人实例增加来源关系字段，支持标识原始审批人与加签审批人链路。
 
 USE `yuyu`;
 
@@ -168,6 +170,104 @@ PREPARE stmt_add_workflow_approval_record_to_node_name FROM @add_workflow_approv
 EXECUTE stmt_add_workflow_approval_record_to_node_name;
 DEALLOCATE PREPARE stmt_add_workflow_approval_record_to_node_name;
 
+SET @add_workflow_node_approver_instance_node_name_sql = (SELECT IF(
+                                                                         EXISTS(SELECT 1
+                                                                                FROM information_schema.COLUMNS
+                                                                                WHERE TABLE_SCHEMA = DATABASE()
+                                                                                  AND TABLE_NAME = 'tb_workflow_node_approver_instance'
+                                                                                  AND COLUMN_NAME = 'node_name'),
+                                                                         'SELECT 1',
+                                                                         'ALTER TABLE `tb_workflow_node_approver_instance` ADD COLUMN `node_name` VARCHAR(100) NOT NULL DEFAULT '''' COMMENT ''所属节点名称（冗余）'' AFTER `approver_name`'
+                                                                 ));
+
+PREPARE stmt_add_workflow_node_approver_instance_node_name FROM @add_workflow_node_approver_instance_node_name_sql;
+EXECUTE stmt_add_workflow_node_approver_instance_node_name;
+DEALLOCATE PREPARE stmt_add_workflow_node_approver_instance_node_name;
+
+SET @add_workflow_node_approver_instance_node_type_sql = (SELECT IF(
+                                                                         EXISTS(SELECT 1
+                                                                                FROM information_schema.COLUMNS
+                                                                                WHERE TABLE_SCHEMA = DATABASE()
+                                                                                  AND TABLE_NAME = 'tb_workflow_node_approver_instance'
+                                                                                  AND COLUMN_NAME = 'node_type'),
+                                                                         'SELECT 1',
+                                                                         'ALTER TABLE `tb_workflow_node_approver_instance` ADD COLUMN `node_type` VARCHAR(32) NOT NULL DEFAULT '''' COMMENT ''所属节点类型（冗余）'' AFTER `node_name`'
+                                                                 ));
+
+PREPARE stmt_add_workflow_node_approver_instance_node_type FROM @add_workflow_node_approver_instance_node_type_sql;
+EXECUTE stmt_add_workflow_node_approver_instance_node_type;
+DEALLOCATE PREPARE stmt_add_workflow_node_approver_instance_node_type;
+
+SET @add_workflow_node_approver_instance_relation_type_sql = (SELECT IF(
+                                                                             EXISTS(SELECT 1
+                                                                                    FROM information_schema.COLUMNS
+                                                                                    WHERE TABLE_SCHEMA = DATABASE()
+                                                                                      AND TABLE_NAME = 'tb_workflow_node_approver_instance'
+                                                                                      AND COLUMN_NAME = 'relation_type'),
+                                                                             'SELECT 1',
+                                                                             'ALTER TABLE `tb_workflow_node_approver_instance` ADD COLUMN `relation_type` VARCHAR(16) NOT NULL DEFAULT ''ORIGINAL'' COMMENT ''来源关系类型：ORIGINAL=原始审批人 ADD_SIGN=加签审批人'' AFTER `node_type`'
+                                                                     ));
+
+PREPARE stmt_add_workflow_node_approver_instance_relation_type FROM @add_workflow_node_approver_instance_relation_type_sql;
+EXECUTE stmt_add_workflow_node_approver_instance_relation_type;
+DEALLOCATE PREPARE stmt_add_workflow_node_approver_instance_relation_type;
+
+SET @add_wf_node_appr_inst_src_id_sql = (SELECT IF(
+                                                        EXISTS(SELECT 1
+                                                               FROM information_schema.COLUMNS
+                                                               WHERE TABLE_SCHEMA = DATABASE()
+                                                                 AND TABLE_NAME = 'tb_workflow_node_approver_instance'
+                                                                 AND COLUMN_NAME = 'source_approver_instance_id'),
+                                                        'SELECT 1',
+                                                        'ALTER TABLE `tb_workflow_node_approver_instance` ADD COLUMN `source_approver_instance_id` BIGINT NULL COMMENT ''来源审批人实例ID（加签审批人时指向发起加签的审批人实例）'' AFTER `relation_type`'
+                                                ));
+
+PREPARE stmt_add_wf_node_appr_inst_src_id FROM @add_wf_node_appr_inst_src_id_sql;
+EXECUTE stmt_add_wf_node_appr_inst_src_id;
+DEALLOCATE PREPARE stmt_add_wf_node_appr_inst_src_id;
+
+SET @modify_workflow_node_instance_status_sql = (SELECT IF(
+                                                                EXISTS(SELECT 1
+                                                                       FROM information_schema.COLUMNS
+                                                                       WHERE TABLE_SCHEMA = DATABASE()
+                                                                         AND TABLE_NAME = 'tb_workflow_node_instance'
+                                                                         AND COLUMN_NAME = 'status'),
+                                                                'ALTER TABLE `tb_workflow_node_instance` MODIFY COLUMN `status` VARCHAR(16) NOT NULL DEFAULT ''PENDING'' COMMENT ''状态：PENDING=待激活 ACTIVE=进行中 APPROVED=已通过 REJECTED=已拒绝 SKIPPED=已跳过 CANCELED=已取消 TIMEOUT=已超时''',
+                                                                'SELECT 1'
+                                                        ));
+
+PREPARE stmt_modify_workflow_node_instance_status FROM @modify_workflow_node_instance_status_sql;
+EXECUTE stmt_modify_workflow_node_instance_status;
+DEALLOCATE PREPARE stmt_modify_workflow_node_instance_status;
+
+SET @modify_workflow_node_approver_instance_status_sql = (SELECT IF(
+                                                                         EXISTS(SELECT 1
+                                                                                FROM information_schema.COLUMNS
+                                                                                WHERE TABLE_SCHEMA = DATABASE()
+                                                                                  AND TABLE_NAME = 'tb_workflow_node_approver_instance'
+                                                                                  AND COLUMN_NAME = 'status'),
+                                                                         'ALTER TABLE `tb_workflow_node_approver_instance` MODIFY COLUMN `status` VARCHAR(16) NOT NULL DEFAULT ''PENDING'' COMMENT ''状态：PENDING=待处理 WAITING_ADD_SIGN=等待加签 APPROVED=已通过 REJECTED=已拒绝 DELEGATED=已转交 CANCELED=已取消''',
+                                                                         'SELECT 1'
+                                                                 ));
+
+PREPARE stmt_modify_workflow_node_approver_instance_status FROM @modify_workflow_node_approver_instance_status_sql;
+EXECUTE stmt_modify_workflow_node_approver_instance_status;
+DEALLOCATE PREPARE stmt_modify_workflow_node_approver_instance_status;
+
+SET @modify_workflow_approval_record_action_sql = (SELECT IF(
+                                                                  EXISTS(SELECT 1
+                                                                         FROM information_schema.COLUMNS
+                                                                         WHERE TABLE_SCHEMA = DATABASE()
+                                                                           AND TABLE_NAME = 'tb_workflow_approval_record'
+                                                                           AND COLUMN_NAME = 'action'),
+                                                                  'ALTER TABLE `tb_workflow_approval_record` MODIFY COLUMN `action` VARCHAR(16) NOT NULL COMMENT ''操作类型：SUBMIT=提交申请 APPROVE=审批通过 REJECT=审批拒绝 DELEGATE=审批转交 RECALL=发起人撤回 ADD_SIGN=发起加签 ROUTE=系统自动路由 SPLIT_TRIGGER=系统触发并行拆分 JOIN_ARRIVE=分支到达并行聚合节点 JOIN_PASS=并行聚合完成并继续流转 AUTO_APPROVE=系统自动审核通过 AUTO_REJECT=系统自动审批拒绝 TIMEOUT=节点超时自动处理触发记录 REMIND=节点超时后发送提醒''',
+                                                                  'SELECT 1'
+                                                          ));
+
+PREPARE stmt_modify_workflow_approval_record_action FROM @modify_workflow_approval_record_action_sql;
+EXECUTE stmt_modify_workflow_approval_record_action;
+DEALLOCATE PREPARE stmt_modify_workflow_approval_record_action;
+
 CREATE TABLE IF NOT EXISTS `tb_biz_apply` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `biz_code` VARCHAR(64) NOT NULL COMMENT '业务编码：LEAVE=请假 EXPENSE=报销 CONTRACT=合同 等',
@@ -217,7 +317,7 @@ CREATE TABLE IF NOT EXISTS `tb_workflow_node_instance` (
   `node_id` BIGINT NOT NULL COMMENT '对应的节点定义ID',
   `node_name` VARCHAR(100) NOT NULL COMMENT '节点名称（冗余）',
   `node_type` VARCHAR(32) NOT NULL COMMENT '节点类型（冗余）',
-  `status` VARCHAR(16) NOT NULL DEFAULT 'PENDING' COMMENT '状态：PENDING=待激活 ACTIVE=进行中 APPROVED=已通过 REJECTED=已拒绝 SKIPPED=已跳过 TIMEOUT=已超时',
+  `status` VARCHAR(16) NOT NULL DEFAULT 'PENDING' COMMENT '状态：PENDING=待激活 ACTIVE=进行中 APPROVED=已通过 REJECTED=已拒绝 SKIPPED=已跳过 CANCELED=已取消 TIMEOUT=已超时',
   `approve_mode` VARCHAR(16) DEFAULT NULL COMMENT '审批模式（冗余）',
   `activated_at` DATETIME DEFAULT NULL COMMENT '节点激活时间',
   `finished_at` DATETIME DEFAULT NULL COMMENT '节点完成时间',
@@ -239,8 +339,12 @@ CREATE TABLE IF NOT EXISTS `tb_workflow_node_approver_instance` (
   `instance_id` BIGINT NOT NULL COMMENT '流程实例ID（冗余，方便查询）',
   `approver_id` BIGINT NOT NULL COMMENT '审批人用户ID',
   `approver_name` VARCHAR(64) NOT NULL COMMENT '审批人姓名（冗余）',
+  `node_name`                   VARCHAR(100) NOT NULL COMMENT '所属节点名称（冗余）',
+  `node_type`                   VARCHAR(32)  NOT NULL COMMENT '所属节点类型（冗余）',
+  `relation_type`               VARCHAR(16)  NOT NULL DEFAULT 'ORIGINAL' COMMENT '来源关系类型：ORIGINAL=原始审批人 ADD_SIGN=加签审批人',
+  `source_approver_instance_id` BIGINT                DEFAULT NULL COMMENT '来源审批人实例ID（加签审批人时指向发起加签的审批人实例）',
   `sort_order` INT NOT NULL DEFAULT 0 COMMENT '顺签顺序',
-  `status` VARCHAR(16) NOT NULL DEFAULT 'PENDING' COMMENT '状态：PENDING=待处理 APPROVED=已通过 REJECTED=已拒绝 DELEGATED=已转交 CANCELED=已取消',
+  `status`                      VARCHAR(16)  NOT NULL DEFAULT 'PENDING' COMMENT '状态：PENDING=待处理 WAITING_ADD_SIGN=等待加签 APPROVED=已通过 REJECTED=已拒绝 DELEGATED=已转交 CANCELED=已取消',
   `is_active` TINYINT NOT NULL DEFAULT 0 COMMENT '是否当前需要操作（顺签场景下只有当前人为1）',
   `handled_at` DATETIME DEFAULT NULL COMMENT '处理时间',
   `comment` VARCHAR(500) DEFAULT NULL COMMENT '审批意见',
@@ -258,7 +362,7 @@ CREATE TABLE IF NOT EXISTS `tb_workflow_approval_record` (
   `node_instance_id` BIGINT NOT NULL COMMENT '节点实例ID',
   `operator_id` BIGINT NOT NULL COMMENT '操作人用户ID',
   `operator_name` VARCHAR(64) NOT NULL COMMENT '操作人姓名',
-  `action` VARCHAR(16) NOT NULL COMMENT '操作类型：SUBMIT=提交 APPROVE=通过 REJECT=拒绝 DELEGATE=转交 RECALL=撤回 URGE=催办 TIMEOUT=超时自动',
+  `action` VARCHAR(16) NOT NULL COMMENT '操作类型：SUBMIT=提交申请 APPROVE=审批通过 REJECT=审批拒绝 DELEGATE=审批转交 RECALL=发起人撤回 ADD_SIGN=发起加签 ROUTE=系统自动路由 SPLIT_TRIGGER=系统触发并行拆分 JOIN_ARRIVE=分支到达并行聚合节点 JOIN_PASS=并行聚合完成并继续流转 AUTO_APPROVE=系统自动审核通过 AUTO_REJECT=系统自动审批拒绝 TIMEOUT=节点超时自动处理触发记录 REMIND=节点超时后发送提醒',
   `node_instance_type` VARCHAR(32) DEFAULT NULL COMMENT '节点实例类型（冗余）',
   `node_instance_name` VARCHAR(100) DEFAULT NULL COMMENT '节点实例名称（冗余）',
   `comment` VARCHAR(500) DEFAULT NULL COMMENT '操作备注',

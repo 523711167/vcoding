@@ -557,6 +557,8 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
                                  List<WorkflowDefinitionNodeETO> nodes,
                                  List<WorkflowTransitionETO> transitions) {
         Map<String, Long> nodeIdMap = new LinkedHashMap<>();
+        Map<String, WorkflowDefinitionNodeETO> nodeConfigMap = nodes.stream()
+                .collect(Collectors.toMap(WorkflowDefinitionNodeETO::getCode, item -> item, (left, right) -> left, LinkedHashMap::new));
         List<Long> deptApproverIds = new ArrayList<>();
         for (WorkflowDefinitionNodeETO nodeETO : nodes) {
             WorkflowNode node = workflowDefinitionStructMapper.toNodeEntity(nodeETO);
@@ -583,9 +585,15 @@ public class WorkflowDefinitionServiceImpl implements WorkflowDefinitionService 
 
         for (WorkflowTransitionETO transitionETO : transitions) {
             WorkflowTransition transition = workflowDefinitionStructMapper.toTransitionEntity(transitionETO);
+            WorkflowDefinitionNodeETO fromNode = nodeConfigMap.get(transitionETO.getFromNodeCode());
+            WorkflowDefinitionNodeETO toNode = nodeConfigMap.get(transitionETO.getToNodeCode());
             transition.setDefinitionId(definitionId);
             transition.setFromNodeId(nodeIdMap.get(transitionETO.getFromNodeCode()));
+            transition.setFromNodeName(fromNode.getName());
+            transition.setFromNodeType(fromNode.getNodeType());
             transition.setToNodeId(nodeIdMap.get(transitionETO.getToNodeCode()));
+            transition.setToNodeName(toNode.getName());
+            transition.setToNodeType(toNode.getNodeType());
             transition.setIsDefault(Objects.nonNull(transitionETO.getIsDefault()) ? transitionETO.getIsDefault() : DEFAULT_BRANCH_NO);
             transition.setPriority(Objects.nonNull(transitionETO.getPriority()) ? transitionETO.getPriority() : 0);
             workflowTransitionMapper.insert(transition);

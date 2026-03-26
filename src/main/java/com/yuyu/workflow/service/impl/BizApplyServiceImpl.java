@@ -30,6 +30,17 @@ public class BizApplyServiceImpl implements BizApplyService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void save(BizApply bizApply) {
+        if (Objects.isNull(bizApply)) {
+            throw new BizException("业务申请不能为空");
+        }
+        if (bizApplyMapper.insert(bizApply) != 1) {
+            throw new BizException("业务申请保存失败");
+        }
+    }
+
+    @Override
     public BizApply getByIdOrThrow(Long id) {
         if (Objects.isNull(id)) {
             throw new BizException("id不能为空");
@@ -50,6 +61,17 @@ public class BizApplyServiceImpl implements BizApplyService {
         return bizApplyMapper.selectList(new LambdaQueryWrapper<BizApply>()
                 .in(BizApply::getWorkflowInstanceId, normalizedIds)
                 .orderByAsc(BizApply::getId));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateById(BizApply bizApply) {
+        if (Objects.isNull(bizApply) || Objects.isNull(bizApply.getId())) {
+            throw new BizException("业务申请id不能为空");
+        }
+        if (bizApplyMapper.updateById(bizApply) != 1) {
+            throw new BizException("业务申请更新失败");
+        }
     }
 
     @Override

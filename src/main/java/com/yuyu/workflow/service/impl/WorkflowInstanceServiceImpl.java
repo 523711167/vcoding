@@ -1,5 +1,7 @@
 package com.yuyu.workflow.service.impl;
 
+import com.yuyu.workflow.common.context.OperationTimeContext;
+import com.yuyu.workflow.common.enums.WorkflowInstanceStatusEnum;
 import com.yuyu.workflow.common.exception.BizException;
 import com.yuyu.workflow.entity.WorkflowInstance;
 import com.yuyu.workflow.mapper.WorkflowInstanceMapper;
@@ -29,6 +31,17 @@ public class WorkflowInstanceServiceImpl implements WorkflowInstanceService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void save(WorkflowInstance workflowInstance) {
+        if (Objects.isNull(workflowInstance)) {
+            throw new BizException("流程实例不能为空");
+        }
+        if (workflowInstanceMapper.insert(workflowInstance) != 1) {
+            throw new BizException("流程实例保存失败");
+        }
+    }
+
+    @Override
     public WorkflowInstance getByIdOrThrow(Long id) {
         if (Objects.isNull(id)) {
             throw new BizException("id不能为空");
@@ -38,6 +51,26 @@ public class WorkflowInstanceServiceImpl implements WorkflowInstanceService {
             throw new BizException("流程实例不存在");
         }
         return instance;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateById(WorkflowInstance workflowInstance) {
+        if (Objects.isNull(workflowInstance) || Objects.isNull(workflowInstance.getId())) {
+            throw new BizException("流程实例id不能为空");
+        }
+        if (workflowInstanceMapper.updateById(workflowInstance) != 1) {
+            throw new BizException("流程实例更新失败");
+        }
+    }
+
+    @Override
+    public void updateNodeForReject(Long instanceId) {
+        WorkflowInstance workflowInstance = new WorkflowInstance();
+        workflowInstance.setId(instanceId);
+        workflowInstance.setStatus(WorkflowInstanceStatusEnum.REJECTED.getCode());
+        workflowInstance.setFinishedAt(OperationTimeContext.get());
+        workflowInstanceMapper.updateById(workflowInstance);
     }
 
     @Override

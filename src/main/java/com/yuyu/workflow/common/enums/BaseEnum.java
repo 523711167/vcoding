@@ -15,5 +15,5 @@ public interface BaseEnum {
     /**
      * 获取枚举说明。
      */
-    String getMsg();
+    String getName();
 }

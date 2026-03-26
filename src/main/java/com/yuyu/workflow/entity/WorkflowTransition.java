@@ -18,7 +18,15 @@ public class WorkflowTransition extends BaseCreateEntity {
 
     private Long fromNodeId;
 
+    private String fromNodeName;
+
+    private String fromNodeType;
+
     private Long toNodeId;
+
+    private String toNodeName;
+
+    private String toNodeType;
 
     private String conditionExpr;
 

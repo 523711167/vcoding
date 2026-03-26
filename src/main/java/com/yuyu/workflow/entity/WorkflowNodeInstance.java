@@ -1,5 +1,6 @@
 package com.yuyu.workflow.entity;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.yuyu.workflow.entity.base.BaseAuditEntity;
 import lombok.Data;
@@ -17,11 +18,14 @@ public class WorkflowNodeInstance extends BaseAuditEntity {
 
     private Long instanceId;
 
-    private Long nodeId;
+    @TableField("node_id")
+    private Long definitionNodeId;
 
-    private String nodeName;
+    @TableField("node_name")
+    private String definitionNodeName;
 
-    private String nodeType;
+    @TableField("node_type")
+    private String definitionNodeType;
 
     private String status;
 

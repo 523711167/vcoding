@@ -40,6 +40,6 @@ public class JsonAccessDeniedHandler implements AccessDeniedHandler {
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         objectMapper.writeValue(response.getWriter(),
-                Resp.fail(RespCodeEnum.FORBIDDEN.getId(), RespCodeEnum.FORBIDDEN.getMsg()));
+                Resp.fail(RespCodeEnum.FORBIDDEN.getId(), RespCodeEnum.FORBIDDEN.getName()));
     }
 }

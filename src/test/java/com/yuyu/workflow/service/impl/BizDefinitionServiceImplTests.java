@@ -18,7 +18,6 @@ import com.yuyu.workflow.mapper.UserRoleMapper;
 import com.yuyu.workflow.mapper.WorkflowDefinitionMapper;
 import com.yuyu.workflow.qto.biz.BizDefinitionCurrentUserPageQTO;
 import com.yuyu.workflow.qto.biz.BizDefinitionListQTO;
-import com.yuyu.workflow.qto.biz.BizDefinitionPageQTO;
 import com.yuyu.workflow.service.BizDefinitionRoleRelService;
 import com.yuyu.workflow.vo.biz.BizDefinitionCurrentUserVO;
 import com.yuyu.workflow.vo.biz.BizDefinitionVO;
@@ -112,7 +111,7 @@ class BizDefinitionServiceImplTests {
         assertEquals("LEAVE", captor.getValue().getBizCode());
         assertEquals(9L, captor.getValue().getCreatedBy());
         assertEquals("请假审批", result.getWorkflowDefinitionName());
-        assertEquals(CommonStatusEnum.ENABLED.getMsg(), result.getStatusMsg());
+        assertEquals(CommonStatusEnum.ENABLED.getName(), result.getStatusMsg());
     }
 
     /**

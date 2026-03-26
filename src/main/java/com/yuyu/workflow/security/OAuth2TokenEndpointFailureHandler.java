@@ -85,7 +85,7 @@ public class OAuth2TokenEndpointFailureHandler implements AuthenticationFailureH
                 return Resp.fail(RespCodeEnum.UNAUTHORIZED.getId(), "用户名或密码错误");
             }
         }
-        return Resp.fail(RespCodeEnum.UNAUTHORIZED.getId(), RespCodeEnum.UNAUTHORIZED.getMsg());
+        return Resp.fail(RespCodeEnum.UNAUTHORIZED.getId(), RespCodeEnum.UNAUTHORIZED.getName());
     }
 
     /**

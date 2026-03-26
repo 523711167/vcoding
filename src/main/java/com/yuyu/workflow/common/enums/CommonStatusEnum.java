@@ -35,7 +35,7 @@ public enum CommonStatusEnum implements BaseEnum {
      * 获取状态说明。
      */
     @Override
-    public String getMsg() {
+    public String getName() {
         return msg;
     }
 

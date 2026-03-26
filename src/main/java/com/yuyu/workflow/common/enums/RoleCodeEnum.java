@@ -40,7 +40,7 @@ public enum RoleCodeEnum implements BaseEnum {
      * 获取角色编码说明。
      */
     @Override
-    public String getMsg() {
+    public String getName() {
         return msg;
     }
 

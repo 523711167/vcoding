@@ -72,7 +72,7 @@ class MenuServiceImplTests {
         MenuVO result = menuService.detail(100L);
 
         assertEquals(MenuTypeEnum.MENU.getCode(), result.getType());
-        assertEquals(MenuTypeEnum.MENU.getMsg(), result.getTypeMsg());
+        assertEquals(MenuTypeEnum.MENU.getName(), result.getTypeMsg());
     }
 
     /**

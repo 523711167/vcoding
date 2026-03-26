@@ -139,6 +139,14 @@ class WorkflowDefinitionServiceImplTests {
                 transitionCaptor.getAllValues().stream().map(WorkflowTransition::getFromNodeId).toList());
         assertEquals(List.of(1002L, 1003L),
                 transitionCaptor.getAllValues().stream().map(WorkflowTransition::getToNodeId).toList());
+        assertEquals(List.of("开始", "主管审批"),
+                transitionCaptor.getAllValues().stream().map(WorkflowTransition::getFromNodeName).toList());
+        assertEquals(List.of("START", "APPROVAL"),
+                transitionCaptor.getAllValues().stream().map(WorkflowTransition::getFromNodeType).toList());
+        assertEquals(List.of("主管审批", "结束"),
+                transitionCaptor.getAllValues().stream().map(WorkflowTransition::getToNodeName).toList());
+        assertEquals(List.of("APPROVAL", "END"),
+                transitionCaptor.getAllValues().stream().map(WorkflowTransition::getToNodeType).toList());
         assertEquals(List.of(0, 0),
                 transitionCaptor.getAllValues().stream().map(WorkflowTransition::getIsDefault).toList());
         ArgumentCaptor<WorkflowNodeApprover> approverCaptor = ArgumentCaptor.forClass(WorkflowNodeApprover.class);

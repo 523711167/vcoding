@@ -23,17 +23,27 @@ public class WorkflowNodeApproverInstance extends BaseCreateEntity {
 
     private String approverName;
 
+    private String nodeName;
+
+    private String nodeType;
+
+    private String relationType;
+
+    private Long sourceApproverInstanceId;
+
     private Integer sortOrder;
 
     private String status;
 
     private Integer isActive;
 
-    private LocalDateTime handledAt;
+    private LocalDateTime finishedAt;
 
     private String comment;
 
     private Long delegateTo;
+
+    private String delegateToName;
 
     private LocalDateTime updatedAt;
 }

@@ -39,7 +39,7 @@ public enum MenuTypeEnum implements BaseEnum {
      * 获取菜单类型说明。
      */
     @Override
-    public String getMsg() {
+    public String getName() {
         return msg;
     }
 
