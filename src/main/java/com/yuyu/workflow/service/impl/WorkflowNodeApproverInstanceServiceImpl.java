@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yuyu.workflow.common.context.OperationTimeContext;
+import com.yuyu.workflow.common.enums.WorkflowApproveModeEnum;
 import com.yuyu.workflow.common.enums.WorkflowNodeApproverInstanceStatusEnum;
 import com.yuyu.workflow.common.enums.WorkflowApproverTypeEnum;
 import com.yuyu.workflow.common.enums.YesNoEnum;
@@ -235,8 +236,7 @@ public class WorkflowNodeApproverInstanceServiceImpl extends ServiceImpl<Workflo
 
         List<Long> roleIds = approverConfigList.stream()
                 .map(WorkflowNodeApprover::getApproverValue)
-                .filter(org.springframework.util.StringUtils::hasText)
-                .map(Long::valueOf)
+                .filter(Objects::nonNull)
                 .distinct()
                 .toList();
         if (CollectionUtils.isEmpty(roleIds)) {
@@ -264,7 +264,7 @@ public class WorkflowNodeApproverInstanceServiceImpl extends ServiceImpl<Workflo
         LinkedHashMap<Long, WorkflowNodeApproverInstance> deduplicatedMap = new LinkedHashMap<>();
         int[] sortOrder = {1};
         for (WorkflowNodeApprover approverConfig : approverConfigList) {
-            Long roleId = Long.valueOf(approverConfig.getApproverValue());
+            Long roleId = approverConfig.getApproverValue();
             roleRelList.stream()
                     .filter(item -> Objects.equals(item.getRoleId(), roleId))
                     .map(UserRoleRel::getUserId)
@@ -293,6 +293,7 @@ public class WorkflowNodeApproverInstanceServiceImpl extends ServiceImpl<Workflo
 
     @Override
     public void saveApproverInstancesForUser(WorkflowNodeInstance workflowNodeInstance) {
+        String approveMode = workflowNodeInstance.getApproveMode();
         List<User> userList = ((UserMapper) userService.getBaseMapper()).selectWorkflowApproverUser(workflowNodeInstance.getId());
 
         List<WorkflowNodeApproverInstance> nodeApproverInstanceList =
@@ -308,7 +309,11 @@ public class WorkflowNodeApproverInstanceServiceImpl extends ServiceImpl<Workflo
                             workflowNodeApproverInstance.setNodeType(workflowNodeInstance.getDefinitionNodeType());
                             workflowNodeApproverInstance.setSortOrder(index + 1);
                             workflowNodeApproverInstance.setStatus(WorkflowNodeApproverInstanceStatusEnum.PENDING.getCode());
-                            workflowNodeApproverInstance.setIsActive(YesNoEnum.YES.getId());
+                            if (WorkflowApproveModeEnum.isSequential(approveMode) && index > 1) {
+                                workflowNodeApproverInstance.setIsActive(YesNoEnum.NO.getId());
+                            } else {
+                                workflowNodeApproverInstance.setIsActive(YesNoEnum.YES.getId());
+                            }
                             workflowNodeApproverInstance.setCreatedAt(OperationTimeContext.get());
                             return workflowNodeApproverInstance;
                         })

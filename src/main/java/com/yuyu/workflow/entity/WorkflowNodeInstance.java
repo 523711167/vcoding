@@ -52,5 +52,6 @@ public class WorkflowNodeInstance extends BaseAuditEntity {
         WorkflowNodeInstance workflowNodeInstance = new WorkflowNodeInstance();
         workflowNodeInstance.setDefinitionNodeType(WorkflowNodeTypeEnum.END.getCode());
         workflowNodeInstance.setDefinitionNodeName(WorkflowNodeTypeEnum.END.getName());
+        return workflowNodeInstance;
     }
 }

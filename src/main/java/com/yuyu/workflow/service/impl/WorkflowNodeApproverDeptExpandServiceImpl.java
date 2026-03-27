@@ -97,13 +97,13 @@ public class WorkflowNodeApproverDeptExpandServiceImpl extends ServiceImpl<Workf
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void rebuildByDeptPaths(List<String> deptPaths) {
-        Set<String> ancestorDeptIdStrings = parseAncestorDeptIdStrings(deptPaths);
-        if (CollectionUtils.isEmpty(ancestorDeptIdStrings)) {
+        Set<Long> ancestorDeptIds = parseAncestorDeptIds(deptPaths);
+        if (CollectionUtils.isEmpty(ancestorDeptIds)) {
             return;
         }
         List<Long> approverIds = workflowNodeApproverMapper.selectList(new LambdaQueryWrapper<WorkflowNodeApprover>()
                         .eq(WorkflowNodeApprover::getApproverType, WorkflowApproverTypeEnum.DEPT.getCode())
-                        .in(WorkflowNodeApprover::getApproverValue, ancestorDeptIdStrings))
+                        .in(WorkflowNodeApprover::getApproverValue, ancestorDeptIds))
                 .stream()
                 .map(WorkflowNodeApprover::getId)
                 .filter(Objects::nonNull)
@@ -240,7 +240,7 @@ public class WorkflowNodeApproverDeptExpandServiceImpl extends ServiceImpl<Workf
     /**
      * 将路径集合解析为祖先组织ID字符串集合。
      */
-    private Set<String> parseAncestorDeptIdStrings(List<String> deptPaths) {
+    private Set<Long> parseAncestorDeptIds(List<String> deptPaths) {
         if (CollectionUtils.isEmpty(deptPaths)) {
             return Collections.emptySet();
         }
@@ -248,21 +248,18 @@ public class WorkflowNodeApproverDeptExpandServiceImpl extends ServiceImpl<Workf
                 .filter(StringUtils::hasText)
                 .flatMap(path -> Arrays.stream(path.split("/")))
                 .filter(StringUtils::hasText)
+                .map(Long::valueOf)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     /**
      * 解析审批组织ID。
      */
-    private Long parseDeptId(String approverValue) {
-        if (!StringUtils.hasText(approverValue) || approverValue.contains(",")) {
+    private Long parseDeptId(Long approverValue) {
+        if (Objects.isNull(approverValue) || approverValue <= 0) {
             return null;
         }
-        try {
-            return Long.valueOf(approverValue);
-        } catch (NumberFormatException ex) {
-            return null;
-        }
+        return approverValue;
     }
 
     /**

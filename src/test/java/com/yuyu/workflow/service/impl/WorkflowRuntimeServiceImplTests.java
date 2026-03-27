@@ -9,9 +9,14 @@ import com.yuyu.workflow.entity.WorkflowNodeInstance;
 import com.yuyu.workflow.mapper.BizApplyMapper;
 import com.yuyu.workflow.mapper.WorkflowApprovalRecordMapper;
 import com.yuyu.workflow.mapper.WorkflowNodeMapper;
+import com.yuyu.workflow.mapper.UserRoleRelMapper;
 import com.yuyu.workflow.mapper.WorkflowInstanceMapper;
 import com.yuyu.workflow.mapper.WorkflowNodeApproverInstanceMapper;
 import com.yuyu.workflow.mapper.WorkflowNodeInstanceMapper;
+import com.yuyu.workflow.service.UserService;
+import com.yuyu.workflow.service.WorkflowNodeApproverDeptExpandService;
+import com.yuyu.workflow.service.WorkflowNodeApproverInstanceService;
+import com.yuyu.workflow.service.WorkflowNodeApproverService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -50,6 +55,16 @@ class WorkflowRuntimeServiceImplTests {
     private WorkflowApprovalRecordMapper workflowApprovalRecordMapper;
     @Mock
     private WorkflowNodeMapper workflowNodeMapper;
+    @Mock
+    private WorkflowNodeApproverInstanceService innerWorkflowNodeApproverInstanceService;
+    @Mock
+    private WorkflowNodeApproverDeptExpandService workflowNodeApproverDeptExpandService;
+    @Mock
+    private WorkflowNodeApproverService workflowNodeApproverService;
+    @Mock
+    private UserRoleRelMapper userRoleRelMapper;
+    @Mock
+    private UserService userService;
 
     private BizApplyServiceImpl bizApplyService;
     private WorkflowInstanceServiceImpl workflowInstanceService;
@@ -63,7 +78,14 @@ class WorkflowRuntimeServiceImplTests {
         workflowInstanceService = new WorkflowInstanceServiceImpl(workflowInstanceMapper);
         workflowNodeInstanceService = new WorkflowNodeInstanceServiceImpl(workflowNodeInstanceMapper);
         workflowApprovalRecordService = new WorkflowApprovalRecordServiceImpl(workflowApprovalRecordMapper, workflowNodeMapper);
-        workflowNodeApproverInstanceService = new WorkflowNodeApproverInstanceServiceImpl(workflowNodeApproverInstanceMapper);
+        workflowNodeApproverInstanceService = new WorkflowNodeApproverInstanceServiceImpl(
+                workflowNodeApproverInstanceMapper,
+                innerWorkflowNodeApproverInstanceService,
+                workflowNodeApproverDeptExpandService,
+                workflowNodeApproverService,
+                userRoleRelMapper,
+                userService
+        );
     }
 
     @Test

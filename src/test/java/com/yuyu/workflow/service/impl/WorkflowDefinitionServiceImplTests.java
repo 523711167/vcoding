@@ -19,6 +19,7 @@ import com.yuyu.workflow.mapper.WorkflowDefinitionMapper;
 import com.yuyu.workflow.mapper.WorkflowNodeApproverMapper;
 import com.yuyu.workflow.mapper.WorkflowNodeMapper;
 import com.yuyu.workflow.mapper.WorkflowTransitionMapper;
+import com.yuyu.workflow.service.WorkflowNodeApproverService;
 import com.yuyu.workflow.service.WorkflowNodeApproverDeptExpandService;
 import com.yuyu.workflow.vo.workflow.WorkflowDefinitionVO;
 import org.junit.jupiter.api.BeforeEach;
@@ -65,6 +66,7 @@ class WorkflowDefinitionServiceImplTests {
     @Mock
     private UserDeptMapper userDeptMapper;
 
+    private WorkflowNodeApproverService workflowNodeApproverService;
     private WorkflowDefinitionServiceImpl workflowDefinitionService;
 
     @BeforeEach
@@ -72,10 +74,12 @@ class WorkflowDefinitionServiceImplTests {
         WorkflowDefinitionStructMapper workflowDefinitionStructMapper =
                 Mappers.getMapper(WorkflowDefinitionStructMapper.class);
         ObjectMapperUtils objectMapperUtils = new ObjectMapperUtils(new JacksonConfig().objectMapper());
+        workflowNodeApproverService = new WorkflowNodeApproverServiceImpl(workflowNodeApproverMapper);
         workflowDefinitionService = new WorkflowDefinitionServiceImpl(
                 workflowDefinitionMapper,
                 workflowNodeMapper,
                 workflowNodeApproverMapper,
+                workflowNodeApproverService,
                 workflowTransitionMapper,
                 workflowDefinitionStructMapper,
                 workflowNodeApproverDeptExpandService,

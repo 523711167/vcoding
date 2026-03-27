@@ -23,7 +23,7 @@ public class WorkflowNodeApproverVO {
     private String approverTypeMsg;
 
     @Schema(description = "审批人值")
-    private String approverValue;
+    private Long approverValue;
 
     @Schema(description = "顺序值")
     private Integer sortOrder;

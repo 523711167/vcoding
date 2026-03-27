@@ -108,6 +108,8 @@ class WorkflowLaunchServiceImplTests {
     private WorkflowNodeApproverInstanceStructMapper workflowNodeApproverInstanceStructMapper;
     @Mock
     private WorkflowNodeInstanceMapper workflowNodeInstanceMapper;
+    @Mock
+    private WorkflowDefinitionServiceImpl workflowDefinitionService;
 
     private WorkflowLaunchServiceImpl workflowLaunchService;
 
@@ -133,7 +135,8 @@ class WorkflowLaunchServiceImplTests {
                 userDeptMapper,
                 objectMapperUtils,
                 workflowNodeApproverInstanceStructMapper,
-                workflowNodeInstanceMapper
+                workflowNodeInstanceMapper,
+                workflowDefinitionService
         );
     }
 
@@ -144,7 +147,7 @@ class WorkflowLaunchServiceImplTests {
         WorkflowNode startNode = buildNode(10L, "开始", WorkflowNodeTypeEnum.START.getCode());
         WorkflowNode approvalNode = buildNode(11L, "直属领导审批", WorkflowNodeTypeEnum.APPROVAL.getCode());
         WorkflowTransition transition = buildTransition(10L, 11L, null, 0, 1);
-        WorkflowNodeApprover approver = buildApprover(11L, WorkflowApproverTypeEnum.USER.getCode(), "2", 1);
+        WorkflowNodeApprover approver = buildApprover(11L, WorkflowApproverTypeEnum.USER.getCode(), 2L, 1);
 
         mockCommonSubmitContext(bizApply, workflowDefinition, List.of(startNode, approvalNode), List.of(transition), List.of(approver));
         when(userMapper.selectById(2L)).thenReturn(buildUser(2L, "leader", "直属领导"));
@@ -198,7 +201,7 @@ class WorkflowLaunchServiceImplTests {
         WorkflowTransition startTransition = buildTransition(10L, 11L, null, 0, 1);
         WorkflowTransition matchTransition = buildTransition(11L, 12L, "amount >= 5000", 0, 10);
         WorkflowTransition defaultTransition = buildTransition(11L, 13L, "amount < 5000", 1, 20);
-        WorkflowNodeApprover approver = buildApprover(12L, WorkflowApproverTypeEnum.USER.getCode(), "2", 1);
+        WorkflowNodeApprover approver = buildApprover(12L, WorkflowApproverTypeEnum.USER.getCode(), 2L, 1);
 
         mockCommonSubmitContext(
                 bizApply,
@@ -270,8 +273,8 @@ class WorkflowLaunchServiceImplTests {
         WorkflowTransition splitToCondition = buildTransition(11L, 12L, null, 0, 10);
         WorkflowTransition splitToApproval = buildTransition(11L, 13L, null, 0, 20);
         WorkflowTransition conditionToApproval = buildTransition(12L, 14L, null, 0, 30);
-        WorkflowNodeApprover branchApprover = buildApprover(13L, WorkflowApproverTypeEnum.USER.getCode(), "2", 1);
-        WorkflowNodeApprover nestedApprover = buildApprover(14L, WorkflowApproverTypeEnum.USER.getCode(), "3", 1);
+        WorkflowNodeApprover branchApprover = buildApprover(13L, WorkflowApproverTypeEnum.USER.getCode(), 2L, 1);
+        WorkflowNodeApprover nestedApprover = buildApprover(14L, WorkflowApproverTypeEnum.USER.getCode(), 3L, 1);
 
         mockCommonSubmitContext(
                 bizApply,
@@ -379,7 +382,7 @@ class WorkflowLaunchServiceImplTests {
         return transition;
     }
 
-    private WorkflowNodeApprover buildApprover(Long nodeId, String approverType, String approverValue, Integer sortOrder) {
+    private WorkflowNodeApprover buildApprover(Long nodeId, String approverType, Long approverValue, Integer sortOrder) {
         WorkflowNodeApprover approver = new WorkflowNodeApprover();
         approver.setId(nodeId + 100);
         approver.setNodeId(nodeId);

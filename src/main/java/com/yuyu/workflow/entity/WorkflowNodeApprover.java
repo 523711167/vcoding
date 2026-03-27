@@ -20,7 +20,7 @@ public class WorkflowNodeApprover extends BaseCreateEntity {
 
     private String approverType;
 
-    private String approverValue;
+    private Long approverValue;
 
     private Integer sortOrder;
 

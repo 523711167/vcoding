@@ -826,7 +826,7 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
     /**
      * 解析用户型审批人。
      */
-    private List<ResolvedApprover> resolveUserApprovers(String approverValue) {
+    private List<ResolvedApprover> resolveUserApprovers(Long approverValue) {
         Long userId = parseLongValue(approverValue, "审批用户配置不合法");
         User user = userMapper.selectById(userId);
         if (Objects.isNull(user) || !Objects.equals(user.getStatus(), CommonStatusEnum.ENABLED.getId())) {
@@ -838,7 +838,7 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
     /**
      * 解析角色型审批人。
      */
-    private List<ResolvedApprover> resolveRoleApprovers(String approverValue) {
+    private List<ResolvedApprover> resolveRoleApprovers(Long approverValue) {
         Long roleId = parseLongValue(approverValue, "审批角色配置不合法");
         List<Long> userIds = userRoleRelMapper.selectList(new LambdaQueryWrapper<UserRoleRel>()
                         .eq(UserRoleRel::getRoleId, roleId)
@@ -923,12 +923,11 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
     /**
      * 将字符串配置解析为长整型主键值。
      */
-    private Long parseLongValue(String value, String message) {
-        try {
-            return Long.valueOf(value);
-        } catch (Exception ex) {
+    private Long parseLongValue(Long value, String message) {
+        if (Objects.isNull(value) || value <= 0) {
             throw new BizException(message);
         }
+        return value;
     }
 
     /**
@@ -1558,7 +1557,35 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         nextNodeInstance.setActivatedAt(OperationTimeContext.get());
         workflowNodeInstanceService.save(nextNodeInstance);
 
-        List<WorkflowNodeApproverInstance> approverInstances = buildApproverInstances(targetNode, nextNodeInstance);
+        List<WorkflowNodeApprover> approverConfigs = workflowNodeApproverMapper.selectList(
+                new LambdaQueryWrapper<WorkflowNodeApprover>()
+                        .eq(WorkflowNodeApprover::getNodeId, targetNode.getId())
+                        .orderByAsc(WorkflowNodeApprover::getSortOrder, WorkflowNodeApprover::getId)
+        );
+        List<Long> approverIds = approverConfigs.stream()
+                .map(WorkflowNodeApprover::getId)
+                .filter(Objects::nonNull)
+                .toList();
+        Map<Long, List<WorkflowNodeApproverDeptExpand>> deptExpandByApproverId = CollectionUtils.isEmpty(approverIds)
+                ? Collections.emptyMap()
+                : workflowNodeApproverDeptExpandMapper.selectList(new LambdaQueryWrapper<WorkflowNodeApproverDeptExpand>()
+                                .in(WorkflowNodeApproverDeptExpand::getApproverId, approverIds)
+                                .orderByAsc(WorkflowNodeApproverDeptExpand::getApproverId,
+                                        WorkflowNodeApproverDeptExpand::getDistance,
+                                        WorkflowNodeApproverDeptExpand::getId))
+                        .stream()
+                        .collect(Collectors.groupingBy(WorkflowNodeApproverDeptExpand::getApproverId,
+                                LinkedHashMap::new,
+                                Collectors.toList()));
+        RuntimeApplicantContext applicantContext = buildApplicantContextFromInstance(context.workflowInstance());
+        List<WorkflowNodeApproverInstance> approverInstances = buildApproverInstances(
+                context.workflowInstance().getId(),
+                targetNode,
+                nextNodeInstance,
+                approverConfigs,
+                deptExpandByApproverId,
+                applicantContext
+        );
         workflowNodeApproverInstanceService.saveBatch(approverInstances);
 
         WorkflowInstance updateInstance = new WorkflowInstance();
@@ -1567,6 +1594,25 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         updateInstance.setCurrentNodeName(nextNodeInstance.getDefinitionNodeName());
         updateInstance.setCurrentNodeType(nextNodeInstance.getDefinitionNodeType());
         workflowInstanceService.updateById(updateInstance);
+    }
+
+    /**
+     * 从已运行流程实例反查申请人上下文，供后续激活新审批节点时解析审批人。
+     */
+    private RuntimeApplicantContext buildApplicantContextFromInstance(WorkflowInstance workflowInstance) {
+        User applicant = userMapper.selectById(workflowInstance.getApplicantId());
+        if (Objects.isNull(applicant) || !Objects.equals(applicant.getStatus(), CommonStatusEnum.ENABLED.getId())) {
+            throw new BizException("申请人不存在或已停用");
+        }
+        UserDeptRel primaryDeptRel = userDeptRelMapper.selectOne(new LambdaQueryWrapper<UserDeptRel>()
+                .eq(UserDeptRel::getUserId, workflowInstance.getApplicantId())
+                .eq(UserDeptRel::getIsPrimary, YesNoEnum.YES.getId())
+                .last("LIMIT 1"));
+        UserDept primaryDept = null;
+        if (Objects.nonNull(primaryDeptRel) && Objects.nonNull(primaryDeptRel.getDeptId())) {
+            primaryDept = userDeptMapper.selectById(primaryDeptRel.getDeptId());
+        }
+        return new RuntimeApplicantContext(applicant, primaryDeptRel, primaryDept);
     }
 
     private ParallelJoinContext buildParallelJoinContext(AuditContext context) {

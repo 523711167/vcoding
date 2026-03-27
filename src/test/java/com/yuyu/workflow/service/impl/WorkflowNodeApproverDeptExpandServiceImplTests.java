@@ -56,7 +56,7 @@ class WorkflowNodeApproverDeptExpandServiceImplTests {
         approver.setDefinitionId(1L);
         approver.setNodeId(10L);
         approver.setApproverType("DEPT");
-        approver.setApproverValue("2");
+        approver.setApproverValue(2L);
 
         WorkflowNode node = new WorkflowNode();
         node.setId(10L);

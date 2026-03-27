@@ -511,11 +511,8 @@ public class WorkflowDefinitionServiceImpl extends ServiceImpl<WorkflowDefinitio
         if (!WorkflowApproverTypeEnum.containsCode(approver.getApproverType())) {
             throw new BizException("approverType不合法");
         }
-        if (!StringUtils.hasText(approver.getApproverValue())) {
+        if (Objects.isNull(approver.getApproverValue())) {
             throw new BizException("approverValue不能为空");
-        }
-        if (approver.getApproverValue().contains(",")) {
-            throw new BizException("approverValue不允许使用逗号拼接多个值");
         }
         if (!WorkflowApproverTypeEnum.DEPT.getCode().equals(approver.getApproverType())) {
             return;
@@ -744,22 +741,18 @@ public class WorkflowDefinitionServiceImpl extends ServiceImpl<WorkflowDefinitio
     /**
      * 将组织审批人值解析为单个组织ID。
      */
-    private Long parseApproverDeptId(String approverValue) {
-        if (!StringUtils.hasText(approverValue) || approverValue.contains(",")) {
+    private Long parseApproverDeptId(Long approverValue) {
+        if (Objects.isNull(approverValue) || approverValue <= 0) {
             return null;
         }
-        try {
-            return Long.valueOf(approverValue);
-        } catch (NumberFormatException ex) {
-            return null;
-        }
+        return approverValue;
     }
 
     /**
      * 构造节点审批人集合。
      */
     private List<WorkflowNodeApproverETO> buildApproverList(String approverType, Object approverIdsValue) {
-        List<String> approverIdList = toStringList(approverIdsValue);
+        List<Long> approverIdList = toLongList(approverIdsValue);
         if (CollectionUtils.isEmpty(approverIdList)) {
             return Collections.emptyList();
         }
@@ -925,20 +918,43 @@ public class WorkflowDefinitionServiceImpl extends ServiceImpl<WorkflowDefinitio
     /**
      * 将输入对象规范化为字符串列表。
      */
-    private List<String> toStringList(Object value) {
+    private List<Long> toLongList(Object value) {
         if (Objects.isNull(value)) {
             return Collections.emptyList();
         }
         if (value instanceof List<?> listValue) {
             return listValue.stream()
                     .filter(Objects::nonNull)
-                    .map(String::valueOf)
-                    .map(this::trimToNull)
-                    .filter(StringUtils::hasText)
+                    .map(this::toLongValue)
+                    .filter(Objects::nonNull)
                     .toList();
         }
-        String singleValue = trimToNull(String.valueOf(value));
-        return StringUtils.hasText(singleValue) ? List.of(singleValue) : Collections.emptyList();
+        Long singleValue = toLongValue(value);
+        return Objects.nonNull(singleValue) ? List.of(singleValue) : Collections.emptyList();
+    }
+
+    /**
+     * 将输入对象规范化为长整型主键。
+     */
+    private Long toLongValue(Object value) {
+        if (Objects.isNull(value)) {
+            return null;
+        }
+        if (value instanceof Number numberValue) {
+            return numberValue.longValue();
+        }
+        String stringValue = trimToNull(String.valueOf(value));
+        if (!StringUtils.hasText(stringValue)) {
+            return null;
+        }
+        if (stringValue.contains(",")) {
+            throw new BizException("approverValue不允许使用逗号拼接多个值");
+        }
+        try {
+            return Long.valueOf(stringValue);
+        } catch (NumberFormatException ex) {
+            throw new BizException("流程JSON中的审批人ID格式不正确");
+        }
     }
 
     /**
