@@ -34,6 +34,7 @@ import com.yuyu.workflow.mapper.WorkflowTransitionMapper;
 import com.yuyu.workflow.qto.workflow.WorkflowDefinitionListQTO;
 import com.yuyu.workflow.qto.workflow.WorkflowDefinitionPageQTO;
 import com.yuyu.workflow.service.WorkflowDefinitionService;
+import com.yuyu.workflow.service.WorkflowNodeApproverService;
 import com.yuyu.workflow.service.WorkflowNodeApproverDeptExpandService;
 import com.yuyu.workflow.vo.workflow.WorkflowDefinitionVO;
 import com.yuyu.workflow.vo.workflow.WorkflowNodeApproverVO;
@@ -74,6 +75,7 @@ public class WorkflowDefinitionServiceImpl extends ServiceImpl<WorkflowDefinitio
     private final WorkflowDefinitionMapper workflowDefinitionMapper;
     private final WorkflowNodeMapper workflowNodeMapper;
     private final WorkflowNodeApproverMapper workflowNodeApproverMapper;
+    private final WorkflowNodeApproverService workflowNodeApproverService;
     private final WorkflowTransitionMapper workflowTransitionMapper;
     private final WorkflowDefinitionStructMapper workflowDefinitionStructMapper;
     private final WorkflowNodeApproverDeptExpandService workflowNodeApproverDeptExpandService;
@@ -86,6 +88,7 @@ public class WorkflowDefinitionServiceImpl extends ServiceImpl<WorkflowDefinitio
     public WorkflowDefinitionServiceImpl(WorkflowDefinitionMapper workflowDefinitionMapper,
                                          WorkflowNodeMapper workflowNodeMapper,
                                          WorkflowNodeApproverMapper workflowNodeApproverMapper,
+                                         WorkflowNodeApproverService workflowNodeApproverService,
                                          WorkflowTransitionMapper workflowTransitionMapper,
                                          WorkflowDefinitionStructMapper workflowDefinitionStructMapper,
                                          WorkflowNodeApproverDeptExpandService workflowNodeApproverDeptExpandService,
@@ -95,6 +98,7 @@ public class WorkflowDefinitionServiceImpl extends ServiceImpl<WorkflowDefinitio
         this.workflowDefinitionMapper = workflowDefinitionMapper;
         this.workflowNodeMapper = workflowNodeMapper;
         this.workflowNodeApproverMapper = workflowNodeApproverMapper;
+        this.workflowNodeApproverService = workflowNodeApproverService;
         this.workflowTransitionMapper = workflowTransitionMapper;
         this.workflowDefinitionStructMapper = workflowDefinitionStructMapper;
         this.workflowNodeApproverDeptExpandService = workflowNodeApproverDeptExpandService;
@@ -578,7 +582,7 @@ public class WorkflowDefinitionServiceImpl extends ServiceImpl<WorkflowDefinitio
                 approver.setDefinitionId(definitionId);
                 approver.setNodeId(node.getId());
                 approver.setSortOrder(Objects.nonNull(approverETO.getSortOrder()) ? approverETO.getSortOrder() : 0);
-                workflowNodeApproverMapper.insert(approver);
+                workflowNodeApproverService.save(approver);
                 if (WorkflowApproverTypeEnum.DEPT.getCode().equals(approverETO.getApproverType())) {
                     deptApproverIds.add(approver.getId());
                 }
@@ -685,11 +689,10 @@ public class WorkflowDefinitionServiceImpl extends ServiceImpl<WorkflowDefinitio
                 .in(WorkflowNode::getDefinitionId, definitionIds));
         if (!CollectionUtils.isEmpty(nodeList)) {
             List<Long> nodeIds = nodeList.stream().map(WorkflowNode::getId).toList();
-            List<WorkflowNodeApprover> approverList = workflowNodeApproverMapper.selectList(new LambdaQueryWrapper<WorkflowNodeApprover>()
-                    .in(WorkflowNodeApprover::getNodeId, nodeIds));
+            List<WorkflowNodeApprover> approverList = workflowNodeApproverService.listByNodeIds(nodeIds);
             if (!CollectionUtils.isEmpty(approverList)) {
                 workflowNodeApproverDeptExpandService.removeByApproverIds(approverList.stream().map(WorkflowNodeApprover::getId).toList());
-                workflowNodeApproverMapper.removeByIds(approverList.stream().map(WorkflowNodeApprover::getId).toList());
+                workflowNodeApproverService.removeByNodeIds(nodeIds);
             }
             workflowNodeMapper.removeByIds(nodeIds);
         }
@@ -708,9 +711,7 @@ public class WorkflowDefinitionServiceImpl extends ServiceImpl<WorkflowDefinitio
         if (CollectionUtils.isEmpty(nodeIds)) {
             return Collections.emptyMap();
         }
-        List<WorkflowNodeApprover> approverList = workflowNodeApproverMapper.selectList(new LambdaQueryWrapper<WorkflowNodeApprover>()
-                .in(WorkflowNodeApprover::getNodeId, nodeIds)
-                .orderByAsc(WorkflowNodeApprover::getSortOrder, WorkflowNodeApprover::getId));
+        List<WorkflowNodeApprover> approverList = workflowNodeApproverService.listByNodeIds(new ArrayList<>(nodeIds));
         if (CollectionUtils.isEmpty(approverList)) {
             return Collections.emptyMap();
         }

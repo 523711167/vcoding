@@ -1,7 +1,9 @@
 package com.yuyu.workflow.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.yuyu.workflow.common.enums.WorkflowNodeApproverInstanceStatusEnum;
 import com.yuyu.workflow.entity.WorkflowNodeApproverInstance;
+import com.yuyu.workflow.entity.WorkflowNodeInstance;
 import com.yuyu.workflow.eto.workflow.WorkflowRejectAuditETO;
 
 import java.util.List;
@@ -38,10 +40,24 @@ public interface WorkflowNodeApproverInstanceService extends IService<WorkflowNo
      */
     void reject(WorkflowRejectAuditETO workflowRejectAuditETO);
 
-
     /**
      * 审核拒绝，修改状态
      */
     void updateNodeApproverForReject(Long nodeInstanceId, String comment, Long approverInstanceId);
+
+    void updateNodeApproverForApprove(Long nodeInstanceId, String comment, Long approverInstanceId);
+
+    void updateNodeApprover(Long nodeInstanceId, String comment, Long approverUserId, WorkflowNodeApproverInstanceStatusEnum approverEnum);
+
+    boolean activateNextApproverInstance(WorkflowNodeApproverInstance current, List<WorkflowNodeApproverInstance> approverInstanceList);
+
+    void cancelOtherPendingApprovers(Long instanceId, Long nodeInstanceId, Long approverInstanceId);
+
+    void saveApproverInstancesForUser(WorkflowNodeInstance workflowNodeInstance);
+
+    void saveApproverInstancesForRole(WorkflowNodeInstance workflowNodeInstance);
+
+    void saveApproverInstancesForOrg(WorkflowNodeInstance workflowNodeInstance);
+
 
 }

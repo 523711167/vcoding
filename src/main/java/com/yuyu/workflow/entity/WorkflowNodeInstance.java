@@ -1,11 +1,10 @@
 package com.yuyu.workflow.entity;
 
-import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.yuyu.workflow.common.enums.WorkflowNodeTypeEnum;
 import com.yuyu.workflow.entity.base.BaseAuditEntity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-import org.apache.commons.lang3.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.Objects;
@@ -47,5 +46,11 @@ public class WorkflowNodeInstance extends BaseAuditEntity {
 
     public boolean isSpawnParallelSplitNode() {
         return Objects.nonNull(parallelBranchRootId);
+    }
+
+    public static WorkflowNodeInstance toEndWorkflowNodeInstance() {
+        WorkflowNodeInstance workflowNodeInstance = new WorkflowNodeInstance();
+        workflowNodeInstance.setDefinitionNodeType(WorkflowNodeTypeEnum.END.getCode());
+        workflowNodeInstance.setDefinitionNodeName(WorkflowNodeTypeEnum.END.getName());
     }
 }

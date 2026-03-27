@@ -25,11 +25,17 @@ public interface WorkflowApprovalRecordService extends IService<WorkflowApproval
     /**
      * 审核人拒绝，写入审批记录
      */
-    void insertRecordForReject(WorkflowAuditETO eto, WorkflowNodeInstance workflowNodeInstance);
+    void insertRecordForReject(WorkflowAuditETO eto, WorkflowNodeInstance workflowNodeInstance, WorkflowNodeInstance toWorkflowNodeInstance);
 
     /**
-     * 判断并行分支是否全部结束
+     * 审核人拒绝，写入审批记录
      */
-    List<WorkflowNodeInstance> isALLBranchFinish(Long parallelNodeId, Long nodeInstanceId);
+    void insertRecordForApprove(WorkflowAuditETO eto, WorkflowNodeInstance workflowNodeInstance);
+
+    /**
+     * 审核人拒绝，写入审批记录
+     */
+    void insertRecordForRoute(WorkflowAuditETO eto, WorkflowNodeInstance workflowNodeInstance, WorkflowNodeInstance toWorkflowNodeInstance);
+
 
 }

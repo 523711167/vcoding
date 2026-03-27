@@ -1,25 +1,35 @@
 package com.yuyu.workflow.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yuyu.workflow.common.context.OperationTimeContext;
 import com.yuyu.workflow.common.enums.WorkflowNodeApproverInstanceStatusEnum;
+import com.yuyu.workflow.common.enums.WorkflowApproverTypeEnum;
 import com.yuyu.workflow.common.enums.YesNoEnum;
 import com.yuyu.workflow.common.exception.BizException;
+import com.yuyu.workflow.entity.User;
+import com.yuyu.workflow.entity.WorkflowApprovalRecord;
+import com.yuyu.workflow.entity.WorkflowNodeApprover;
 import com.yuyu.workflow.entity.WorkflowNodeApproverInstance;
+import com.yuyu.workflow.entity.WorkflowNodeInstance;
+import com.yuyu.workflow.entity.UserRoleRel;
 import com.yuyu.workflow.eto.workflow.WorkflowRejectAuditETO;
+import com.yuyu.workflow.mapper.UserMapper;
+import com.yuyu.workflow.mapper.UserRoleRelMapper;
 import com.yuyu.workflow.mapper.WorkflowNodeApproverInstanceMapper;
+import com.yuyu.workflow.service.UserService;
+import com.yuyu.workflow.service.WorkflowNodeApproverService;
+import com.yuyu.workflow.service.WorkflowNodeApproverDeptExpandService;
 import com.yuyu.workflow.service.WorkflowNodeApproverInstanceService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
+import java.util.stream.IntStream;
 
 /**
  * 节点审批人实例服务实现。
@@ -27,11 +37,27 @@ import java.util.Objects;
 @Service
 public class WorkflowNodeApproverInstanceServiceImpl extends ServiceImpl<WorkflowNodeApproverInstanceMapper, WorkflowNodeApproverInstance> implements WorkflowNodeApproverInstanceService {
 
+    private final WorkflowNodeApproverInstanceService workflowNodeApproverInstanceService;
+    private final WorkflowNodeApproverDeptExpandService workflowNodeApproverDeptExpandService;
+    private final WorkflowNodeApproverService workflowNodeApproverService;
+    private final UserRoleRelMapper userRoleRelMapper;
+    private final UserService userService;
+
     /**
      * 注入节点审批人实例服务依赖。
      */
-    public WorkflowNodeApproverInstanceServiceImpl(WorkflowNodeApproverInstanceMapper workflowNodeApproverInstanceMapper) {
+    public WorkflowNodeApproverInstanceServiceImpl(WorkflowNodeApproverInstanceMapper workflowNodeApproverInstanceMapper,
+                                                   WorkflowNodeApproverInstanceService workflowNodeApproverInstanceService,
+                                                   WorkflowNodeApproverDeptExpandService workflowNodeApproverDeptExpandService,
+                                                   WorkflowNodeApproverService workflowNodeApproverService,
+                                                   UserRoleRelMapper userRoleRelMapper,
+                                                   UserService userService) {
         this.baseMapper = workflowNodeApproverInstanceMapper;
+        this.workflowNodeApproverInstanceService = workflowNodeApproverInstanceService;
+        this.workflowNodeApproverDeptExpandService = workflowNodeApproverDeptExpandService;
+        this.workflowNodeApproverService = workflowNodeApproverService;
+        this.userRoleRelMapper = userRoleRelMapper;
+        this.userService = userService;
     }
 
     @Override
@@ -133,19 +159,162 @@ public class WorkflowNodeApproverInstanceServiceImpl extends ServiceImpl<Workflo
 
     @Override
     public void updateNodeApproverForReject(Long nodeInstanceId, String comment, Long approverInstanceId) {
+        updateNodeApprover(nodeInstanceId, comment, approverInstanceId, WorkflowNodeApproverInstanceStatusEnum.REJECTED);
+    }
+
+    @Override
+    public void updateNodeApproverForApprove(Long nodeInstanceId, String comment, Long approverInstanceId) {
+        updateNodeApprover(nodeInstanceId, comment, approverInstanceId, WorkflowNodeApproverInstanceStatusEnum.APPROVED);
+    }
+
+    @Override
+    public void updateNodeApprover(Long nodeInstanceId, String comment, Long approverInstanceId, WorkflowNodeApproverInstanceStatusEnum approverEnum) {
         WorkflowNodeApproverInstance update = new WorkflowNodeApproverInstance();
-        update.setStatus(WorkflowNodeApproverInstanceStatusEnum.REJECTED.getCode());
+        update.setStatus(approverEnum.getCode());
         update.setFinishedAt(OperationTimeContext.get());
         update.setComment(comment);
-        baseMapper.update(update, new LambdaQueryWrapper<WorkflowNodeApproverInstance>()
-                .eq(Objects.nonNull(approverInstanceId), WorkflowNodeApproverInstance::getId, approverInstanceId)
+        int i = baseMapper.update(update, new LambdaQueryWrapper<WorkflowNodeApproverInstance>()
                 .eq(WorkflowNodeApproverInstance::getNodeInstanceId, nodeInstanceId)
-                .eq(WorkflowNodeApproverInstance::getIsActive, YesNoEnum.YES.getId())
-                .in(WorkflowNodeApproverInstance::getStatus,
-                        List.of(WorkflowNodeApproverInstanceStatusEnum.PENDING.getCode(),
-                                WorkflowNodeApproverInstanceStatusEnum.WAITING_ADD_SIGN.getCode())
-                ));
+                .eq(WorkflowNodeApproverInstance::getId, approverInstanceId));
+        if (i == 0) {
+            throw new BizException("审批人实例更新失败");
+        }
+    }
 
+    @Override
+    public boolean activateNextApproverInstance(WorkflowNodeApproverInstance current, List<WorkflowNodeApproverInstance> approverInstanceList) {
+        Optional<WorkflowNodeApproverInstance> nextApproverOpt =
+                approverInstanceList.stream()
+                        .filter(item -> item.getSortOrder() != null && current.getSortOrder() != null)
+                        .filter(item -> item.getSortOrder() > current.getSortOrder())
+                        .findFirst();
+
+        if (nextApproverOpt.isPresent()) {
+            WorkflowNodeApproverInstance nextApprover = nextApproverOpt.get();
+
+            update(
+                    new LambdaUpdateWrapper<WorkflowNodeApproverInstance>()
+                            .eq(WorkflowNodeApproverInstance::getId, nextApprover.getId())
+                            .set(WorkflowNodeApproverInstance::getIsActive, YesNoEnum.YES.getId())
+            );
+            // 还有下一位，当前节点不能算通过
+            return false;
+        }
+        // 没有下一位，说明顺签完成
+        return true;
+    }
+
+
+    @Override
+    public void cancelOtherPendingApprovers(Long instanceId, Long nodeInstanceId, Long approverInstanceId) {
+        update(
+                Wrappers.<WorkflowNodeApproverInstance>lambdaUpdate()
+                        .eq(WorkflowNodeApproverInstance::getInstanceId, instanceId)
+                        .eq(WorkflowNodeApproverInstance::getNodeInstanceId, nodeInstanceId)
+                        .ne(WorkflowNodeApproverInstance::getId, approverInstanceId)
+                        .eq(WorkflowNodeApproverInstance::getStatus, WorkflowNodeApproverInstanceStatusEnum.PENDING.getCode())
+                        .set(WorkflowNodeApproverInstance::getFinishedAt, OperationTimeContext.get())
+                        .set(WorkflowNodeApproverInstance::getStatus, WorkflowNodeApproverInstanceStatusEnum.CANCELED.getCode())
+        );
+    }
+
+    @Override
+    public void saveApproverInstancesForOrg(WorkflowNodeInstance workflowNodeInstance) {
+
+    }
+
+    @Override
+    public void saveApproverInstancesForRole(WorkflowNodeInstance workflowNodeInstance) {
+        List<WorkflowNodeApprover> approverConfigList = workflowNodeApproverService.list(new LambdaQueryWrapper<WorkflowNodeApprover>()
+                .eq(WorkflowNodeApprover::getNodeId, workflowNodeInstance.getDefinitionNodeId())
+                .eq(WorkflowNodeApprover::getApproverType, WorkflowApproverTypeEnum.ROLE.getCode())
+                .orderByAsc(WorkflowNodeApprover::getSortOrder, WorkflowNodeApprover::getId));
+        if (CollectionUtils.isEmpty(approverConfigList)) {
+            return;
+        }
+
+        List<Long> roleIds = approverConfigList.stream()
+                .map(WorkflowNodeApprover::getApproverValue)
+                .filter(org.springframework.util.StringUtils::hasText)
+                .map(Long::valueOf)
+                .distinct()
+                .toList();
+        if (CollectionUtils.isEmpty(roleIds)) {
+            return;
+        }
+
+        List<UserRoleRel> roleRelList = userRoleRelMapper.selectList(new LambdaQueryWrapper<UserRoleRel>()
+                .in(UserRoleRel::getRoleId, roleIds)
+                .orderByAsc(UserRoleRel::getRoleId, UserRoleRel::getId));
+        if (CollectionUtils.isEmpty(roleRelList)) {
+            return;
+        }
+
+        Map<Long, User> userMap = userService.listByIds(roleRelList.stream()
+                        .map(UserRoleRel::getUserId)
+                        .filter(Objects::nonNull)
+                        .distinct()
+                        .toList()).stream()
+                .filter(user -> Objects.equals(user.getStatus(), YesNoEnum.YES.getId()))
+                .collect(java.util.stream.Collectors.toMap(User::getId, item -> item, (left, right) -> left, LinkedHashMap::new));
+        if (userMap.isEmpty()) {
+            return;
+        }
+
+        LinkedHashMap<Long, WorkflowNodeApproverInstance> deduplicatedMap = new LinkedHashMap<>();
+        int[] sortOrder = {1};
+        for (WorkflowNodeApprover approverConfig : approverConfigList) {
+            Long roleId = Long.valueOf(approverConfig.getApproverValue());
+            roleRelList.stream()
+                    .filter(item -> Objects.equals(item.getRoleId(), roleId))
+                    .map(UserRoleRel::getUserId)
+                    .map(userMap::get)
+                    .filter(Objects::nonNull)
+                    .forEach(user -> deduplicatedMap.computeIfAbsent(user.getId(), key -> {
+                        WorkflowNodeApproverInstance workflowNodeApproverInstance = new WorkflowNodeApproverInstance();
+                        workflowNodeApproverInstance.setNodeInstanceId(workflowNodeInstance.getId());
+                        workflowNodeApproverInstance.setInstanceId(workflowNodeInstance.getInstanceId());
+                        workflowNodeApproverInstance.setApproverId(user.getId());
+                        workflowNodeApproverInstance.setApproverName(user.getRealName());
+                        workflowNodeApproverInstance.setNodeName(workflowNodeInstance.getDefinitionNodeName());
+                        workflowNodeApproverInstance.setNodeType(workflowNodeInstance.getDefinitionNodeType());
+                        workflowNodeApproverInstance.setSortOrder(sortOrder[0]++);
+                        workflowNodeApproverInstance.setStatus(WorkflowNodeApproverInstanceStatusEnum.PENDING.getCode());
+                        workflowNodeApproverInstance.setIsActive(YesNoEnum.YES.getId());
+                        workflowNodeApproverInstance.setCreatedAt(OperationTimeContext.get());
+                        return workflowNodeApproverInstance;
+                    }));
+        }
+
+        if (!deduplicatedMap.isEmpty()) {
+            super.saveBatch(deduplicatedMap.values());
+        }
+    }
+
+    @Override
+    public void saveApproverInstancesForUser(WorkflowNodeInstance workflowNodeInstance) {
+        List<User> userList = ((UserMapper) userService.getBaseMapper()).selectWorkflowApproverUser(workflowNodeInstance.getId());
+
+        List<WorkflowNodeApproverInstance> nodeApproverInstanceList =
+                IntStream.range(0, userList.size())
+                        .mapToObj(index -> {
+                            User item = userList.get(index);
+                            WorkflowNodeApproverInstance workflowNodeApproverInstance = new WorkflowNodeApproverInstance();
+                            workflowNodeApproverInstance.setNodeInstanceId(workflowNodeInstance.getId());
+                            workflowNodeApproverInstance.setInstanceId(workflowNodeInstance.getInstanceId());
+                            workflowNodeApproverInstance.setApproverId(item.getId());
+                            workflowNodeApproverInstance.setApproverName(item.getRealName());
+                            workflowNodeApproverInstance.setNodeName(workflowNodeInstance.getDefinitionNodeName());
+                            workflowNodeApproverInstance.setNodeType(workflowNodeInstance.getDefinitionNodeType());
+                            workflowNodeApproverInstance.setSortOrder(index + 1);
+                            workflowNodeApproverInstance.setStatus(WorkflowNodeApproverInstanceStatusEnum.PENDING.getCode());
+                            workflowNodeApproverInstance.setIsActive(YesNoEnum.YES.getId());
+                            workflowNodeApproverInstance.setCreatedAt(OperationTimeContext.get());
+                            return workflowNodeApproverInstance;
+                        })
+                        .toList();
+
+        super.saveBatch(nodeApproverInstanceList);
     }
 
     /**

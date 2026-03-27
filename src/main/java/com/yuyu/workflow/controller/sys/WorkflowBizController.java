@@ -63,7 +63,6 @@ public class WorkflowBizController {
     @Operation(summary = "流程审核")
     @PostMapping("/audit")
     public Resp<Void> audit(@Valid @RequestBody WorkflowAuditETO eto) {
-        eto.setApproverInstanceId(SecurityUtils.getCurrentUserId());
         workflowLaunchService.audit(eto);
         return Resp.success();
     }

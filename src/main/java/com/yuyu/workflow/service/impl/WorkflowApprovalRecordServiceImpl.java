@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yuyu.workflow.common.context.OperationTimeContext;
 import com.yuyu.workflow.common.enums.WorkflowApprovalActionEnum;
-import com.yuyu.workflow.common.enums.WorkflowNodeTypeEnum;
 import com.yuyu.workflow.common.exception.BizException;
 import com.yuyu.workflow.entity.WorkflowApprovalRecord;
 import com.yuyu.workflow.entity.WorkflowNodeInstance;
@@ -98,30 +97,43 @@ public class WorkflowApprovalRecordServiceImpl extends ServiceImpl<WorkflowAppro
     }
 
     @Override
-    public void insertRecordForReject(WorkflowAuditETO eto, WorkflowNodeInstance workflowNodeInstance) {
+    public void insertRecordForReject(WorkflowAuditETO eto, WorkflowNodeInstance workflowNodeInstance, WorkflowNodeInstance toWorkflowNodeInstance) {
+        WorkflowApprovalRecord record = buildApprovalRecord(eto, workflowNodeInstance, toWorkflowNodeInstance, WorkflowApprovalActionEnum.REJECT);
+        baseMapper.insert(record);
+    }
+
+    @Override
+    public void insertRecordForApprove(WorkflowAuditETO eto, WorkflowNodeInstance workflowNodeInstance) {
+        WorkflowApprovalRecord record = buildApprovalRecord(eto, workflowNodeInstance, new WorkflowNodeInstance(), WorkflowApprovalActionEnum.APPROVE);
+        baseMapper.insert(record);
+    }
+
+    @Override
+    public void insertRecordForRoute(WorkflowAuditETO eto, WorkflowNodeInstance workflowNodeInstance, WorkflowNodeInstance toWorkflowNodeInstance) {
+        WorkflowApprovalRecord record = buildApprovalRecord(eto, workflowNodeInstance, toWorkflowNodeInstance, WorkflowApprovalActionEnum.ROUTE);
+        baseMapper.insert(record);
+    }
+
+    private static WorkflowApprovalRecord buildApprovalRecord(WorkflowAuditETO eto, WorkflowNodeInstance workflowNodeInstance,
+                                                              WorkflowNodeInstance toWorkflowNodeInstance, WorkflowApprovalActionEnum workflowApprovalActionEnum) {
         WorkflowApprovalRecord record = new WorkflowApprovalRecord();
         record.setInstanceId(eto.getInstanceId());
         record.setNodeInstanceId(eto.getNodeInstanceId());
         record.setOperatorId(eto.getCurrentUserId());
         record.setOperatorName(eto.getCurrentUsername());
-        record.setAction(WorkflowApprovalActionEnum.REJECT.getCode());
+        record.setAction(workflowApprovalActionEnum.getCode());
         record.setNodeInstanceType(workflowNodeInstance.getDefinitionNodeType());
         record.setNodeInstanceName(workflowNodeInstance.getDefinitionNodeName());
         record.setComment(eto.getComment());
         record.setFromNodeId(workflowNodeInstance.getId());
         record.setFromNodeType(workflowNodeInstance.getDefinitionNodeType());
         record.setFromNodeName(workflowNodeInstance.getDefinitionNodeName());
-        record.setToNodeId(null);
-        record.setToNodeType(WorkflowNodeTypeEnum.END.getCode());
-        record.setToNodeName(WorkflowNodeTypeEnum.END.getName());
+        record.setToNodeId(toWorkflowNodeInstance.getId());
+        record.setToNodeType(toWorkflowNodeInstance.getDefinitionNodeType());
+        record.setToNodeName(toWorkflowNodeInstance.getDefinitionNodeName());
         record.setExtraData(null);
         record.setOperatedAt(OperationTimeContext.get());
-        baseMapper.insert(record);
-    }
-
-    @Override
-    public List<WorkflowNodeInstance> isALLBranchFinish(Long parallelNodeId, Long nodeInstanceId) {
-        return getBaseMapper().selectBranchNode(parallelNodeId);
+        return record;
     }
 
     /**

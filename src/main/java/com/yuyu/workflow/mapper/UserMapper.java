@@ -5,6 +5,7 @@ import com.yuyu.workflow.entity.User;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.springframework.security.core.parameters.P;
 
 import java.util.List;
 
@@ -40,4 +41,27 @@ public interface UserMapper extends BaseMapper<User> {
      */
     @Select("SELECT * FROM tb_user WHERE username = #{username} AND is_deleted = 0 LIMIT 1")
     User selectActiveByUsername(String username);
+
+
+    @Select("""
+            SELECT t.*
+            FROM tb_user t
+            INNER JOIN tb_workflow_node_approver y ON y.approver_value = t.id
+            WHERE t.status = 1 and y.approver_type = 'USER'  and y.node_id = #{workflowNodeId} order by y.sort_order 
+            """)
+    List<User> selectWorkflowApproverUser(@Param("workflowNodeId") Long workflowNodeId);
+
+    @Select("""
+            SELECT DISTINCT u.*
+             FROM tb_user u
+             INNER JOIN tb_user_role_rel urr ON urr.user_id = u.id
+             INNER JOIN tb_workflow_node_approver wna ON wna.approver_value = CAST(urr.role_id AS CHAR)
+             WHERE wna.node_id = #{definitionNodeId}
+               AND wna.approver_type = 'ROLE'
+               AND u.status = 1
+               AND u.is_deleted = 0
+                         ORDER BY u.id
+            """)
+    List<User> selectWorkflowApproverRoleUsers(@Param("definitionNodeId") Long definitionNodeId);
+
 }

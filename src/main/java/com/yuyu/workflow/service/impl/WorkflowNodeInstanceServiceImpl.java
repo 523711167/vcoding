@@ -103,9 +103,19 @@ public class WorkflowNodeInstanceServiceImpl extends ServiceImpl<WorkflowNodeIns
 
     @Override
     public void updateNodeForReject(Long nodeInstanceId, String comment) {
+        updateNode(nodeInstanceId, comment, WorkflowNodeInstanceStatusEnum.REJECTED);
+    }
+
+    @Override
+    public void updateNodeForApprove(Long nodeInstanceId, String comment) {
+        updateNode(nodeInstanceId, comment, WorkflowNodeInstanceStatusEnum.APPROVED);
+    }
+
+    @Override
+    public void updateNode(Long nodeInstanceId, String comment, WorkflowNodeInstanceStatusEnum nodeInstanceEnum) {
         WorkflowNodeInstance workflowNodeInstance = new WorkflowNodeInstance();
         workflowNodeInstance.setId(nodeInstanceId);
-        workflowNodeInstance.setStatus(WorkflowNodeInstanceStatusEnum.REJECTED.getCode());
+        workflowNodeInstance.setStatus(nodeInstanceEnum.getCode());
         workflowNodeInstance.setFinishedAt(OperationTimeContext.get());
         baseMapper.updateById(workflowNodeInstance);
     }

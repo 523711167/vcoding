@@ -47,4 +47,33 @@ public enum WorkflowNodeTypeEnum implements BaseEnum {
     public static boolean containsCode(String code) {
         return Arrays.stream(values()).anyMatch(item -> Objects.equals(item.getCode(), code));
     }
+
+    public static boolean isStart(String code) {
+        return START.getCode().equals(code);
+    }
+
+    public static boolean isApproval(String code) {
+        return APPROVAL.getCode().equals(code);
+    }
+
+    public static boolean isCondition(String code) {
+        return CONDITION.getCode().equals(code);
+    }
+
+    public static boolean isParallelSplit(String code) {
+        return PARALLEL_SPLIT.getCode().equals(code);
+    }
+
+    public static boolean isParallelJoin(String code) {
+        return PARALLEL_JOIN.getCode().equals(code);
+    }
+
+    public static boolean isEnd(String code) {
+        return END.getCode().equals(code);
+    }
+
+    public static boolean isComposite(String code) {
+        return CONDITION.getCode().equals(code) || PARALLEL_SPLIT.getCode().equals(code);
+    }
+
 }

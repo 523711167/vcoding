@@ -44,4 +44,16 @@ public enum WorkflowApproveModeEnum implements BaseEnum {
     public static boolean containsCode(String code) {
         return Arrays.stream(values()).anyMatch(item -> Objects.equals(item.getCode(), code));
     }
+
+    public static boolean isAnd(String code) {
+        return AND.code.equals(code);
+    }
+
+    public static boolean isOr(String code) {
+        return OR.code.equals(code);
+    }
+
+    public static boolean isSequential(String code) {
+        return SEQUENTIAL.code.equals(code);
+    }
 }

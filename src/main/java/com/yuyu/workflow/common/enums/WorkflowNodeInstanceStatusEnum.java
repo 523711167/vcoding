@@ -48,4 +48,37 @@ public enum WorkflowNodeInstanceStatusEnum implements BaseEnum {
     public static boolean containsCode(String code) {
         return Arrays.stream(values()).anyMatch(item -> Objects.equals(item.getCode(), code));
     }
+
+    public static boolean isPending(String code) {
+        return PENDING.getCode().equals(code);
+    }
+
+    public static boolean isActive(String code) {
+        return ACTIVE.getCode().equals(code);
+    }
+
+    public static boolean isApproved(String code) {
+        return APPROVED.getCode().equals(code);
+    }
+
+    public static boolean isRejected(String code) {
+        return REJECTED.getCode().equals(code);
+    }
+
+    public static boolean isSkipped(String code) {
+        return SKIPPED.getCode().equals(code);
+    }
+
+    public static boolean isCanceled(String code) {
+        return CANCELED.getCode().equals(code);
+    }
+
+    public static boolean isTimeout(String code) {
+        return TIMEOUT.getCode().equals(code);
+    }
+
+    public static boolean isRunningNodeInstance(String code) {
+        return WorkflowNodeInstanceStatusEnum.PENDING.getCode().equals(code)
+                || WorkflowNodeInstanceStatusEnum.ACTIVE.getCode().equals(code);
+    }
 }

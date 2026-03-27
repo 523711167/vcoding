@@ -33,12 +33,4 @@ public interface WorkflowApprovalRecordMapper extends BaseMapper<WorkflowApprova
     })
     int removeByIds(@Param("idList") List<Long> idList);
 
-
-    @Select("""
-            select t.* from tb_workflow_approval_record t 
-                left join tb_workflow_node_instance y on y.id = t.node_instance_id
-                where 
-                    t.from_node_id = #{parallelNodeId} 
-             """)
-    List<WorkflowNodeInstance> selectBranchNode(@Param("parallelNodeId") Long parallelNodeId);
 }

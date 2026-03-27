@@ -43,4 +43,12 @@ public enum WorkflowAuditActionEnum implements BaseEnum {
     public static boolean containsCode(String code) {
         return Arrays.stream(values()).anyMatch(item -> Objects.equals(item.getCode(), code));
     }
+
+    public static boolean isApprove(String code) {
+        return APPROVE.getCode().equals(code);
+    }
+
+    public static boolean isReject(String code) {
+        return REJECT.getCode().equals(code);
+    }
 }

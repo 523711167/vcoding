@@ -45,4 +45,20 @@ public enum WorkflowInstanceStatusEnum implements BaseEnum {
     public static boolean containsCode(String code) {
         return Arrays.stream(values()).anyMatch(item -> Objects.equals(item.getCode(), code));
     }
+
+    public static boolean isRunning(String code) {
+        return RUNNING.getCode().equals(code);
+    }
+
+    public static boolean isApproved(String code) {
+        return APPROVED.getCode().equals(code);
+    }
+
+    public static boolean isRejected(String code) {
+        return REJECTED.getCode().equals(code);
+    }
+
+    public static boolean isCanceled(String code) {
+        return CANCELED.getCode().equals(code);
+    }
 }
