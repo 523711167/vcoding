@@ -45,4 +45,20 @@ public enum WorkflowApproverTypeEnum implements BaseEnum {
     public static boolean containsCode(String code) {
         return Arrays.stream(values()).anyMatch(item -> Objects.equals(item.getCode(), code));
     }
+
+    public static boolean isUser(String code) {
+        return USER.code.equals(code);
+    }
+
+    public static boolean isRole(String code) {
+        return ROLE.code.equals(code);
+    }
+
+    public static boolean isDept(String code) {
+        return DEPT.code.equals(code);
+    }
+
+    public static boolean isInitiatorDeptLeader(String code) {
+        return INITIATOR_DEPT_LEADER.code.equals(code);
+    }
 }

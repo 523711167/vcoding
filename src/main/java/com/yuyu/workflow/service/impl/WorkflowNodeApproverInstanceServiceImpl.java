@@ -211,7 +211,7 @@ public class WorkflowNodeApproverInstanceServiceImpl extends ServiceImpl<Workflo
     }
 
     @Override
-    public void saveApproverInstancesForOrg(WorkflowNodeInstance workflowNodeInstance) {
+    public void saveApproverInstancesFordept(WorkflowNodeInstance workflowNodeInstance) {
         String approveMode = workflowNodeInstance.getApproveMode();
         List<User> userList = ((UserMapper) userService.getBaseMapper())
                 .selectWorkflowApproverDeptUsers(workflowNodeInstance.getDefinitionNodeId());

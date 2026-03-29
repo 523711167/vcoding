@@ -13,7 +13,6 @@ import com.yuyu.workflow.entity.UserDept;
 import com.yuyu.workflow.entity.UserDeptRel;
 import com.yuyu.workflow.entity.UserDeptRelExpand;
 import com.yuyu.workflow.entity.UserRoleRel;
-import com.yuyu.workflow.entity.WorkflowApprovalRecord;
 import com.yuyu.workflow.entity.WorkflowInstance;
 import com.yuyu.workflow.entity.WorkflowNode;
 import com.yuyu.workflow.entity.WorkflowNodeApprover;
@@ -31,7 +30,6 @@ import com.yuyu.workflow.service.WorkflowLaunchService;
 import com.yuyu.workflow.service.WorkflowNodeApproverInstanceService;
 import com.yuyu.workflow.service.WorkflowNodeInstanceService;
 import com.yuyu.workflow.service.WorkflowRouteTreeBuilder;
-import com.yuyu.workflow.service.model.workflow.WorkflowRouteEdge;
 import com.yuyu.workflow.service.model.workflow.WorkflowRouteNode;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
@@ -130,178 +128,6 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         handleApprove(context);
     }
 
-    /**
-     * 解析审批节点全部审批人，并生成审批人实例列表。
-     */
-    private List<WorkflowNodeApproverInstance> buildApproverInstances(Long workflowInstanceId,
-                                                                      WorkflowNode node,
-                                                                      WorkflowNodeInstance nodeInstance,
-                                                                      List<WorkflowNodeApprover> approverConfigs,
-                                                                      Map<Long, List<WorkflowNodeApproverDeptExpand>> deptExpandByApproverId,
-                                                                      RuntimeApplicantContext applicantContext) {
-        if (CollectionUtils.isEmpty(approverConfigs)) {
-            throw new BizException("审批节点未配置审批人");
-        }
-        LinkedHashMap<Long, WorkflowNodeApproverInstance> deduplicatedApprovers = new LinkedHashMap<>();
-        for (WorkflowNodeApprover approverConfig : approverConfigs) {
-            resolveApproverUsers(approverConfig, deptExpandByApproverId, applicantContext).forEach(candidate -> {
-                deduplicatedApprovers.computeIfAbsent(candidate.userId(), key ->
-                        buildApproverInstance(workflowInstanceId, node, nodeInstance, approverConfig, candidate));
-            });
-        }
-        if (deduplicatedApprovers.isEmpty()) {
-            throw new BizException("审批节点未解析到有效审批人");
-        }
-        List<WorkflowNodeApproverInstance> approverInstances = new ArrayList<>(deduplicatedApprovers.values());
-        boolean sequential = WorkflowApproveModeEnum.SEQUENTIAL.getCode().equals(node.getApproveMode());
-        for (int index = 0; index < approverInstances.size(); index++) {
-            approverInstances.get(index).setIsActive(sequential ? (index == 0 ? YesNoEnum.YES.getId() : YesNoEnum.NO.getId()) : YesNoEnum.YES.getId());
-        }
-        return approverInstances;
-    }
-
-    /**
-     * 构建单个审批人实例快照。
-     */
-    private WorkflowNodeApproverInstance buildApproverInstance(Long workflowInstanceId,
-                                                               WorkflowNode node,
-                                                               WorkflowNodeInstance nodeInstance,
-                                                               WorkflowNodeApprover approverConfig,
-                                                               ResolvedApprover candidate) {
-        WorkflowNodeApproverInstance approverInstance = new WorkflowNodeApproverInstance();
-        approverInstance.setNodeInstanceId(nodeInstance.getId());
-        approverInstance.setInstanceId(workflowInstanceId);
-        approverInstance.setApproverId(candidate.userId());
-        approverInstance.setApproverName(candidate.userName());
-        approverInstance.setNodeName(node.getName());
-        approverInstance.setNodeType(node.getNodeType());
-        approverInstance.setRelationType(WorkflowNodeApproverRelationTypeEnum.ORIGINAL.getCode());
-        approverInstance.setStatus(WorkflowNodeApproverInstanceStatusEnum.PENDING.getCode());
-        approverInstance.setSortOrder(approverConfig.getSortOrder());
-        return approverInstance;
-    }
-
-    /**
-     * 按审批人类型解析实际审批用户集合。
-     */
-    private List<ResolvedApprover> resolveApproverUsers(WorkflowNodeApprover approverConfig,
-                                                        Map<Long, List<WorkflowNodeApproverDeptExpand>> deptExpandByApproverId,
-                                                        RuntimeApplicantContext applicantContext) {
-        return switch (approverConfig.getApproverType()) {
-            case "USER" -> resolveUserApprovers(approverConfig.getApproverValue());
-            case "ROLE" -> resolveRoleApprovers(approverConfig.getApproverValue());
-            case "DEPT" -> resolveDeptApprovers(approverConfig.getId(), deptExpandByApproverId);
-            case "INITIATOR_DEPT_LEADER" -> resolveInitiatorDeptLeader(applicantContext);
-            default -> throw new BizException("不支持的审批人类型");
-        };
-    }
-
-    /**
-     * 解析用户型审批人。
-     */
-    private List<ResolvedApprover> resolveUserApprovers(Long approverValue) {
-        Long userId = parseLongValue(approverValue, "审批用户配置不合法");
-        User user = userMapper.selectById(userId);
-        if (Objects.isNull(user) || !Objects.equals(user.getStatus(), CommonStatusEnum.ENABLED.getId())) {
-            throw new BizException("审批用户不存在或已停用");
-        }
-        return List.of(new ResolvedApprover(user.getId(), resolveUserName(user)));
-    }
-
-    /**
-     * 解析角色型审批人。
-     */
-    private List<ResolvedApprover> resolveRoleApprovers(Long approverValue) {
-        Long roleId = parseLongValue(approverValue, "审批角色配置不合法");
-        List<Long> userIds = userRoleRelMapper.selectList(new LambdaQueryWrapper<UserRoleRel>()
-                        .eq(UserRoleRel::getRoleId, roleId)
-                        .orderByAsc(UserRoleRel::getId))
-                .stream()
-                .map(UserRoleRel::getUserId)
-                .filter(Objects::nonNull)
-                .distinct()
-                .toList();
-        return resolveEnabledUsers(userIds, "审批角色未解析到有效用户");
-    }
-
-    /**
-     * 解析组织型审批人，按组织展开关系取覆盖范围内全部有效用户。
-     */
-    private List<ResolvedApprover> resolveDeptApprovers(Long approverId,
-                                                        Map<Long, List<WorkflowNodeApproverDeptExpand>> deptExpandByApproverId) {
-        List<Long> deptIds = deptExpandByApproverId.getOrDefault(approverId, Collections.emptyList()).stream()
-                .map(WorkflowNodeApproverDeptExpand::getDeptId)
-                .filter(Objects::nonNull)
-                .distinct()
-                .toList();
-        if (CollectionUtils.isEmpty(deptIds)) {
-            throw new BizException("审批组织未解析到有效组织");
-        }
-        List<Long> userIds = userDeptRelExpandMapper.selectList(new LambdaQueryWrapper<UserDeptRelExpand>()
-                        .in(UserDeptRelExpand::getDeptId, deptIds)
-                        .orderByAsc(UserDeptRelExpand::getId))
-                .stream()
-                .map(UserDeptRelExpand::getUserId)
-                .filter(Objects::nonNull)
-                .distinct()
-                .toList();
-        return resolveEnabledUsers(userIds, "审批组织未解析到有效用户");
-    }
-
-    /**
-     * 解析发起人主组织主管审批人。
-     */
-    private List<ResolvedApprover> resolveInitiatorDeptLeader(RuntimeApplicantContext applicantContext) {
-        if (Objects.isNull(applicantContext.primaryDept()) || Objects.isNull(applicantContext.primaryDept().getLeaderId())) {
-            throw new BizException("发起人主组织未配置主管");
-        }
-        User leader = userMapper.selectById(applicantContext.primaryDept().getLeaderId());
-        if (Objects.isNull(leader) || !Objects.equals(leader.getStatus(), CommonStatusEnum.ENABLED.getId())) {
-            throw new BizException("发起人主组织主管不存在或已停用");
-        }
-        return List.of(new ResolvedApprover(leader.getId(), resolveUserName(leader)));
-    }
-
-    /**
-     * 过滤并加载有效用户列表。
-     */
-    private List<ResolvedApprover> resolveEnabledUsers(List<Long> userIds, String emptyMessage) {
-        if (CollectionUtils.isEmpty(userIds)) {
-            throw new BizException(emptyMessage);
-        }
-        Map<Long, User> userMap = userMapper.selectBatchIds(userIds).stream()
-                .filter(user -> Objects.equals(user.getStatus(), CommonStatusEnum.ENABLED.getId()))
-                .collect(Collectors.toMap(User::getId, Function.identity(), (left, right) -> left, LinkedHashMap::new));
-        List<ResolvedApprover> result = userIds.stream()
-                .map(userMap::get)
-                .filter(Objects::nonNull)
-                .map(user -> new ResolvedApprover(user.getId(), resolveUserName(user)))
-                .toList();
-        if (CollectionUtils.isEmpty(result)) {
-            throw new BizException(emptyMessage);
-        }
-        return result;
-    }
-
-    /**
-     * 优先返回真实姓名，缺失时退回用户名。
-     */
-    private String resolveUserName(User user) {
-        if (StringUtils.hasText(user.getRealName())) {
-            return user.getRealName();
-        }
-        return user.getUsername();
-    }
-
-    /**
-     * 将字符串配置解析为长整型主键值。
-     */
-    private Long parseLongValue(Long value, String message) {
-        if (Objects.isNull(value) || value <= 0) {
-            throw new BizException(message);
-        }
-        return value;
-    }
 
     private AuditContext loadAuditContext(WorkflowAuditETO eto) {
         WorkflowInstance workflowInstance = workflowInstanceService.getById(eto.getInstanceId());
@@ -372,6 +198,7 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
                         .orderByAsc(BaseIdEntity::getId)
         );
 
+
         return new AuditContext(
                 eto,
                 workflowInstance,
@@ -393,22 +220,23 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
                 context.eto().getApproverInstanceId()
         );
 
-        // 2. 写审批通过记录
-        workflowApprovalRecordService.insertRecordForApprove(
-                context.eto(),
-                context.currentNodeInstance()
-        );
+        // 2. 查找下一个节点
+        WorkflowNode nextNode = new WorkflowNode();
+        WorkflowNodeInstance nextNodeInstance = createOrLoadParallelJoinNodeInstance(context, nextNode);
 
-        // 3. 按审批模式判断当前节点是否已通过
+        // 3. 写审批通过记录
+        workflowApprovalRecordService.insertRecordForApprove(context.eto(), context.currentNodeInstance(), nextNodeInstance);
+
+        // 4. 按审批模式判断当前节点是否已通过
         boolean nodePassed = resolveNodeApproveResult(context);
 
-        // 4. 节点还没通过，就结束本次审核
+        // 5. 节点还没通过，就结束本次审核
         if (!nodePassed) {
             return;
         }
 
         // 6. 流转到下一个节点 / 结束流程
-        continueAfterNodeApproved(context);
+        continueAfterNodeApproved(context, nextNodeInstance);
     }
 
     private void handleReject(AuditContext context) {
@@ -444,8 +272,7 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
 
         WorkflowRouteTreeBuilder.WorkflowGraphContext joinContext = buildWorkflowGraphContext(context);
         WorkflowRouteNode routeTree = workflowRouteTreeBuilder.buildNextRouteTree(
-                context.currentNodeInstance().getDefinitionNodeId(),
-                joinContext
+                context.currentNodeInstance().getDefinitionNodeId(), joinContext
         );
         WorkflowNode joinNode = routeTree.findNextHopNode(context.currentNodeInstance().getDefinitionNodeId(), joinContext);
         if (joinNode == null) {
@@ -529,52 +356,26 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         workflowNodeInstanceService.updateNodeForApprove(joinNodeInstance.getId(), "并行分支全部通过");
 
         // Join节点通过后，后续流转
-        continueAfterParallelJoinApproved(context, joinNodeInstance);
+        handlerJoinNode(context, joinNodeInstance);
     }
 
-    private void continueAfterParallelJoinApproved(AuditContext context, WorkflowNodeInstance joinNodeInstance) {
-        WorkflowRouteTreeBuilder.WorkflowGraphContext joinContext = buildWorkflowGraphContext(context);
-        WorkflowRouteNode routeTree = workflowRouteTreeBuilder.buildNextRouteTree(
-                joinNodeInstance.getDefinitionNodeId(),
-                joinContext
-        );
-        List<WorkflowRouteEdge> outgoingRoutes = workflowRouteTreeBuilder.getDirectRoutes(routeTree);
-        if (CollectionUtils.isEmpty(outgoingRoutes)) {
-            throw new BizException("并行聚合节点缺少后续连线");
-        }
+    private void handlerJoinNode(AuditContext context, WorkflowNodeInstance joinNodeInstance) {
+        // 1.根据条件判断
+        WorkflowRouteTreeBuilder.WorkflowGraphContext workflowGraphContext = buildWorkflowGraphContext(context);
+        List<WorkflowTransition> workflowTransitions = workflowGraphContext.transitionsByFromNodeId().get(joinNodeInstance.getDefinitionNodeId());
 
-        WorkflowRouteEdge routeEdge = outgoingRoutes.get(0);
-        WorkflowNode targetNode = joinContext.nodeMap().get(routeEdge.toNodeId());
-        if (targetNode == null) {
-            throw new BizException("并行聚合后的目标节点不存在");
-        }
+        // 下个节点
+        WorkflowTransition matchWorkflowTransitions = new WorkflowTransition();
+        WorkflowNode nextWorkflowNode = workflowGraphContext.nodeMap().get(matchWorkflowTransitions.getToNodeId());
+        WorkflowNodeInstance nextNodeInstance = createOrLoadParallelJoinNodeInstance(context, nextWorkflowNode);
 
-        if (WorkflowNodeTypeEnum.isEnd(targetNode.getNodeType())) {
-            workflowApprovalRecordService.insertRecordForRoute(
-                    context.eto(),
-                    joinNodeInstance,
-                    WorkflowNodeInstance.toEndWorkflowNodeInstance()
-            );
-        }
-
-        if (WorkflowNodeTypeEnum.isApproval(targetNode.getNodeType())) {
-            activeApprovalNode(context, targetNode);
-        }
-
-        if (WorkflowNodeTypeEnum.isComposite(targetNode.getNodeType())) {
-
-        }
-
-        WorkflowNodeInstance outGoingWorkflowNodeInstance = new WorkflowNodeInstance();
-        workflowNodeInstanceService.save(outGoingWorkflowNodeInstance);
-        // 写 JOIN_PASS 系统记录
         workflowApprovalRecordService.insertRecordForRoute(
                 context.eto(),
                 joinNodeInstance,
-                outGoingWorkflowNodeInstance
+                nextNodeInstance
         );
 
-        //
+        continueAfterNodeApproved(context, nextNodeInstance);
     }
 
     private void activeApprovalNode(AuditContext context, WorkflowNode targetNode) {
@@ -625,11 +426,11 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
     }
 
     private WorkflowNodeInstance createOrLoadParallelJoinNodeInstance(AuditContext context,
-                                                                      WorkflowNode joinNode) {
+                                                                      WorkflowNode nextNode) {
         Optional<WorkflowNodeInstance> exist = workflowNodeInstanceService.getOneOpt(
                 Wrappers.<WorkflowNodeInstance>lambdaQuery()
                         .eq(WorkflowNodeInstance::getInstanceId, context.workflowInstance().getId())
-                        .eq(WorkflowNodeInstance::getDefinitionNodeId, joinNode.getId())
+                        .eq(WorkflowNodeInstance::getDefinitionNodeId, nextNode.getId())
                         .last("limit 1")
         );
 
@@ -639,9 +440,9 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
 
         WorkflowNodeInstance joinNodeInstance = new WorkflowNodeInstance();
         joinNodeInstance.setInstanceId(context.workflowInstance().getId());
-        joinNodeInstance.setDefinitionNodeId(joinNode.getId());
-        joinNodeInstance.setDefinitionNodeName(joinNode.getName());
-        joinNodeInstance.setDefinitionNodeType(joinNode.getNodeType());
+        joinNodeInstance.setDefinitionNodeId(nextNode.getId());
+        joinNodeInstance.setDefinitionNodeName(nextNode.getName());
+        joinNodeInstance.setDefinitionNodeType(nextNode.getNodeType());
         joinNodeInstance.setParallelBranchRootId(null);
         joinNodeInstance.setStatus(WorkflowNodeInstanceStatusEnum.ACTIVE.getCode());
         joinNodeInstance.setActivatedAt(OperationTimeContext.get());
@@ -747,65 +548,82 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
 
     private boolean handleSequentialApprove(AuditContext context) {
         WorkflowNodeApproverInstance current = context.currentApproverInstance();
-
         return workflowNodeApproverInstanceService.activateNextApproverInstance(current, context.approverInstanceList());
 
     }
 
 
-    private void continueAfterNodeApproved(AuditContext context) {
-        List<WorkflowTransition> transitionList = context.transitionList();
-
-        // 审批节点当前先按只有一条后续有效出边处理
-        WorkflowTransition transition = transitionList.get(0);
-
-        WorkflowNode targetNode = workflowNodeMapper.selectById(transition.getToNodeId());
-        if (targetNode == null) {
-            throw new BizException("后续节点不存在");
-        }
-
-        if (WorkflowNodeTypeEnum.isEnd(targetNode.getNodeType())) {
+    private void continueAfterNodeApproved(AuditContext context, WorkflowNodeInstance nextNodeInstance) {
+        if (WorkflowNodeTypeEnum.isEnd(nextNodeInstance.getDefinitionNodeType())) {
             finishWorkflow(context);
             return;
         }
 
         // 先只处理普通审批节点
-        if (WorkflowNodeTypeEnum.isApproval(targetNode.getNodeType())) {
-            activateApprovalNode(context, targetNode);
+        if (WorkflowNodeTypeEnum.isApproval(nextNodeInstance.getDefinitionNodeType())) {
+            handlerApprovalNode(context, nextNodeInstance);
             return;
         }
 
-        if (WorkflowNodeTypeEnum.isCondition(targetNode.getNodeType())) {
+        if (WorkflowNodeTypeEnum.isCondition(nextNodeInstance.getDefinitionNodeType())) {
+            handlerConditionNode(context, nextNodeInstance);
             return;
         }
 
-        if (WorkflowNodeTypeEnum.isParallelSplit(targetNode.getNodeType())) {
+        if (WorkflowNodeTypeEnum.isParallelSplit(nextNodeInstance.getDefinitionNodeType())) {
+            handlerSplitNode(context, nextNodeInstance);
             return;
         }
 
-        if (WorkflowNodeTypeEnum.isParallelJoin(targetNode.getNodeType())) {
+        if (WorkflowNodeTypeEnum.isParallelJoin(nextNodeInstance.getDefinitionNodeType())) {
+            processParallelJoinAfterBranchFinished(context, nextNodeInstance);
             return;
         }
 
     }
 
-    private void finishWorkflow(AuditContext context) {
-        WorkflowInstance workflowInstance = new WorkflowInstance();
-        workflowInstance.setId(context.workflowInstance().getId());
-        workflowInstance.setStatus(WorkflowInstanceStatusEnum.APPROVED.getCode());
-        workflowInstance.setCurrentNodeId(null);
-        workflowInstance.setCurrentNodeName(WorkflowNodeTypeEnum.END.getName());
-        workflowInstance.setCurrentNodeType(WorkflowNodeTypeEnum.END.getCode());
-        workflowInstance.setFinishedAt(OperationTimeContext.get());
-        workflowInstanceService.updateById(workflowInstance);
+    private void handlerSplitNode(AuditContext context, WorkflowNodeInstance nextNodeInstance) {
+        List<WorkflowTransition> workflowTransitionList = new ArrayList<>();
+        for (WorkflowTransition workflowTransition : workflowTransitionList) {
 
-        // 更新审批记录
-        workflowApprovalRecordService.update(
-                Wrappers.<WorkflowApprovalRecord>lambdaUpdate()
-                        .eq(WorkflowApprovalRecord::getInstanceId, context.workflowInstance().getId())
-                        .eq(WorkflowApprovalRecord::getNodeInstanceId, context.currentNodeInstance().getId())
-                        .set(WorkflowApprovalRecord::getToNodeName, WorkflowNodeTypeEnum.END.getName())
-                        .set(WorkflowApprovalRecord::getToNodeType, WorkflowNodeTypeEnum.END.getCode())
+            // 找到node
+            WorkflowNode workflowNode = new WorkflowNode();
+            WorkflowNodeInstance splitNodeInstance = createOrLoadParallelJoinNodeInstance(context, workflowNode);
+            
+            workflowApprovalRecordService.insertRecordForRoute(context.eto(), nextNodeInstance, splitNodeInstance);
+            continueAfterNodeApproved(context, splitNodeInstance);
+        }
+    }
+
+
+    private void handlerConditionNode(AuditContext context, WorkflowNodeInstance nextNodeInstance) {
+        // 1.根据条件判断
+        WorkflowRouteTreeBuilder.WorkflowGraphContext workflowGraphContext = buildWorkflowGraphContext(context);
+        List<WorkflowTransition> workflowTransitions = workflowGraphContext.transitionsByFromNodeId().get(nextNodeInstance.getDefinitionNodeId());
+
+        // 晒选符合的节点
+        WorkflowTransition matchWorkflowTransitions = new WorkflowTransition();
+        WorkflowNode workflowNode = workflowGraphContext.nodeMap().get(matchWorkflowTransitions.getToNodeId());
+
+        WorkflowNodeInstance matchNodeInstance = createOrLoadParallelJoinNodeInstance(context, workflowNode);
+        workflowApprovalRecordService.insertRecordForRoute(
+                context.eto(),
+                nextNodeInstance,
+                matchNodeInstance
+        );
+
+        continueAfterNodeApproved(context, matchNodeInstance);
+    }
+
+    private void finishWorkflow(AuditContext context) {
+        workflowInstanceService.update(
+                Wrappers.<WorkflowInstance>lambdaUpdate()
+                        .eq(BaseIdEntity::getId, context.workflowInstance().getId())
+                        .set(WorkflowInstance::getStatus, WorkflowInstanceStatusEnum.APPROVED.getCode())
+                        .set(WorkflowInstance::getCurrentNodeId, null)
+                        .set(WorkflowInstance::getCurrentNodeName, WorkflowNodeTypeEnum.END.getName())
+                        .set(WorkflowInstance::getCurrentNodeType, WorkflowNodeTypeEnum.END.getCode())
+                        .set(WorkflowInstance::getFinishedAt, OperationTimeContext.get())
         );
 
         BizApply bizApply = new BizApply();
@@ -814,54 +632,38 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         bizApplyService.updateById(bizApply);
     }
 
-    private void activateApprovalNode(AuditContext context, WorkflowNode targetNode) {
-        WorkflowNodeInstance nextNodeInstance = new WorkflowNodeInstance();
-        nextNodeInstance.setInstanceId(context.workflowInstance().getId());
-        nextNodeInstance.setDefinitionNodeId(targetNode.getId());
-        nextNodeInstance.setDefinitionNodeName(targetNode.getName());
-        nextNodeInstance.setDefinitionNodeType(targetNode.getNodeType());
-        nextNodeInstance.setStatus(WorkflowNodeInstanceStatusEnum.ACTIVE.getCode());
-        nextNodeInstance.setApproveMode(targetNode.getApproveMode());
-        nextNodeInstance.setActivatedAt(OperationTimeContext.get());
-        workflowNodeInstanceService.save(nextNodeInstance);
-
+    private void handlerApprovalNode(AuditContext context, WorkflowNodeInstance nextNodeInstance) {
         List<WorkflowNodeApprover> approverConfigs = workflowNodeApproverMapper.selectList(
                 new LambdaQueryWrapper<WorkflowNodeApprover>()
-                        .eq(WorkflowNodeApprover::getNodeId, targetNode.getId())
+                        .eq(WorkflowNodeApprover::getNodeId, nextNodeInstance.getDefinitionNodeId())
                         .orderByAsc(WorkflowNodeApprover::getSortOrder, WorkflowNodeApprover::getId)
         );
-        List<Long> approverIds = approverConfigs.stream()
-                .map(WorkflowNodeApprover::getId)
-                .filter(Objects::nonNull)
-                .toList();
-        Map<Long, List<WorkflowNodeApproverDeptExpand>> deptExpandByApproverId = CollectionUtils.isEmpty(approverIds)
-                ? Collections.emptyMap()
-                : workflowNodeApproverDeptExpandMapper.selectList(new LambdaQueryWrapper<WorkflowNodeApproverDeptExpand>()
-                                .in(WorkflowNodeApproverDeptExpand::getApproverId, approverIds)
-                                .orderByAsc(WorkflowNodeApproverDeptExpand::getApproverId,
-                                        WorkflowNodeApproverDeptExpand::getDistance,
-                                        WorkflowNodeApproverDeptExpand::getId))
-                        .stream()
-                        .collect(Collectors.groupingBy(WorkflowNodeApproverDeptExpand::getApproverId,
-                                LinkedHashMap::new,
-                                Collectors.toList()));
-        RuntimeApplicantContext applicantContext = buildApplicantContextFromInstance(context.workflowInstance());
-        List<WorkflowNodeApproverInstance> approverInstances = buildApproverInstances(
-                context.workflowInstance().getId(),
-                targetNode,
-                nextNodeInstance,
-                approverConfigs,
-                deptExpandByApproverId,
-                applicantContext
-        );
-        workflowNodeApproverInstanceService.saveBatch(approverInstances);
 
-        WorkflowInstance updateInstance = new WorkflowInstance();
-        updateInstance.setId(context.workflowInstance().getId());
-        updateInstance.setCurrentNodeId(nextNodeInstance.getId());
-        updateInstance.setCurrentNodeName(nextNodeInstance.getDefinitionNodeName());
-        updateInstance.setCurrentNodeType(nextNodeInstance.getDefinitionNodeType());
-        workflowInstanceService.updateById(updateInstance);
+        String approverType = approverConfigs.stream().map(WorkflowNodeApprover::getApproverType).distinct().findFirst().get();
+
+        if (WorkflowApproverTypeEnum.isUser(approverType)) {
+            workflowNodeApproverInstanceService.saveApproverInstancesForUser(nextNodeInstance);
+        }
+
+        if (WorkflowApproverTypeEnum.isRole(approverType)) {
+            workflowNodeApproverInstanceService.saveApproverInstancesForRole(nextNodeInstance);
+        }
+
+        if (WorkflowApproverTypeEnum.isDept(approverType)) {
+            workflowNodeApproverInstanceService.saveApproverInstancesFordept(nextNodeInstance);
+        }
+
+        if (WorkflowApproverTypeEnum.isInitiatorDeptLeader(approverType)) {
+
+        }
+
+        workflowInstanceService.update(
+            Wrappers.<WorkflowInstance>lambdaUpdate()
+                    .eq(BaseIdEntity::getId, context.workflowInstance().getId())
+                    .set(WorkflowInstance::getCurrentNodeId, nextNodeInstance.getId())
+                    .set(WorkflowInstance::getCurrentNodeName, nextNodeInstance.getDefinitionNodeName())
+                    .set(WorkflowInstance::getCurrentNodeType, nextNodeInstance.getDefinitionNodeType())
+                );
     }
 
     /**

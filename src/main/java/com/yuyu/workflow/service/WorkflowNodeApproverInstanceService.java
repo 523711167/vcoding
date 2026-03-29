@@ -57,7 +57,7 @@ public interface WorkflowNodeApproverInstanceService extends IService<WorkflowNo
 
     void saveApproverInstancesForRole(WorkflowNodeInstance workflowNodeInstance);
 
-    void saveApproverInstancesForOrg(WorkflowNodeInstance workflowNodeInstance);
+    void saveApproverInstancesFordept(WorkflowNodeInstance workflowNodeInstance);
 
 
 }

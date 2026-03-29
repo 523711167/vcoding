@@ -103,8 +103,8 @@ public class WorkflowApprovalRecordServiceImpl extends ServiceImpl<WorkflowAppro
     }
 
     @Override
-    public void insertRecordForApprove(WorkflowAuditETO eto, WorkflowNodeInstance workflowNodeInstance) {
-        WorkflowApprovalRecord record = buildApprovalRecord(eto, workflowNodeInstance, new WorkflowNodeInstance(), WorkflowApprovalActionEnum.APPROVE);
+    public void insertRecordForApprove(WorkflowAuditETO eto, WorkflowNodeInstance workflowNodeInstance, WorkflowNodeInstance toWorkflowNodeInstance) {
+        WorkflowApprovalRecord record = buildApprovalRecord(eto, workflowNodeInstance, toWorkflowNodeInstance, WorkflowApprovalActionEnum.APPROVE);
         baseMapper.insert(record);
     }
 
