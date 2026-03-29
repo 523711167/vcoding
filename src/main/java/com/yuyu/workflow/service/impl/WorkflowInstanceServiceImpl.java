@@ -1,10 +1,13 @@
 package com.yuyu.workflow.service.impl;
 
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yuyu.workflow.common.context.OperationTimeContext;
 import com.yuyu.workflow.common.enums.WorkflowInstanceStatusEnum;
 import com.yuyu.workflow.common.exception.BizException;
 import com.yuyu.workflow.entity.WorkflowInstance;
+import com.yuyu.workflow.entity.WorkflowNodeInstance;
+import com.yuyu.workflow.entity.base.BaseIdEntity;
 import com.yuyu.workflow.mapper.WorkflowInstanceMapper;
 import com.yuyu.workflow.service.WorkflowInstanceService;
 import org.springframework.stereotype.Service;
@@ -68,12 +71,16 @@ public class WorkflowInstanceServiceImpl extends ServiceImpl<WorkflowInstanceMap
     }
 
     @Override
-    public void updateNodeForReject(Long instanceId) {
-        WorkflowInstance workflowInstance = new WorkflowInstance();
-        workflowInstance.setId(instanceId);
-        workflowInstance.setStatus(WorkflowInstanceStatusEnum.REJECTED.getCode());
-        workflowInstance.setFinishedAt(OperationTimeContext.get());
-        baseMapper.updateById(workflowInstance);
+    public void updateNodeForReject(Long instanceId, WorkflowNodeInstance workflowNodeInstance) {
+        baseMapper.update(
+                Wrappers.<WorkflowInstance>lambdaUpdate()
+                        .eq(BaseIdEntity::getId, instanceId)
+                        .set(WorkflowInstance::getStatus, WorkflowInstanceStatusEnum.REJECTED.getCode())
+                        .set(WorkflowInstance::getFinishedAt, OperationTimeContext.get())
+                        .set(WorkflowInstance::getCurrentNodeId, null)
+                        .set(WorkflowInstance::getCurrentNodeType, workflowNodeInstance.getDefinitionNodeType())
+                        .set(WorkflowInstance::getCurrentNodeName, workflowNodeInstance.getDefinitionNodeName())
+        );
     }
 
     @Override
