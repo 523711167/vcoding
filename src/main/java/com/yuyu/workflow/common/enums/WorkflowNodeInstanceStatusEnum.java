@@ -10,11 +10,12 @@ public enum WorkflowNodeInstanceStatusEnum implements BaseEnum {
 
     PENDING(1, "PENDING", "待激活"),
     ACTIVE(2, "ACTIVE", "进行中"),
-    APPROVED(3, "APPROVED", "已通过"),
-    REJECTED(4, "REJECTED", "已拒绝"),
-    SKIPPED(5, "SKIPPED", "已跳过"),
-    CANCELED(6, "CANCELED", "已取消"),
-    TIMEOUT(7, "TIMEOUT", "已超时");
+    PENDING_APPROVAL(3, "PENDING_APPROVAL", "待定/审批中"),
+    APPROVED(4, "APPROVED", "已通过"),
+    REJECTED(5, "REJECTED", "已拒绝"),
+    SKIPPED(6, "SKIPPED", "已跳过"),
+    CANCELED(7, "CANCELED", "已取消"),
+    TIMEOUT(8, "TIMEOUT", "已超时");
 
     private final Integer id;
     private final String code;
@@ -57,9 +58,15 @@ public enum WorkflowNodeInstanceStatusEnum implements BaseEnum {
         return ACTIVE.getCode().equals(code);
     }
 
+    public static boolean isPendingApproval(String code) {
+        return PENDING_APPROVAL.getCode().equals(code);
+    }
+
     public static boolean isApproved(String code) {
         return APPROVED.getCode().equals(code);
     }
+
+
 
     public static boolean isRejected(String code) {
         return REJECTED.getCode().equals(code);

@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yuyu.workflow.common.context.OperationTimeContext;
 import com.yuyu.workflow.common.enums.WorkflowApproveModeEnum;
 import com.yuyu.workflow.common.enums.WorkflowNodeApproverInstanceStatusEnum;
+import com.yuyu.workflow.common.enums.WorkflowNodeInstanceStatusEnum;
 import com.yuyu.workflow.common.enums.YesNoEnum;
 import com.yuyu.workflow.common.exception.BizException;
 import com.yuyu.workflow.entity.User;
@@ -174,7 +175,7 @@ public class WorkflowNodeApproverInstanceServiceImpl extends ServiceImpl<Workflo
     }
 
     @Override
-    public boolean activateNextApproverInstance(WorkflowNodeApproverInstance current, List<WorkflowNodeApproverInstance> approverInstanceList) {
+    public WorkflowNodeInstanceStatusEnum activateNextApproverInstance(WorkflowNodeApproverInstance current, List<WorkflowNodeApproverInstance> approverInstanceList) {
         Optional<WorkflowNodeApproverInstance> nextApproverOpt =
                 approverInstanceList.stream()
                         .filter(item -> item.getSortOrder() != null && current.getSortOrder() != null)
@@ -190,10 +191,10 @@ public class WorkflowNodeApproverInstanceServiceImpl extends ServiceImpl<Workflo
                             .set(WorkflowNodeApproverInstance::getIsActive, YesNoEnum.YES.getId())
             );
             // 还有下一位，当前节点不能算通过
-            return false;
+            return WorkflowNodeInstanceStatusEnum.PENDING_APPROVAL;
         }
         // 没有下一位，说明顺签完成
-        return true;
+        return WorkflowNodeInstanceStatusEnum.APPROVED;
     }
 
 
