@@ -448,41 +448,45 @@ CREATE TABLE IF NOT EXISTS `tb_workflow_approval_record` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='审批操作记录表';
 
 INSERT INTO `tb_sys_menu`
-(`id`, `parent_id`, `type`, `name`, `permission`, `path`, `component`, `icon`, `sort_order`, `visible`, `status`)
+(`id`, `parent_id`, `type`, `name`, `permission`, `path`, `component`, `icon`, `sort_order`, `visible`, `status`, `created_at`, `updated_at`, `is_deleted`)
 VALUES
-(1417, 0, 'MENU', '首页', NULL, '/dashboard', 'dashboard/index', 'dashboard', 1, 1, 1),
-(1404, 0, 'DIRECTORY', '工作台', NULL, '/workbench', NULL, 'home', 5, 1, 1),
-(1405, 1404, 'MENU', '收件箱', NULL, '/workbench/inbox', 'workbench/inbox/index', 'inbox', 10, 1, 1),
-(1406, 1404, 'MENU', '我的待办', NULL, '/workbench/todo', 'workbench/todo/index', 'todo', 20, 1, 1),
-(1407, 1404, 'MENU', '任务查询', NULL, '/workbench/query', 'workbench/query/index', 'search', 30, 1, 1),
-(1408, 0, 'DIRECTORY', '组织中心', NULL, '/organization', NULL, 'tree', 6, 1, 1),
-(1409, 1408, 'MENU', '组织架构', NULL, '/organization/dept', 'organization/dept/index', 'tree', 10, 1, 1),
-(1410, 0, 'MENU', '个人中心', NULL, '/profile', 'profile/index', 'user', 90, 1, 1),
-(1415, 0, 'DIRECTORY', '运营管理', NULL, '/operation', NULL, 'operation', 70, 1, 1),
-(1416, 1415, 'MENU', '通知公告', NULL, '/operation/notice', 'operation/notice/index', 'notice', 10, 1, 1),
-(1000, 0, 'DIRECTORY', '系统管理', NULL, '/system', NULL, 'setting', 10, 1, 1),
-(1100, 1000, 'MENU', '用户管理', 'sys:user:list', '/system/user', 'system/user/index', 'user', 10, 1, 1),
-(1101, 1100, 'BUTTON', '新增用户', 'sys:user:add', NULL, NULL, NULL, 10, 1, 1),
-(1102, 1100, 'BUTTON', '修改用户', 'sys:user:edit', NULL, NULL, NULL, 20, 1, 1),
-(1103, 1100, 'BUTTON', '删除用户', 'sys:user:delete', NULL, NULL, NULL, 30, 1, 1),
-(1104, 1100, 'BUTTON', '重置密码', 'sys:user:reset-pwd', NULL, NULL, NULL, 40, 1, 1),
-(1105, 1100, 'BUTTON', '分配角色', 'sys:user:assign-role', NULL, NULL, NULL, 50, 1, 1),
-(1106, 1100, 'BUTTON', '分配组织', 'sys:user:assign-dept', NULL, NULL, NULL, 60, 1, 1),
-(1200, 1000, 'MENU', '角色管理', 'sys:role:list', '/system/role', 'system/role/index', 'peoples', 20, 1, 1),
-(1201, 1200, 'BUTTON', '新增角色', 'sys:role:add', NULL, NULL, NULL, 10, 1, 1),
-(1202, 1200, 'BUTTON', '修改角色', 'sys:role:edit', NULL, NULL, NULL, 20, 1, 1),
-(1203, 1200, 'BUTTON', '删除角色', 'sys:role:delete', NULL, NULL, NULL, 30, 1, 1),
-(1204, 1200, 'BUTTON', '分配菜单', 'sys:role:assign-menu', NULL, NULL, NULL, 40, 1, 1),
-(1205, 1200, 'BUTTON', '数据权限', 'sys:role:data-scope', NULL, NULL, NULL, 50, 1, 1),
-(1300, 1000, 'MENU', '组织管理', 'sys:dept:tree', '/system/dept', 'system/dept/index', 'tree', 30, 1, 1),
-(1301, 1300, 'BUTTON', '新增组织', 'sys:dept:add', NULL, NULL, NULL, 10, 1, 1),
-(1302, 1300, 'BUTTON', '修改组织', 'sys:dept:edit', NULL, NULL, NULL, 20, 1, 1),
-(1303, 1300, 'BUTTON', '删除组织', 'sys:dept:delete', NULL, NULL, NULL, 30, 1, 1),
-(1304, 1300, 'BUTTON', '移动组织', 'sys:dept:move', NULL, NULL, NULL, 40, 1, 1),
-(1400, 1000, 'MENU', '菜单管理', 'sys:menu:tree', '/system/menu', 'system/menu/index', 'menu', 40, 1, 1),
-(1401, 1400, 'BUTTON', '新增菜单', 'sys:menu:add', NULL, NULL, NULL, 10, 1, 1),
-(1402, 1400, 'BUTTON', '修改菜单', 'sys:menu:edit', NULL, NULL, NULL, 20, 1, 1),
-(1403, 1400, 'BUTTON', '删除菜单', 'sys:menu:delete', NULL, NULL, NULL, 30, 1, 1)
+(1000, 0, 'DIRECTORY', '系统管理', NULL, '/system', NULL, 'setting', 998, 1, 1, '2026-03-16 13:14:09', '2026-03-20 10:16:32', 0),
+(1100, 1000, 'MENU', '用户管理', 'sys:user:list', '/system/user', 'pages/system/UserManagementPage', 'user', 10, 1, 1, '2026-03-16 13:14:09', '2026-03-20 10:16:32', 0),
+(1101, 1100, 'BUTTON', '新增用户', 'sys:user:add', NULL, NULL, NULL, 10, 1, 1, '2026-03-16 13:14:09', '2026-03-20 10:16:32', 0),
+(1102, 1100, 'BUTTON', '修改用户', 'sys:user:edit', NULL, NULL, NULL, 20, 1, 1, '2026-03-16 13:14:09', '2026-03-20 10:16:32', 0),
+(1103, 1100, 'BUTTON', '删除用户', 'sys:user:delete', NULL, NULL, NULL, 30, 1, 1, '2026-03-16 13:14:09', '2026-03-20 10:16:32', 0),
+(1200, 1000, 'MENU', '角色管理', 'sys:role:list', '/system/role', 'pages/system/RoleManagementPage', 'team', 20, 1, 1, '2026-03-16 13:14:09', '2026-03-20 10:16:32', 0),
+(1201, 1200, 'BUTTON', '新增角色', 'sys:role:add', NULL, NULL, NULL, 10, 1, 1, '2026-03-16 13:14:09', '2026-03-20 10:16:32', 0),
+(1202, 1200, 'BUTTON', '修改角色', 'sys:role:edit', NULL, NULL, NULL, 20, 1, 1, '2026-03-16 13:14:09', '2026-03-20 10:16:32', 0),
+(1203, 1200, 'BUTTON', '删除角色', 'sys:role:delete', NULL, NULL, NULL, 30, 1, 1, '2026-03-16 13:14:09', '2026-03-20 10:16:32', 0),
+(1300, 1000, 'MENU', '组织管理', 'sys:dept:tree', '/system/dept', 'pages/organization/DeptManagementPage', 'apartment', 30, 1, 1, '2026-03-16 13:14:09', '2026-03-20 10:16:32', 0),
+(1301, 1300, 'BUTTON', '新增组织', 'sys:dept:add', NULL, NULL, NULL, 10, 1, 1, '2026-03-16 13:14:09', '2026-03-20 10:16:32', 0),
+(1302, 1300, 'BUTTON', '修改组织', 'sys:dept:edit', NULL, NULL, NULL, 20, 1, 1, '2026-03-16 13:14:09', '2026-03-20 10:16:32', 0),
+(1303, 1300, 'BUTTON', '删除组织', 'sys:dept:delete', NULL, NULL, NULL, 30, 1, 1, '2026-03-16 13:14:09', '2026-03-20 10:16:32', 0),
+(1304, 1300, 'BUTTON', '移动组织', 'sys:dept:move', NULL, NULL, NULL, 40, 1, 1, '2026-03-16 13:14:09', '2026-03-20 10:16:32', 0),
+(1400, 1000, 'MENU', '菜单管理', 'sys:menu:tree', '/system/menu', 'pages/system/MenuManagementPage', 'bars', 40, 1, 1, '2026-03-16 13:14:09', '2026-03-20 10:16:32', 0),
+(1401, 1400, 'BUTTON', '新增菜单', 'sys:menu:add', NULL, NULL, NULL, 10, 1, 1, '2026-03-16 13:14:09', '2026-03-20 10:16:32', 0),
+(1402, 1400, 'BUTTON', '修改菜单', 'sys:menu:edit', NULL, NULL, NULL, 20, 1, 1, '2026-03-16 13:14:09', '2026-03-20 10:16:32', 0),
+(1403, 1400, 'BUTTON', '删除菜单', 'sys:menu:delete', NULL, NULL, NULL, 30, 1, 1, '2026-03-16 13:14:09', '2026-03-20 10:16:32', 0),
+(1404, 0, 'DIRECTORY', '工作台', NULL, '/workbench', NULL, 'dashboard', 1, 1, 1, '2026-03-20 08:38:28', '2026-03-20 10:16:32', 0),
+(1405, 1404, 'MENU', '业务办理', NULL, '/workbench/inbox', 'pages/workbench/InboxPage', 'inbox', 10, 1, 1, '2026-03-20 08:38:43', '2026-03-20 10:16:32', 0),
+(1406, 1404, 'MENU', '代办箱', NULL, '/workbench/todo', 'pages/workbench/TodoPage', 'schedule', 20, 1, 1, '2026-03-20 08:42:29', '2026-03-20 10:16:32', 0),
+(1407, 1404, 'MENU', '查询箱', NULL, '/workbench/query', 'pages/workbench/QueryPage', 'search', 30, 1, 1, '2026-03-20 08:42:42', '2026-03-20 10:16:32', 0),
+(1408, 0, 'DIRECTORY', '组织机构', NULL, '/organization', NULL, 'apartment', 4, 1, 1, '2026-03-20 08:44:48', '2026-03-20 10:16:32', 0),
+(1409, 1408, 'MENU', '组织管理', NULL, '/organization/dept', 'pages/organization/DeptManagementPage', 'apartment', 1, 1, 1, '2026-03-20 08:46:15', '2026-03-20 10:16:32', 0),
+(1410, 0, 'MENU', '个人中心', NULL, '/profile', 'pages/profile/ProfilePage', 'profile', 999, 1, 1, '2026-03-20 08:56:48', '2026-03-20 10:16:32', 0),
+(1411, 1100, 'BUTTON', '查询用户', 'sys:user:page', NULL, NULL, NULL, 1, 1, 1, '2026-03-20 09:06:20', '2026-03-20 10:16:32', 0),
+(1412, 1200, 'BUTTON', '查询角色', 'sys:role:page', NULL, NULL, NULL, 1, 1, 1, '2026-03-20 09:12:58', '2026-03-20 10:16:32', 0),
+(1413, 1300, 'BUTTON', '查询组织', 'system:dept:tree', NULL, NULL, NULL, 1, 1, 1, '2026-03-20 09:14:09', '2026-03-20 10:16:32', 0),
+(1414, 1400, 'BUTTON', '菜单查询', 'system:menu;tree', NULL, NULL, NULL, 1, 1, 1, '2026-03-20 09:20:18', '2026-03-20 10:16:32', 0),
+(1415, 0, 'DIRECTORY', '运营活动', NULL, '/operation', NULL, 'notification', 98, 1, 1, '2026-03-20 09:30:05', '2026-03-20 10:16:32', 0),
+(1416, 1415, 'MENU', '系统公告', NULL, '/operation/notice', 'pages/operation/OperationListPage', 'notification', 1, 1, 1, '2026-03-20 09:30:57', '2026-03-20 10:16:32', 0),
+(1417, 1404, 'MENU', '工作台首页', NULL, '/workbench/home', 'pages/workbench/WorkbenchPage', 'dashboard', 1, 1, 1, '2026-03-20 09:40:55', '2026-03-20 10:16:32', 0),
+(1420, 0, 'DIRECTORY', '流程管理', NULL, '/workflow', NULL, 'workflow', 997, 1, 1, '2026-03-22 08:33:24', '2026-03-22 08:33:24', 0),
+(1423, 1420, 'MENU', '流程列表', NULL, '/workflow/list', 'pages/workflow/ProcessListPage', 'workflow-instance', 2, 1, 1, '2026-03-22 09:32:36', '2026-03-22 09:32:36', 0),
+(1424, 0, 'DIRECTORY', '业务建模', NULL, '/business', NULL, 'business-model', 996, 1, 1, '2026-03-23 03:46:21', '2026-03-23 03:46:21', 0),
+(1425, 1424, 'MENU', '业务定义', NULL, '/business/list', '/pages/business/BusinessDefinitionPage', 'business-definition', 1, 1, 1, '2026-03-23 03:48:37', '2026-03-23 03:48:37', 0),
+(1426, 1404, 'MENU', '草稿箱', NULL, '/workbench', NULL, 'profile', 11, 1, 1, '2026-03-23 12:22:20', '2026-03-23 12:22:20', 0)
 ON DUPLICATE KEY UPDATE
 `parent_id` = VALUES(`parent_id`),
 `type` = VALUES(`type`),
@@ -493,12 +497,26 @@ ON DUPLICATE KEY UPDATE
 `icon` = VALUES(`icon`),
 `sort_order` = VALUES(`sort_order`),
 `visible` = VALUES(`visible`),
-`status` = VALUES(`status`);
+`status` = VALUES(`status`),
+`updated_at` = VALUES(`updated_at`),
+`is_deleted` = VALUES(`is_deleted`);
 
 INSERT INTO `tb_user_dept`
-(`id`, `parent_id`, `name`, `code`, `org_type`, `post_type`, `path`, `level`, `sort_order`, `leader_id`, `leader_name`, `status`)
+(`id`, `parent_id`, `name`, `code`, `org_type`, `post_type`, `path`, `level`, `sort_order`, `leader_id`, `leader_name`, `status`, `created_at`, `updated_at`, `is_deleted`)
 VALUES
-(1, 0, '总部', 'HEAD_OFFICE', 'GROUP', NULL, '/1/', 1, 10, 1, '超级管理员', 1)
+(2, 0, '世界贸易组织', 'ALL', 'GROUP', NULL, '/2/', 1, 1, NULL, NULL, 1, '2026-03-19 11:33:44', '2026-03-19 11:33:44', 0),
+(3, 2, '中国公司', 'ZHONGGUO', 'COMPANY', NULL, '/2/3/', 2, 2, NULL, NULL, 1, '2026-03-19 11:37:22', '2026-03-19 11:37:22', 0),
+(4, 3, '长沙教育部', 'CHANGSHA', 'DEPT', NULL, '/2/3/4/', 3, 2, NULL, NULL, 1, '2026-03-19 11:38:12', '2026-03-19 11:38:12', 0),
+(5, 4, '芙蓉区教育部', 'FURONGQU', 'DEPT', NULL, '/2/3/4/5/', 4, 4, NULL, NULL, 1, '2026-03-19 11:39:03', '2026-03-19 11:39:03', 0),
+(6, 5, '服务岗', 'FUWU', 'POST', 'JAVA', '/2/3/4/5/6/', 5, 1, NULL, NULL, 1, '2026-03-19 11:39:43', '2026-03-19 11:39:43', 0),
+(7, 5, '技术岗', 'PPDDD', 'POST', 'HTML', '/2/3/4/5/7/', 5, 3, NULL, NULL, 1, '2026-03-19 11:53:31', '2026-03-19 11:53:31', 0),
+(11, 5, '后勤岗', NULL, 'POST', 'PS', '/2/3/4/5/11/', 5, 1, NULL, NULL, 1, '2026-03-19 12:48:40', '2026-03-19 12:48:40', 0),
+(12, 5, '能源岗', NULL, 'POST', 'BK', '/2/3/4/5/12/', 5, 1, NULL, NULL, 1, '2026-03-19 12:56:49', '2026-03-19 12:56:49', 0),
+(13, 4, '天心区教育部', NULL, 'DEPT', NULL, '/2/3/4/13/', 4, 2, NULL, NULL, 1, '2026-03-20 02:35:17', '2026-03-20 02:35:17', 0),
+(14, 3, '北京教育部', NULL, 'DEPT', NULL, '/2/3/14/', 3, 2, NULL, NULL, 1, '2026-03-20 03:24:04', '2026-03-20 03:24:04', 0),
+(15, 14, '朝阳区教育部', NULL, 'DEPT', NULL, '/2/3/14/15/', 4, 1, NULL, NULL, 1, '2026-03-20 03:24:50', '2026-03-20 03:24:50', 0),
+(16, 15, '后勤岗', NULL, 'POST', 'JAVA', '/2/3/14/15/16/', 5, 0, NULL, NULL, 1, '2026-03-20 03:25:13', '2026-03-20 03:25:13', 0),
+(17, 13, '服务岗', NULL, 'POST', 'PASS', '/2/3/4/13/17/', 5, 0, NULL, NULL, 1, '2026-03-20 08:05:28', '2026-03-20 08:05:28', 0)
 ON DUPLICATE KEY UPDATE
 `parent_id` = VALUES(`parent_id`),
 `name` = VALUES(`name`),
@@ -510,24 +528,28 @@ ON DUPLICATE KEY UPDATE
 `sort_order` = VALUES(`sort_order`),
 `leader_id` = VALUES(`leader_id`),
 `leader_name` = VALUES(`leader_name`),
-`status` = VALUES(`status`);
+`status` = VALUES(`status`),
+`updated_at` = VALUES(`updated_at`),
+`is_deleted` = VALUES(`is_deleted`);
 
 INSERT INTO `tb_user_role`
-(`id`, `name`, `code`, `description`, `status`, `sort_order`, `data_scope`)
+(`id`, `name`, `code`, `description`, `status`, `sort_order`, `data_scope`, `created_at`, `updated_at`, `is_deleted`)
 VALUES
-(1, '超级管理员', 'ADMIN', '拥有系统全部管理权限', 1, 10, 'ALL')
+(1, '系统管理员', 'ADMIN', '拥有系统全部管理权限', 1, 10, 'ALL', '2026-03-18 02:52:20', '2026-03-20 04:48:36', 0)
 ON DUPLICATE KEY UPDATE
 `name` = VALUES(`name`),
 `code` = VALUES(`code`),
 `description` = VALUES(`description`),
 `status` = VALUES(`status`),
 `sort_order` = VALUES(`sort_order`),
-`data_scope` = VALUES(`data_scope`);
+`data_scope` = VALUES(`data_scope`),
+`updated_at` = VALUES(`updated_at`),
+`is_deleted` = VALUES(`is_deleted`);
 
 INSERT INTO `tb_user`
-(`id`, `username`, `password`, `real_name`, `email`, `mobile`, `avatar`, `status`, `last_login_at`)
+(`id`, `username`, `password`, `real_name`, `email`, `mobile`, `avatar`, `status`, `last_login_at`, `created_at`, `updated_at`, `is_deleted`)
 VALUES
-(1, 'admin', '$2a$10$Hf3Pqi4aXMTReDLGi/W9a.0I2ohxTWUMWxbbwgdxcWmVe1vF4HbPO', '超级管理员', 'admin@yuyu.com', '13800000000', NULL, 1, NULL)
+(1, 'admin', '$2a$10$Hf3Pqi4aXMTReDLGi/W9a.0I2ohxTWUMWxbbwgdxcWmVe1vF4HbPO', '系统管理员', 'admin@yuyu.com', '13800000000', NULL, 1, '2026-03-31 00:08:20', '2026-03-18 02:52:20', '2026-03-30 16:08:19', 0)
 ON DUPLICATE KEY UPDATE
 `username` = VALUES(`username`),
 `password` = VALUES(`password`),
@@ -536,20 +558,22 @@ ON DUPLICATE KEY UPDATE
 `mobile` = VALUES(`mobile`),
 `avatar` = VALUES(`avatar`),
 `status` = VALUES(`status`),
-`last_login_at` = VALUES(`last_login_at`);
+`last_login_at` = VALUES(`last_login_at`),
+`updated_at` = VALUES(`updated_at`),
+`is_deleted` = VALUES(`is_deleted`);
 
 INSERT INTO `tb_user_role_rel`
-(`id`, `user_id`, `role_id`)
+(`id`, `user_id`, `role_id`, `created_at`)
 VALUES
-(1, 1, 1)
+(1, 1, 1, '2026-03-18 02:52:20')
 ON DUPLICATE KEY UPDATE
 `user_id` = VALUES(`user_id`),
 `role_id` = VALUES(`role_id`);
 
 INSERT INTO `tb_user_dept_rel`
-(`id`, `user_id`, `dept_id`, `org_type`, `post_type`, `is_primary`)
+(`id`, `user_id`, `dept_id`, `org_type`, `post_type`, `is_primary`, `created_at`)
 VALUES
-(1, 1, 1, 'GROUP', NULL, 1)
+(13, 1, 2, 'GROUP', NULL, 1, '2026-03-20 09:45:06')
 ON DUPLICATE KEY UPDATE
 `user_id` = VALUES(`user_id`),
 `dept_id` = VALUES(`dept_id`),
@@ -558,9 +582,21 @@ ON DUPLICATE KEY UPDATE
 `is_primary` = VALUES(`is_primary`);
 
 INSERT INTO `tb_user_dept_rel_expand`
-(`id`, `user_id`, `source_rel_id`, `source_dept_id`, `source_org_type`, `source_post_type`, `source_is_primary`, `dept_id`, `org_type`, `post_type`, `relation_type`, `distance`)
+(`id`, `user_id`, `source_rel_id`, `source_dept_id`, `source_org_type`, `source_post_type`, `source_is_primary`, `dept_id`, `org_type`, `post_type`, `relation_type`, `distance`, `created_at`)
 VALUES
-(1, 1, 1, 1, 'GROUP', NULL, 1, 1, 'GROUP', NULL, 'SELF', 0)
+(47, 1, 13, 2, 'GROUP', NULL, 1, 2, 'GROUP', NULL, 'SELF', 0, '2026-03-20 09:45:06'),
+(48, 1, 13, 2, 'GROUP', NULL, 1, 3, 'COMPANY', NULL, 'DESCENDANT', 1, '2026-03-20 09:45:06'),
+(49, 1, 13, 2, 'GROUP', NULL, 1, 4, 'DEPT', NULL, 'DESCENDANT', 2, '2026-03-20 09:45:06'),
+(50, 1, 13, 2, 'GROUP', NULL, 1, 13, 'DEPT', NULL, 'DESCENDANT', 3, '2026-03-20 09:45:06'),
+(51, 1, 13, 2, 'GROUP', NULL, 1, 17, 'POST', 'PASS', 'DESCENDANT', 4, '2026-03-20 09:45:06'),
+(52, 1, 13, 2, 'GROUP', NULL, 1, 5, 'DEPT', NULL, 'DESCENDANT', 3, '2026-03-20 09:45:06'),
+(53, 1, 13, 2, 'GROUP', NULL, 1, 6, 'POST', 'JAVA', 'DESCENDANT', 4, '2026-03-20 09:45:06'),
+(54, 1, 13, 2, 'GROUP', NULL, 1, 11, 'POST', 'PS', 'DESCENDANT', 4, '2026-03-20 09:45:06'),
+(55, 1, 13, 2, 'GROUP', NULL, 1, 12, 'POST', 'BK', 'DESCENDANT', 4, '2026-03-20 09:45:06'),
+(56, 1, 13, 2, 'GROUP', NULL, 1, 7, 'POST', 'HTML', 'DESCENDANT', 4, '2026-03-20 09:45:06'),
+(57, 1, 13, 2, 'GROUP', NULL, 1, 14, 'DEPT', NULL, 'DESCENDANT', 2, '2026-03-20 09:45:06'),
+(58, 1, 13, 2, 'GROUP', NULL, 1, 15, 'DEPT', NULL, 'DESCENDANT', 3, '2026-03-20 09:45:06'),
+(59, 1, 13, 2, 'GROUP', NULL, 1, 16, 'POST', 'JAVA', 'DESCENDANT', 4, '2026-03-20 09:45:06')
 ON DUPLICATE KEY UPDATE
 `user_id` = VALUES(`user_id`),
 `source_rel_id` = VALUES(`source_rel_id`),
@@ -575,41 +611,44 @@ ON DUPLICATE KEY UPDATE
 `distance` = VALUES(`distance`);
 
 INSERT INTO `tb_user_role_menu`
-(`id`, `role_id`, `menu_id`)
+(`id`, `role_id`, `menu_id`, `created_at`)
 VALUES
-(1, 1, 1417),
-(2, 1, 1404),
-(3, 1, 1405),
-(4, 1, 1406),
-(5, 1, 1407),
-(6, 1, 1408),
-(7, 1, 1409),
-(8, 1, 1410),
-(9, 1, 1415),
-(10, 1, 1416),
-(11, 1, 1000),
-(12, 1, 1100),
-(13, 1, 1101),
-(14, 1, 1102),
-(15, 1, 1103),
-(16, 1, 1104),
-(17, 1, 1105),
-(18, 1, 1106),
-(19, 1, 1200),
-(20, 1, 1201),
-(21, 1, 1202),
-(22, 1, 1203),
-(23, 1, 1204),
-(24, 1, 1205),
-(25, 1, 1300),
-(26, 1, 1301),
-(27, 1, 1302),
-(28, 1, 1303),
-(29, 1, 1304),
-(30, 1, 1400),
-(31, 1, 1401),
-(32, 1, 1402),
-(33, 1, 1403)
+(24, 1, 1404, '2026-03-20 09:33:17'),
+(25, 1, 1405, '2026-03-20 09:33:17'),
+(26, 1, 1406, '2026-03-20 09:33:17'),
+(27, 1, 1407, '2026-03-20 09:33:17'),
+(28, 1, 1408, '2026-03-20 09:33:17'),
+(29, 1, 1409, '2026-03-20 09:33:17'),
+(30, 1, 1000, '2026-03-20 09:33:17'),
+(31, 1, 1100, '2026-03-20 09:33:17'),
+(32, 1, 1200, '2026-03-20 09:33:17'),
+(33, 1, 1300, '2026-03-20 09:33:17'),
+(34, 1, 1400, '2026-03-20 09:33:17'),
+(35, 1, 1411, '2026-03-20 09:33:17'),
+(36, 1, 1101, '2026-03-20 09:33:17'),
+(37, 1, 1102, '2026-03-20 09:33:17'),
+(38, 1, 1103, '2026-03-20 09:33:17'),
+(39, 1, 1412, '2026-03-20 09:33:17'),
+(40, 1, 1201, '2026-03-20 09:33:17'),
+(41, 1, 1202, '2026-03-20 09:33:17'),
+(42, 1, 1203, '2026-03-20 09:33:17'),
+(43, 1, 1413, '2026-03-20 09:33:17'),
+(44, 1, 1301, '2026-03-20 09:33:17'),
+(45, 1, 1302, '2026-03-20 09:33:17'),
+(46, 1, 1303, '2026-03-20 09:33:17'),
+(47, 1, 1304, '2026-03-20 09:33:17'),
+(48, 1, 1414, '2026-03-20 09:33:17'),
+(49, 1, 1401, '2026-03-20 09:33:17'),
+(50, 1, 1402, '2026-03-20 09:33:17'),
+(51, 1, 1403, '2026-03-20 09:33:17'),
+(52, 1, 1415, '2026-03-20 09:33:17'),
+(53, 1, 1416, '2026-03-20 09:33:17'),
+(54, 1, 1410, '2026-03-20 09:33:17'),
+(122, 1, 1420, '2026-03-22 08:33:24'),
+(125, 1, 1423, '2026-03-22 09:32:36'),
+(126, 1, 1424, '2026-03-23 03:46:21'),
+(127, 1, 1425, '2026-03-23 03:48:37'),
+(128, 1, 1426, '2026-03-23 12:22:20')
 ON DUPLICATE KEY UPDATE
 `role_id` = VALUES(`role_id`),
 `menu_id` = VALUES(`menu_id`);
