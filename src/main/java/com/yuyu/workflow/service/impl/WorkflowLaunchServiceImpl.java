@@ -123,7 +123,7 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
 
     @Override
     public void submit(WorkflowBizSubmitETO eto) {
-        
+
     }
 
     @Override
