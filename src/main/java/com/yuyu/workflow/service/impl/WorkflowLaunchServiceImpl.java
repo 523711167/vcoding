@@ -22,13 +22,7 @@ import com.yuyu.workflow.entity.base.BaseIdEntity;
 import com.yuyu.workflow.eto.workflow.WorkflowAuditETO;
 import com.yuyu.workflow.eto.workflow.WorkflowBizSubmitETO;
 import com.yuyu.workflow.mapper.*;
-import com.yuyu.workflow.service.BizApplyService;
-import com.yuyu.workflow.service.WorkflowApprovalRecordService;
-import com.yuyu.workflow.service.WorkflowInstanceService;
-import com.yuyu.workflow.service.WorkflowLaunchService;
-import com.yuyu.workflow.service.WorkflowNodeApproverInstanceService;
-import com.yuyu.workflow.service.WorkflowNodeInstanceService;
-import com.yuyu.workflow.service.WorkflowRouteTreeBuilder;
+import com.yuyu.workflow.service.*;
 import com.yuyu.workflow.service.model.workflow.WorkflowRouteNode;
 import org.hibernate.validator.constraintvalidators.RegexpURLValidator;
 import org.springframework.context.expression.MapAccessor;
@@ -63,6 +57,7 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
     private final UserDeptMapper userDeptMapper;
     private final ObjectMapperUtils objectMapperUtils;
     private final WorkflowRouteTreeBuilder workflowRouteTreeBuilder;
+    private final BizDefinitionService bizDefinitionService;
 
     public WorkflowLaunchServiceImpl(BizApplyService bizApplyService,
                                      WorkflowInstanceService workflowInstanceService,
@@ -76,6 +71,7 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
                                      UserDeptRelMapper userDeptRelMapper,
                                      UserDeptMapper userDeptMapper,
                                      ObjectMapperUtils objectMapperUtils,
+                                     BizDefinitionService bizDefinitionService,
                                      WorkflowRouteTreeBuilder workflowRouteTreeBuilder) {
         this.bizApplyService = bizApplyService;
         this.workflowInstanceService = workflowInstanceService;
@@ -90,15 +86,53 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         this.userDeptMapper = userDeptMapper;
         this.objectMapperUtils = objectMapperUtils;
         this.workflowRouteTreeBuilder = workflowRouteTreeBuilder;
+        this.bizDefinitionService = bizDefinitionService;
     }
 
     @Override
     public void submit(WorkflowBizSubmitETO eto) {
 
 
+        loadSubmitContext(eto);
+
         // 创建流程实例 保存业务主健
         // 从开始节点查找下个节点
         // 节点查找审核人
+    }
+
+    private SubmitContext loadSubmitContext(WorkflowBizSubmitETO eto) {
+
+        bizDefinitionService.getById()
+
+
+        // 整个流程定义节点连线
+        List<WorkflowTransition> definitionWorkflowTransitions = workflowTransitionMapper.selectList(
+                Wrappers.<WorkflowTransition>lambdaQuery()
+                        .eq(WorkflowTransition::getDefinitionId, definitionNode.getDefinitionId())
+                        .orderByAsc(BaseIdEntity::getId)
+        );
+
+        List<WorkflowNode> definitionWorkflowNodes = workflowNodeMapper.selectList(
+                Wrappers.<WorkflowNode>lambdaQuery()
+                        .eq(WorkflowNode::getDefinitionId, definitionNode.getDefinitionId())
+                        .orderByAsc(BaseIdEntity::getId)
+        );
+
+        Map<Long, WorkflowNode> nodeMap = definitionWorkflowNodes.stream()
+                .collect(Collectors.toMap(WorkflowNode::getId, item -> item, (left, right) -> left, LinkedHashMap::new));
+
+        Map<Long, List<WorkflowTransition>> transitionsByFromNodeId = definitionWorkflowTransitions.stream()
+                .collect(Collectors.groupingBy(
+                        WorkflowTransition::getFromNodeId,
+                        LinkedHashMap::new,
+                        Collectors.toList()
+                ));
+
+        return new SubmitContext(
+                eto,
+                nodeMap
+                transitionsByFromNodeId,
+        );
     }
 
     @Override
@@ -872,6 +906,14 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
             WorkflowNodeInstanceStatusEnum currentNodeAuditedStatus
     ) {
 
+    }
+
+    private record SubmitContext(
+            WorkflowBizSubmitETO eto,
+            // 流程实例
+            Map<Long, WorkflowNode> nodeMap,
+            Map<Long, List<WorkflowTransition>> transitionsByFromNodeId
+    ) {
     }
 
 }
