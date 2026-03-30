@@ -62,18 +62,19 @@
 ### 5.2 职责划分
 
 - `tb_workflow_definition`：保存流程定义主信息、版本、发布状态，以及前端流程设计原始 JSON。
-- `tb_workflow_node`：保存流程节点结构、节点类型、节点配置。
+- `tb_workflow_node`：保存流程节点结构、节点类型、节点配置，并维护节点所属最近一层并行拆分节点定义 ID。
 - `tb_workflow_node_approver`：保存审批节点对应的审批人直接配置，一条记录只对应一个审批主体，并冗余 `definition_id`。
 - `tb_workflow_node_approver_dept_expand`：保存 `DEPT` 类型审批人的向下展开结果，仅作为派生生效范围表使用。
-- `tb_workflow_transition`：保存节点之间的流转关系、优先级、条件表达式和默认分支标记。
+- `tb_workflow_transition`：保存节点之间的流转关系、优先级、条件表达式、默认分支标记，以及来源/目标节点名称和类型冗余。
 
 ### 5.3 关键约束
 
 - 同一 `code` 下任一时刻只能有一个已发布版本。
 - `tb_workflow_definition` 不再冗余保存 `biz_code`，流程与业务的绑定统一由 `tb_biz_definition.workflow_definition_id` 维护。
 - 同一流程定义下前端节点 `id` 必须唯一，但该 `id` 仅用于保存时解析，不再单独落库。
+- `tb_workflow_node.parallel_split_node_id` 由后端保存流程时自动计算，表示当前定义节点所属最近一层 `PARALLEL_SPLIT` 节点定义 ID。
 - `APPROVAL` 节点必须至少配置一个审批人。
-- 审批人 direct 配置必须满足“一条记录一个审批主体”，`approver_value` 不允许逗号拼接多个值。
+- 审批人 direct 配置必须满足“一条记录一个审批主体”，`approver_value` 使用 `BIGINT` 保存单个主体 ID，不允许逗号拼接多个值。
 - `DEPT` 类型审批人除 direct 配置外，还需要维护组织展开表，且只保留当前有效组织节点。
 - 节点超时与提醒时长统一使用“分钟”作为存储和接口口径。
 - `CONDITION` 与 `PARALLEL_SPLIT` 节点在存在多条出边时，必须且只能配置一条默认分支，避免流程停滞。
@@ -85,7 +86,7 @@
 - `nodes` 对应 `tb_workflow_node`
   后端在保存时解析前端节点 `id`、`properties`、`text`，拆分并落到节点、审批人、连线表。
 - `transitions` 对应 `tb_workflow_transition`
-  后端在保存时解析边上的 `properties.expression`、`properties.priority`、`properties.is_default`，分别落到 `condition_expr`、`priority`、`is_default`。
+  后端在保存时解析边上的 `properties.expression`、`properties.priority`、`properties.is_default`，分别落到 `condition_expr`、`priority`、`is_default`，并同步冗余 `from_node_name/from_node_type/to_node_name/to_node_type`。
 - `approvers` 对应 `tb_workflow_node_approver`
   审批人保存时按数组逐项拆分，一条审批主体写一条 direct 记录；当 `approverType=DEPT` 时，再同步重建 `tb_workflow_node_approver_dept_expand`。
 
@@ -100,10 +101,20 @@
 
 ### 6.2 职责划分
 
-- `tb_workflow_instance`：记录流程整体运行状态。
-- `tb_workflow_node_instance`：记录节点运行状态和节点级上下文。
-- `tb_workflow_node_approver_instance`：记录每个审批人的待办与处理状态。
+- `tb_workflow_instance`：记录流程整体运行状态，并冗余业务定义和当前节点快照。
+- `tb_workflow_node_instance`：记录节点运行状态和节点级上下文，节点字段统一表达“节点定义快照”。
+- `tb_workflow_node_approver_instance`：记录每个审批人的待办与处理状态，并冗余所属节点名称、类型和转交目标姓名。
 - `tb_workflow_approval_record`：记录不可修改的审批审计流水。
+
+### 6.3 运行层关键字段补充
+
+- `tb_workflow_instance.biz_id`：冗余业务定义 ID，对应 `tb_biz_definition.id`。
+- `tb_workflow_instance.current_node_id/current_node_name/current_node_type`：记录流程当前主运行位置的节点定义快照。
+- `tb_workflow_node_instance.definition_node_id/definition_node_name/definition_node_type`：统一表达当前节点实例对应的节点定义快照。
+- `tb_workflow_node_instance.parallel_branch_root_id`：记录当前节点实例所属最近一层并行拆分节点实例 ID，非并行分支为空。
+- `tb_workflow_node_approver_instance.finished_at`：统一表达审批人实例完成时间。
+- `tb_workflow_node_approver_instance.delegate_to_name`：冗余转交目标用户姓名。
+- `tb_workflow_approval_record` 需要冗余 `node_instance_*`、`from_node_*`、`to_node_*` 三组节点名称和类型字段。
 
 ## 7. 发布与版本机制
 
@@ -124,15 +135,18 @@
 
 ### 8.2 发起步骤
 
-1. 根据 `biz_code` 查询业务定义并定位流程定义。
-2. 创建 `tb_workflow_instance`。
+1. 根据 `tb_biz_apply.biz_definition_id` 查询业务定义并定位已发布流程定义。
+2. 创建 `tb_workflow_instance`，同步写入 `biz_id`、`definition_id`、`definition_code`、申请人快照和业务表单快照。
 3. 从 `START` 节点出发，解析并激活首个有效节点。
-4. 创建节点实例与审批人实例。
-5. 写入 `SUBMIT` 审批记录。
+4. 按实际进入运行的节点创建 `tb_workflow_node_instance`；`START`、`END` 不创建节点实例。
+5. 若首批进入的是审批节点，则创建 `tb_workflow_node_approver_instance`。
+6. 回写 `tb_biz_apply.workflow_instance_id`、`workflow_name`、`submitted_at`、`biz_status`。
+7. 写入 `SUBMIT` 审批记录，以及必要的系统 `ROUTE` / `SPLIT_TRIGGER` 记录。
 
 补充说明：
 - 业务侧通过 `tb_biz_definition.workflow_definition_id` 选择流程定义版本。
 - 流程定义表本身不再保存 `biz_code`。
+- 业务申请表与业务定义的关联统一使用主键 `biz_definition_id`，不再通过 `biz_code` 反查。
 
 ## 9. 节点流转机制
 
@@ -143,6 +157,7 @@
 - `PARALLEL_SPLIT` 节点遍历全部非默认分支，激活所有命中的分支。
 - `PARALLEL_SPLIT` 节点若没有任何条件分支命中，则走唯一默认分支；若不存在默认分支，则按流程配置错误处理。
 - 命中 `PARALLEL_JOIN` 时，等待全部预期分支完成后继续。
+- 并行分支中节点实例通过 `parallel_branch_root_id` 识别所属最近一层并行拆分节点实例。
 
 ## 10. 多人审批模式
 
@@ -195,8 +210,19 @@
 - `REJECT`
 - `DELEGATE`
 - `RECALL`
-- `URGE`
+- `ADD_SIGN`
+- `SUBMIT`
 - 超时自动处理
+
+系统动作：
+- `ROUTE`
+- `SPLIT_TRIGGER`
+- `JOIN_ARRIVE`
+- `JOIN_PASS`
+- `AUTO_APPROVE`
+- `AUTO_REJECT`
+- `TIMEOUT`
+- `REMIND`
 
 ### 12.2 通知触发点
 
@@ -219,9 +245,11 @@
 
 - `PENDING`
 - `ACTIVE`
+- `PENDING_APPROVAL`
 - `APPROVED`
 - `REJECTED`
 - `SKIPPED`
+- `CANCELED`
 - `TIMEOUT`
 
 ## 14. 与其他模块的衔接

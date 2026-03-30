@@ -11,7 +11,6 @@ import com.yuyu.workflow.common.enums.WorkflowNodeInstanceStatusEnum;
 import com.yuyu.workflow.common.enums.YesNoEnum;
 import com.yuyu.workflow.common.exception.BizException;
 import com.yuyu.workflow.entity.User;
-import com.yuyu.workflow.entity.WorkflowApprovalRecord;
 import com.yuyu.workflow.entity.WorkflowNodeApproverInstance;
 import com.yuyu.workflow.entity.WorkflowNodeInstance;
 import com.yuyu.workflow.eto.workflow.WorkflowRejectAuditETO;
@@ -34,22 +33,14 @@ import java.util.stream.IntStream;
 @Service
 public class WorkflowNodeApproverInstanceServiceImpl extends ServiceImpl<WorkflowNodeApproverInstanceMapper, WorkflowNodeApproverInstance> implements WorkflowNodeApproverInstanceService {
 
-    private final WorkflowNodeApproverInstanceService workflowNodeApproverInstanceService;
-    private final WorkflowNodeApproverDeptExpandService workflowNodeApproverDeptExpandService;
     private final UserService userService;
 
     /**
      * 注入节点审批人实例服务依赖。
      */
     public WorkflowNodeApproverInstanceServiceImpl(WorkflowNodeApproverInstanceMapper workflowNodeApproverInstanceMapper,
-                                                   WorkflowNodeApproverInstanceService workflowNodeApproverInstanceService,
-                                                   WorkflowNodeApproverDeptExpandService workflowNodeApproverDeptExpandService,
-                                                   com.yuyu.workflow.service.WorkflowNodeApproverService workflowNodeApproverService,
-                                                   com.yuyu.workflow.mapper.UserRoleRelMapper userRoleRelMapper,
                                                    UserService userService) {
         this.baseMapper = workflowNodeApproverInstanceMapper;
-        this.workflowNodeApproverInstanceService = workflowNodeApproverInstanceService;
-        this.workflowNodeApproverDeptExpandService = workflowNodeApproverDeptExpandService;
         this.userService = userService;
     }
 

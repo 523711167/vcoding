@@ -2,7 +2,7 @@
 
 > 文档定位：本文档是迁移到 `doc/vCoding后台管理系统设计/` 后保留的完整归档稿，用于集中查阅整体设计口径、完整 SQL 草案与历史上下文。
 > 使用建议：日常开发优先阅读同目录下按主题拆分的专题文档；若归档稿与拆分文档、当前代码实现存在不一致，以拆分文档和当前实现为准。
-> 归档范围：本稿已合并 `doc/需求变更/` 中截至 `2026-03-23` 的已确认变更，包括用户组织展开、角色数据权限展开、`data_scope` 字符串化、菜单类型编码化、内置管理员保护、流程定义原始 JSON、流程定义版本发布规则、流程定义移除 `biz_code`、流程节点分钟口径、审批组织展开等。
+> 归档范围：本稿已合并 `doc/需求变更/` 中截至 `2026-03-30` 的已确认变更，包括用户组织展开、角色数据权限展开、`data_scope` 字符串化、菜单类型编码化、内置管理员保护、流程定义原始 JSON、流程定义版本发布规则、流程定义移除 `biz_code`、流程节点分钟口径、审批组织展开、运行层字段补充、默认分支规则、并行归属字段等。
 
 ## 一、文档概述
 
@@ -355,7 +355,7 @@ tb_user ──────────────── tb_user_role_rel ──
 tb_biz_definition ──────────────── tb_biz_definition_role_rel
    │
    ├── tb_workflow_definition.id（via workflow_definition_id）
-   └── tb_biz_apply.biz_code
+   └── tb_biz_apply.biz_definition_id
             │
             ├── form_data（业务申请数据快照）
             └── tb_workflow_instance （via workflow_instance_id）
@@ -370,10 +370,10 @@ tb_sys_dict_type ──────────────── tb_sys_dict_it
 - `tb_biz_definition_role_rel` 定义“哪些角色可以发起该业务定义”
 - `tb_biz_definition.workflow_definition_id` 指向当前业务绑定的流程定义版本，业务发起时以该字段作为流程选择依据
 - `tb_workflow_definition` 不再冗余保存 `biz_code`
-- `tb_biz_apply.biz_code` 标识“这张业务单据属于哪个业务定义”
+- `tb_biz_apply.biz_definition_id` 标识“这张业务单据属于哪个业务定义”
 - `tb_biz_apply.form_data` 保存业务申请提交时的实际数据快照，字段结构由前后端按业务定义约定
 - `tb_biz_apply.workflow_name` 冗余保存提交时命中的流程定义名称，用于历史单据展示
-- 单据提交时，先根据 `tb_biz_apply.biz_code` 查询 `tb_biz_definition` 获取 `workflow_definition_id`，再创建 `tb_workflow_instance`
+- 单据提交时，直接根据 `tb_biz_apply.biz_definition_id` 查询 `tb_biz_definition` 获取 `workflow_definition_id`，再创建 `tb_workflow_instance`
 - `tb_user_dept_rel` 只记录用户直接选中的组织节点及主组织语义
 - `tb_user_dept_rel_expand` 只记录系统按直接绑定关系向下展开后的当前生效节点，并保留来源关系
 
@@ -410,18 +410,18 @@ tb_sys_dict_type ──────────────── tb_sys_dict_it
 
 ### 6.1 业务申请表 `tb_biz_apply`
 
-用一张通用表覆盖所有业务申请场景（请假、报销、合同等），通过 `biz_code` 字段区分业务定义，差异化字段存入 `form_data` JSON 列。
+用一张通用表覆盖所有业务申请场景（请假、报销、合同等），通过 `biz_definition_id` 关联业务定义，差异化字段存入 `form_data` JSON 列。
 
 ```sql
 CREATE TABLE `tb_biz_apply` (
   `id`                   BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `biz_code`             VARCHAR(64)  NOT NULL               COMMENT '业务编码：LEAVE=请假 EXPENSE=报销 CONTRACT=合同 等',
+  `biz_definition_id`    BIGINT       NOT NULL               COMMENT '业务定义ID（tb_biz_definition.id）',
   `title`                VARCHAR(200) NOT NULL               COMMENT '申请标题',
   `biz_status`           VARCHAR(16)  NOT NULL DEFAULT 'DRAFT' COMMENT '业务申请状态：DRAFT=草稿 PENDING=审批中 APPROVED=已通过 REJECTED=已拒绝 CANCELED=已撤回',
   `applicant_id`         BIGINT       NOT NULL               COMMENT '申请人用户ID',
   `applicant_name`       VARCHAR(64)  NOT NULL               COMMENT '申请人姓名（冗余）',
   `dept_id`              BIGINT                              COMMENT '申请人所属部门ID（冗余）',
-  `form_data`            JSON                                COMMENT '业务差异化字段（按biz_code存储申请数据快照）',
+  `form_data`            JSON                                COMMENT '业务差异化字段（按业务定义存储申请数据快照）',
   `workflow_name`        VARCHAR(100)                        COMMENT '流程名称（冗余快照，取提交流程定义名称）',
   `workflow_instance_id` BIGINT                              COMMENT '关联的审批工作流实例ID（tb_workflow_instance.id），提交后回写',
   `submitted_at`         DATETIME                            COMMENT '提交审批时间',
@@ -431,7 +431,7 @@ CREATE TABLE `tb_biz_apply` (
   `is_deleted`           TINYINT      NOT NULL DEFAULT 0     COMMENT '软删除标记：0=正常 1=已删除',
   PRIMARY KEY (`id`),
   KEY `idx_applicant_id` (`applicant_id`),
-  KEY `idx_biz_code_biz_status` (`biz_code`, `biz_status`),
+  KEY `idx_biz_definition_id_biz_status` (`biz_definition_id`, `biz_status`),
   KEY `idx_workflow_instance_id` (`workflow_instance_id`)
 ) ENGINE=InnoDB COMMENT='通用业务申请表';
 ```
@@ -440,9 +440,9 @@ CREATE TABLE `tb_biz_apply` (
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `biz_code` | `VARCHAR(64)` | 业务定义编码，对应 `tb_biz_definition.biz_code` |
+| `biz_definition_id` | `BIGINT` | 业务定义主键，对应 `tb_biz_definition.id` |
 | `biz_status` | `VARCHAR(16)` | 业务申请自身状态，随工作流实例状态同步更新 |
-| `form_data` | `JSON` | 按 `biz_code` 存储业务申请提交的数据快照；其中枚举类字段统一存字典项值，不存显示文案 |
+| `form_data` | `JSON` | 按业务定义存储业务申请提交的数据快照；其中枚举类字段统一存字典项值，不存显示文案 |
 | `workflow_name` | `VARCHAR(100)` | 冗余保存提交时命中的流程定义名称，便于历史单据直接展示 |
 | `workflow_instance_id` | `BIGINT` | 提交审批后关联到 `tb_workflow_instance.id`，草稿阶段为 `NULL` |
 
@@ -479,6 +479,7 @@ CREATE TABLE `tb_biz_apply` (
 - 已入库业务单据按提交时保存的值参与流程流转，不因后续字典文案调整而回写历史单据
 
 关联关系说明：
+- `tb_biz_apply.biz_definition_id` → `tb_biz_definition.id`
 - `tb_biz_apply.workflow_instance_id` → `tb_workflow_instance.id`
 - 申请提交时同步冗余当前流程定义名称到 `tb_biz_apply.workflow_name`
 - 申请提交时创建工作流实例，将实例 ID 回写至 `tb_biz_apply.workflow_instance_id`
@@ -519,7 +520,7 @@ CREATE TABLE `tb_biz_definition` (
 说明：
 - `tb_biz_definition` 表示审批系统支持的业务定义，是业务申请入口、流程绑定和发起权限控制的业务主维度
 - 基础版只维护业务名称、业务说明、默认流程定义和启停状态，不再单独维护业务字段配置表
-- 业务申请提交时，先根据 `biz_code` 查询 `tb_biz_definition`，读取 `workflow_definition_id`，再创建对应的 `tb_workflow_instance`
+- 业务申请提交时，先根据 `biz_definition_id` 查询 `tb_biz_definition`，读取 `workflow_definition_id`，再创建对应的 `tb_workflow_instance`
 - `tb_biz_apply.form_data` 作为业务申请数据快照保存，字段内容由具体业务场景自行约定
 - 字典表表示可复用的枚举维度，如请假类型、费用类型、币种等，用于承载业务申请中的通用枚举值
 - `tb_biz_definition` 与字典表职责不同，前者用于定义“是什么业务”，后者用于定义“业务中可复用的枚举项”，两者不能混用
@@ -1187,6 +1188,7 @@ CREATE TABLE `tb_workflow_node` (
   `definition_id`    BIGINT       NOT NULL               COMMENT '所属流程定义ID',
   `name`             VARCHAR(100) NOT NULL               COMMENT '节点名称',
   `node_type`        VARCHAR(32)  NOT NULL               COMMENT '节点类型：START/APPROVAL/CONDITION/PARALLEL_SPLIT/PARALLEL_JOIN/END',
+  `parallel_split_node_id` BIGINT                         COMMENT '所属最近一层并行拆分节点定义ID，非并行段为空',
   `approve_mode`     VARCHAR(16)                         COMMENT '多人审批模式：AND=会签 OR=或签 SEQUENTIAL=顺签（仅APPROVAL节点有效）',
   `timeout_minutes`  INT                                 COMMENT '超时时限（分钟），NULL表示不限时',
   `timeout_action`   VARCHAR(16)                         COMMENT '超时处理策略：AUTO_APPROVE=自动通过 AUTO_REJECT=自动拒绝 NOTIFY_ONLY=仅提醒',
@@ -1210,6 +1212,7 @@ CREATE TABLE `tb_workflow_node` (
 - 本表解决的是“节点审批时由谁来审批”，与 `tb_biz_definition_role_rel` 的“谁可以发起业务”不是同一层含义
 - `tb_workflow_node_approver` 采用“一条记录对应一个审批主体”的范式，不允许再使用逗号拼接多个值
 - 直接审批人配置表冗余 `definition_id`，便于按流程定义直接查询审批人配置，并与版本隔离保持一致
+- `approver_value` 统一使用 `BIGINT` 保存单个审批主体主键
 
 ```sql
 CREATE TABLE `tb_workflow_node_approver` (
@@ -1217,7 +1220,7 @@ CREATE TABLE `tb_workflow_node_approver` (
   `definition_id`   BIGINT      NOT NULL               COMMENT '所属流程定义ID',
   `node_id`         BIGINT      NOT NULL               COMMENT '所属节点ID',
   `approver_type`   VARCHAR(16) NOT NULL               COMMENT '审批人类型：USER=指定用户 ROLE=角色 DEPT=部门 INITIATOR_DEPT_LEADER=发起人部门主管',
-  `approver_value`  VARCHAR(256) NOT NULL              COMMENT '审批人值：单个用户ID/角色ID/组织ID',
+  `approver_value`  BIGINT      NOT NULL               COMMENT '审批人值：单个用户ID/角色ID/组织ID',
   `sort_order`      INT         NOT NULL DEFAULT 0     COMMENT '顺序（SEQUENTIAL模式下有效）',
   `created_at`      DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `is_deleted`      TINYINT     NOT NULL DEFAULT 0,
@@ -1270,7 +1273,11 @@ CREATE TABLE `tb_workflow_transition` (
   `id`              BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `definition_id`   BIGINT       NOT NULL               COMMENT '所属流程定义ID',
   `from_node_id`    BIGINT       NOT NULL               COMMENT '来源节点ID',
+  `from_node_name`  VARCHAR(100) NOT NULL               COMMENT '来源节点名称（冗余）',
+  `from_node_type`  VARCHAR(32)  NOT NULL               COMMENT '来源节点类型（冗余）',
   `to_node_id`      BIGINT       NOT NULL               COMMENT '目标节点ID',
+  `to_node_name`    VARCHAR(100) NOT NULL               COMMENT '目标节点名称（冗余）',
+  `to_node_type`    VARCHAR(32)  NOT NULL               COMMENT '目标节点类型（冗余）',
   `condition_expr`  VARCHAR(512)                        COMMENT '条件表达式（为NULL表示无条件流转；默认分支通过is_default标识）',
   `is_default`      TINYINT      NOT NULL DEFAULT 0     COMMENT '是否默认分支：0=否 1=是',
   `priority`        INT          NOT NULL DEFAULT 0     COMMENT '条件优先级（值越小越先判断）',
@@ -1284,7 +1291,9 @@ CREATE TABLE `tb_workflow_transition` (
 
 字段作用说明：
 - `from_node_id`：表示从哪个节点流出
+- `from_node_name` / `from_node_type`：来源节点名称与类型冗余
 - `to_node_id`：表示流转到哪个目标节点
+- `to_node_name` / `to_node_type`：目标节点名称与类型冗余
 - `condition_expr`：表示该连线命中的条件；为 `NULL` 时仅表示无条件，不再隐式代表默认分支
 - `is_default`：表示该连线是否为默认分支；仅在没有任何条件分支命中时才生效
 - `priority`：当同一节点存在多条条件出边时，按优先级从小到大依次判断
@@ -1394,6 +1403,7 @@ ASCII 流程图示例：
 ```sql
 CREATE TABLE `tb_workflow_instance` (
   `id`               BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `biz_id`           BIGINT       NOT NULL               COMMENT '业务定义ID（tb_biz_definition.id）',
   `definition_id`    BIGINT       NOT NULL               COMMENT '流程定义ID',
   `definition_code`  VARCHAR(64)  NOT NULL               COMMENT '流程编码（冗余，方便查询）',
   `title`            VARCHAR(200) NOT NULL               COMMENT '审批标题',
@@ -1401,7 +1411,9 @@ CREATE TABLE `tb_workflow_instance` (
   `applicant_id`     BIGINT       NOT NULL               COMMENT '申请人用户ID',
   `applicant_name`   VARCHAR(64)  NOT NULL               COMMENT '申请人姓名（冗余）',
   `form_data`        JSON                                COMMENT '业务申请数据快照',
-  `current_node_id`   BIGINT                              COMMENT '当前所在节点ID',
+  `current_node_id`   BIGINT                              COMMENT '当前所在节点定义ID',
+  `current_node_name` VARCHAR(100)                        COMMENT '当前所在节点定义名称（冗余）',
+  `current_node_type` VARCHAR(32)                         COMMENT '当前所在节点定义类型（冗余）',
   `started_at`       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '发起时间',
   `finished_at`      DATETIME                            COMMENT '完成时间',
   `created_at`       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1422,9 +1434,10 @@ CREATE TABLE `tb_workflow_instance` (
 CREATE TABLE `tb_workflow_node_instance` (
   `id`              BIGINT      NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `instance_id`     BIGINT      NOT NULL               COMMENT '所属流程实例ID',
-  `node_id`         BIGINT      NOT NULL               COMMENT '对应的节点定义ID',
-  `node_name`       VARCHAR(100) NOT NULL              COMMENT '节点名称（冗余）',
-  `node_type`       VARCHAR(32) NOT NULL               COMMENT '节点类型（冗余）',
+  `definition_node_id` BIGINT      NOT NULL            COMMENT '对应的节点定义ID',
+  `definition_node_name` VARCHAR(100) NOT NULL         COMMENT '节点定义名称（冗余）',
+  `definition_node_type` VARCHAR(32) NOT NULL          COMMENT '节点定义类型（冗余）',
+  `parallel_branch_root_id` BIGINT                     COMMENT '所属最近一层并行拆分节点实例ID，非并行段为空',
   `status` VARCHAR(16) NOT NULL DEFAULT 'PENDING' COMMENT '状态：PENDING=待激活 ACTIVE=进行中 APPROVED=已通过 REJECTED=已拒绝 SKIPPED=已跳过 CANCELED=已取消 TIMEOUT=已超时',
   `approve_mode`    VARCHAR(16)                        COMMENT '审批模式（冗余）',
   `activated_at`    DATETIME                           COMMENT '节点激活时间',
@@ -1508,6 +1521,7 @@ CREATE TABLE `tb_workflow_approval_record` (
 审批人实例补充说明：
 
 - `tb_workflow_node_approver_instance.node_name`、`node_type` 冗余保存所属节点实例的名称和类型
+- `tb_workflow_node_instance.definition_node_*` 统一表示节点实例对应的节点定义快照
 - `relation_type` 区分当前审批人实例是原始审批人还是加签审批人
 - `source_approver_instance_id` 用于记录加签审批人的来源审批人实例链路
 - 审批人待办、已办查询可直接使用审批人实例表展示节点信息，无需额外回查节点实例表
@@ -1579,8 +1593,9 @@ CREATE TABLE `tb_workflow_approval_record` (
   - 只有新发起实例才会使用最新已发布版本
 
 与业务单据的关系：
-- 业务单据提交审批时，系统先根据 `tb_biz_apply.biz_code` 查询 `tb_biz_definition.workflow_definition_id`
+- 业务单据提交审批时，系统先根据 `tb_biz_apply.biz_definition_id` 查询 `tb_biz_definition.workflow_definition_id`
 - 创建流程实例时，将该 `workflow_definition_id` 写入 `tb_workflow_instance.definition_id`
+- 同时将业务定义主键冗余写入 `tb_workflow_instance.biz_id`
 - 同时将当次命中的流程定义名称冗余写入 `tb_biz_apply.workflow_name`
 - 若某业务定义后续改绑到新的流程定义版本，则只有改绑后新提交的单据会使用新的 `definition_id`
 - 已提交单据关联的 `workflow_instance_id`、`workflow_name` 不因流程发布新版本、流程改名或业务重新绑定流程而回写变化
@@ -1608,9 +1623,9 @@ CREATE TABLE `tb_workflow_approval_record` (
 - 根据 `tb_biz_definition.workflow_definition_id` 查询对应流程定义，确认流程定义存在且可用于发起
 
 发起步骤：
-1. 业务单据提交时，先根据 `tb_biz_apply.biz_code` 查询 `tb_biz_definition`，获取对应的 `workflow_definition_id`
+1. 业务单据提交时，先根据 `tb_biz_apply.biz_definition_id` 查询 `tb_biz_definition`，获取对应的 `workflow_definition_id`
 2. 同步将当前流程定义名称冗余写入 `tb_biz_apply.workflow_name`
-3. 在 `tb_workflow_instance` 创建实例记录（`status=RUNNING`，`definition_id=workflow_definition_id`）
+3. 在 `tb_workflow_instance` 创建实例记录（`status=RUNNING`，`biz_id=tb_biz_apply.biz_definition_id`，`definition_id=workflow_definition_id`）
 4. 读取流程定义，找到 `START` 节点，激活从 `START` 出发的第一个节点
     - `START`、`END` 不创建节点实例
     - `APPROVAL`、`CONDITION`、`PARALLEL_SPLIT`、`PARALLEL_JOIN` 创建节点实例
@@ -1618,7 +1633,7 @@ CREATE TABLE `tb_workflow_approval_record` (
 5. 激活节点时：
     - `CONDITION`、`PARALLEL_SPLIT` 为瞬时网关，创建后立即完成，`status=APPROVED`
     - `PARALLEL_JOIN` 首个分支到达时创建，初始 `status=ACTIVE`
-    - 审批节点激活时，在 `tb_workflow_node_instance` 创建记录（`status=ACTIVE`，计算 `deadline_at`）
+    - 审批节点激活时，在 `tb_workflow_node_instance` 创建记录（`status=ACTIVE`，计算 `deadline_at`，同步写入 `definition_node_*` 和必要的 `parallel_branch_root_id`）
     - 解析审批人配置，在 `tb_workflow_node_approver_instance` 为每位审批人创建记录，同时写入节点名称、节点类型冗余值
    - 向审批人发送待办通知
 6. 在 `tb_workflow_approval_record` 写入 `SUBMIT` 操作记录
@@ -1884,7 +1899,7 @@ PENDING ──────────────────────→ AC
 - `workflow_definition_id` 必须指向有效流程定义，且应绑定到当前业务口径对应的流程
 - `tb_biz_apply.form_data` 仅保存业务申请数据快照，不再依赖独立业务配置明细表
 - 发起权限按业务定义配置在 `tb_biz_definition_role_rel` 中，不再按流程单独配置
-- 删除前需检查是否已被 `tb_biz_apply.biz_code` 或 `tb_biz_definition_role_rel.biz_definition_id` 引用，并确认业务停用后再处理
+- 删除前需检查是否已被 `tb_biz_apply.biz_definition_id` 或 `tb_biz_definition_role_rel.biz_definition_id` 引用，并确认业务停用后再处理
 
 ### 12.6 字典管理
 
@@ -2091,7 +2106,7 @@ PENDING ──────────────────────→ AC
 
 ### 14.5 业务申请数据衔接
 
-- 用户发起业务前，系统先按 `biz_code` 确认业务定义是否启用、当前用户角色是否具备发起权限，以及 `tb_biz_definition.workflow_definition_id` 是否已配置
+- 用户发起业务前，系统先按 `biz_definition_id` 确认业务定义是否启用、当前用户角色是否具备发起权限，以及 `tb_biz_definition.workflow_definition_id` 是否已配置
 - 页面表单可按业务定义分别实现，提交时统一写入 `tb_biz_apply.form_data`
 - 用户提交后，后端按业务定义做基础参数校验；校验通过后先读取 `workflow_definition_id`，再进入流程发起
 - `tb_biz_apply.form_data` 作为业务数据快照保存，不直接依赖独立业务表结构配置
@@ -2144,7 +2159,7 @@ PENDING ──────────────────────→ AC
 
 ### 15.6 业务申请相关
 
-- `biz_code` 必须与 `tb_biz_definition.biz_code` 保持一致，且业务停用后不可再发起新单据
+- `biz_definition_id` 必须指向有效的 `tb_biz_definition.id`，且业务停用后不可再发起新单据
 - `tb_biz_definition.workflow_definition_id` 不能为空，且必须指向有效流程定义；未配置流程时不允许提交审批
 - `tb_biz_apply.form_data` 中的字段由具体业务场景自行约定，后端至少应校验必需参数是否齐全
 - 同一业务定义的申请数据结构允许逐步演进，但历史单据按已存快照展示，不强制回写旧数据

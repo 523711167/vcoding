@@ -55,70 +55,41 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
     private final WorkflowNodeInstanceService workflowNodeInstanceService;
     private final WorkflowNodeApproverInstanceService workflowNodeApproverInstanceService;
     private final WorkflowApprovalRecordService workflowApprovalRecordService;
-    private final BizDefinitionMapper bizDefinitionMapper;
-    private final BizDefinitionRoleRelMapper bizDefinitionRoleRelMapper;
-    private final WorkflowDefinitionMapper workflowDefinitionMapper;
     private final WorkflowNodeMapper workflowNodeMapper;
     private final WorkflowTransitionMapper workflowTransitionMapper;
     private final WorkflowNodeApproverMapper workflowNodeApproverMapper;
-    private final WorkflowNodeApproverDeptExpandMapper workflowNodeApproverDeptExpandMapper;
     private final UserMapper userMapper;
-    private final UserRoleRelMapper userRoleRelMapper;
     private final UserDeptRelMapper userDeptRelMapper;
-    private final UserDeptRelExpandMapper userDeptRelExpandMapper;
     private final UserDeptMapper userDeptMapper;
     private final ObjectMapperUtils objectMapperUtils;
-    private final WorkflowNodeApproverInstanceStructMapper workflowNodeApproverInstanceStructMapper;
-    private final WorkflowNodeInstanceMapper workflowNodeInstanceMapper;
-    private final WorkflowDefinitionServiceImpl workflowDefinitionService;
     private final WorkflowRouteTreeBuilder workflowRouteTreeBuilder;
-    private final RegexpURLValidator regexpURLValidator;
 
     public WorkflowLaunchServiceImpl(BizApplyService bizApplyService,
                                      WorkflowInstanceService workflowInstanceService,
                                      WorkflowNodeInstanceService workflowNodeInstanceService,
                                      WorkflowNodeApproverInstanceService workflowNodeApproverInstanceService,
                                      WorkflowApprovalRecordService workflowApprovalRecordService,
-                                     BizDefinitionMapper bizDefinitionMapper,
-                                     BizDefinitionRoleRelMapper bizDefinitionRoleRelMapper,
-                                     WorkflowDefinitionMapper workflowDefinitionMapper,
                                      WorkflowNodeMapper workflowNodeMapper,
                                      WorkflowTransitionMapper workflowTransitionMapper,
                                      WorkflowNodeApproverMapper workflowNodeApproverMapper,
-                                     WorkflowNodeApproverDeptExpandMapper workflowNodeApproverDeptExpandMapper,
                                      UserMapper userMapper,
-                                     UserRoleRelMapper userRoleRelMapper,
                                      UserDeptRelMapper userDeptRelMapper,
-                                     UserDeptRelExpandMapper userDeptRelExpandMapper,
                                      UserDeptMapper userDeptMapper,
                                      ObjectMapperUtils objectMapperUtils,
-                                     WorkflowNodeApproverInstanceStructMapper workflowNodeApproverInstanceStructMapper,
-                                     WorkflowNodeInstanceMapper workflowNodeInstanceMapper,
-                                     WorkflowDefinitionServiceImpl workflowDefinitionService,
-                                     WorkflowRouteTreeBuilder workflowRouteTreeBuilder, RegexpURLValidator regexpURLValidator) {
+                                     WorkflowRouteTreeBuilder workflowRouteTreeBuilder) {
         this.bizApplyService = bizApplyService;
         this.workflowInstanceService = workflowInstanceService;
         this.workflowNodeInstanceService = workflowNodeInstanceService;
         this.workflowNodeApproverInstanceService = workflowNodeApproverInstanceService;
         this.workflowApprovalRecordService = workflowApprovalRecordService;
-        this.bizDefinitionMapper = bizDefinitionMapper;
-        this.bizDefinitionRoleRelMapper = bizDefinitionRoleRelMapper;
-        this.workflowDefinitionMapper = workflowDefinitionMapper;
         this.workflowNodeMapper = workflowNodeMapper;
         this.workflowTransitionMapper = workflowTransitionMapper;
         this.workflowNodeApproverMapper = workflowNodeApproverMapper;
-        this.workflowNodeApproverDeptExpandMapper = workflowNodeApproverDeptExpandMapper;
         this.userMapper = userMapper;
-        this.userRoleRelMapper = userRoleRelMapper;
         this.userDeptRelMapper = userDeptRelMapper;
-        this.userDeptRelExpandMapper = userDeptRelExpandMapper;
         this.userDeptMapper = userDeptMapper;
         this.objectMapperUtils = objectMapperUtils;
-        this.workflowNodeApproverInstanceStructMapper = workflowNodeApproverInstanceStructMapper;
-        this.workflowNodeInstanceMapper = workflowNodeInstanceMapper;
-        this.workflowDefinitionService = workflowDefinitionService;
         this.workflowRouteTreeBuilder = workflowRouteTreeBuilder;
-        this.regexpURLValidator = regexpURLValidator;
     }
 
     @Override
