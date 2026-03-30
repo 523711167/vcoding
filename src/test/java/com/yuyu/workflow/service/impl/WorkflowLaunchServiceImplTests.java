@@ -36,7 +36,7 @@ class WorkflowLaunchServiceImplTests {
                 null, null, null, null, null,
                 null, null, null, null, null,
                 null, null, objectMapperUtils, null, null,
-                null, new WorkflowRouteTreeBuilder()
+                null, new WorkflowRouteTreeBuilder(), null
         );
 
         Class<?> auditContextClass =
@@ -114,8 +114,9 @@ class WorkflowLaunchServiceImplTests {
                 auditContext
         ));
 
-        assertEquals(BizException.class, throwable.getCause().getClass());
-        assertEquals("条件节点未匹配到分支且未配置默认分支", throwable.getCause().getMessage());
+        Throwable target = throwable.getCause() == null ? throwable : throwable.getCause();
+        assertEquals(BizException.class, target.getClass());
+        assertEquals("条件节点未匹配到分支且未配置默认分支", target.getMessage());
     }
 
     private Object buildAuditContext(String formData, Map<Long, WorkflowNode> nodeMap) throws Exception {

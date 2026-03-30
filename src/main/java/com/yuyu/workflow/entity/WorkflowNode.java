@@ -1,6 +1,7 @@
 package com.yuyu.workflow.entity;
 
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.yuyu.workflow.common.enums.WorkflowNodeTypeEnum;
 import com.yuyu.workflow.entity.base.BaseAuditEntity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -32,4 +33,11 @@ public class WorkflowNode extends BaseAuditEntity {
     private Integer positionY;
 
     private String configJson;
+
+    public static WorkflowNode toEnd() {
+        WorkflowNode workflowNode = new WorkflowNode();
+        workflowNode.setNodeType(WorkflowNodeTypeEnum.END.getCode());
+        workflowNode.setName(WorkflowNodeTypeEnum.END.getName());
+        return workflowNode;
+    }
 }

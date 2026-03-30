@@ -48,7 +48,7 @@ public class WorkflowNodeInstance extends BaseAuditEntity {
         return Objects.nonNull(parallelBranchRootId);
     }
 
-    public static WorkflowNodeInstance toEndWorkflowNodeInstance() {
+    public static WorkflowNodeInstance toEnd() {
         WorkflowNodeInstance workflowNodeInstance = new WorkflowNodeInstance();
         workflowNodeInstance.setDefinitionNodeType(WorkflowNodeTypeEnum.END.getCode());
         workflowNodeInstance.setDefinitionNodeName(WorkflowNodeTypeEnum.END.getName());

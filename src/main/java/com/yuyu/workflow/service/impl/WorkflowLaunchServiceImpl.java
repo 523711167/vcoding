@@ -29,6 +29,7 @@ import com.yuyu.workflow.service.WorkflowNodeApproverInstanceService;
 import com.yuyu.workflow.service.WorkflowNodeInstanceService;
 import com.yuyu.workflow.service.WorkflowRouteTreeBuilder;
 import com.yuyu.workflow.service.model.workflow.WorkflowRouteNode;
+import org.hibernate.validator.constraintvalidators.RegexpURLValidator;
 import org.springframework.context.expression.MapAccessor;
 import org.springframework.expression.ExpressionParser;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
@@ -70,6 +71,7 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
     private final WorkflowNodeInstanceMapper workflowNodeInstanceMapper;
     private final WorkflowDefinitionServiceImpl workflowDefinitionService;
     private final WorkflowRouteTreeBuilder workflowRouteTreeBuilder;
+    private final RegexpURLValidator regexpURLValidator;
 
     public WorkflowLaunchServiceImpl(BizApplyService bizApplyService,
                                      WorkflowInstanceService workflowInstanceService,
@@ -92,7 +94,7 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
                                      WorkflowNodeApproverInstanceStructMapper workflowNodeApproverInstanceStructMapper,
                                      WorkflowNodeInstanceMapper workflowNodeInstanceMapper,
                                      WorkflowDefinitionServiceImpl workflowDefinitionService,
-                                     WorkflowRouteTreeBuilder workflowRouteTreeBuilder) {
+                                     WorkflowRouteTreeBuilder workflowRouteTreeBuilder, RegexpURLValidator regexpURLValidator) {
         this.bizApplyService = bizApplyService;
         this.workflowInstanceService = workflowInstanceService;
         this.workflowNodeInstanceService = workflowNodeInstanceService;
@@ -115,6 +117,7 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         this.workflowNodeInstanceMapper = workflowNodeInstanceMapper;
         this.workflowDefinitionService = workflowDefinitionService;
         this.workflowRouteTreeBuilder = workflowRouteTreeBuilder;
+        this.regexpURLValidator = regexpURLValidator;
     }
     @Override
     public void audit(WorkflowAuditETO eto) {
@@ -271,12 +274,44 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
     private void handleParallelReject(AuditContext context) {
         String approveMode = context.currentNodeInstance().getApproveMode();
 
+        workflowNodeApproverInstanceService.updateNodeApproverForReject(
+                context.currentNodeInstance().getId(),
+                context.eto().getComment(),
+                context.eto().getApproverInstanceId()
+        );
+
+        WorkflowNode workflowNode = context.nodeMap().get(context.currentNodeInstance().getDefinitionNodeId());
+        WorkflowNode matchJoinNode = findMatchJoinNode(workflowNode, context);
+
         if (WorkflowApproveModeEnum.isOr(approveMode)) {
             handleParallelOrReject(context);
             return;
         }
 
         handleParallelDirectReject(context);
+    }
+
+    private WorkflowNode findMatchJoinNode(WorkflowNode workflowNode, AuditContext context) {
+        List<WorkflowTransition> workflowTransitions = context.transitionsByFromNodeId().get(workflowNode.getId());
+
+        for (WorkflowTransition workflowTransition : workflowTransitions) {
+            WorkflowNode nextWorkflowNode = context.nodeMap().get(workflowTransition.getToNodeId());
+
+            if (WorkflowNodeTypeEnum.isParallelJoin(nextWorkflowNode.getNodeType())) {
+                return nextWorkflowNode;
+            }
+
+            if (WorkflowNodeTypeEnum.isApproval(nextWorkflowNode.getNodeType())) {
+                findMatchJoinNode(nextWorkflowNode, context);
+                continue;
+            }
+
+            if (WorkflowNodeTypeEnum.isParallelSplit(nextWorkflowNode.getNodeType())) {
+                findMatchJoinNode(nextWorkflowNode, context);
+                continue;
+            }
+        }
+        throw new BizException("未找到并行聚合节点");
     }
 
     private void handleParallelDirectReject(AuditContext context) {
@@ -310,7 +345,12 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
                 context.eto().getApproverInstanceId()
         );
 
-        processParallelJoinAfterBranchFinished(context, joinNodeInstance);
+        processParallelJoinAfterBranchFinished(
+                context,
+                new AuditRuntimeContext(WorkflowNodeInstanceStatusEnum.REJECTED),
+                context.currentNodeInstance(),
+                joinNodeInstance
+        );
     }
 
     private void handleParallelOrReject(AuditContext context) {
@@ -351,7 +391,12 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
 
         workflowNodeInstanceService.updateNodeForReject(context.currentNodeInstance().getId(), context.eto().getComment());
 
-        processParallelJoinAfterBranchFinished(context, joinNodeInstance);
+        processParallelJoinAfterBranchFinished(
+                context,
+                new AuditRuntimeContext(WorkflowNodeInstanceStatusEnum.REJECTED),
+                context.currentNodeInstance(),
+                joinNodeInstance
+        );
     }
 
     private void processParallelJoinAfterBranchFinished(AuditContext context, AuditRuntimeContext currentNodeAuditedStatus,
@@ -388,9 +433,9 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
 
             workflowNodeInstanceService.updateNodeForReject(joinNodeId, "并行分支存在拒绝");
 
-            workflowInstanceService.updateNodeForReject(context.workflowInstance().getId(), WorkflowNodeInstance.toEndWorkflowNodeInstance());
+            workflowInstanceService.updateNodeForReject(context.workflowInstance().getId(), WorkflowNodeInstance.toEnd());
 
-            workflowApprovalRecordService.insertRecordForReject(context.eto(), joinNodeInstance, WorkflowNodeInstance.toEndWorkflowNodeInstance());
+            workflowApprovalRecordService.insertRecordForReject(context.eto(), joinNodeInstance, WorkflowNodeInstance.toEnd());
             return;
         }
 
@@ -432,30 +477,41 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         }
     }
 
-    private void activeApprovalNode(AuditContext context, WorkflowNode targetNode) {
-        // 保存节点实例
-        WorkflowNodeInstance workflowNodeInstance = new WorkflowNodeInstance();
-        workflowNodeInstanceService.save(workflowNodeInstance);
-        // 保存审批人记录 自动路由
-
-        // 保存审批人实例
-
-        // 更新流程实例当前节点
-
-    }
-
-
     private void handleSerialReject(AuditContext context) {
         WorkflowNodeInstance workflowNodeInstance = context.currentNodeInstance();
-        String approveMode = workflowNodeInstance.getApproveMode();
+        WorkflowAuditETO eto = context.eto();
 
-        if (WorkflowApproveModeEnum.isOr(approveMode)) {
-            handleOrReject(context);
+        // 1. 当前节点所有审核人实例
+        workflowNodeApproverInstanceService.updateNodeApproverForReject(workflowNodeInstance.getId(), eto.getComment(), eto.getApproverInstanceId());
+        // 2. 节点最终审核状态
+        WorkflowNodeInstanceStatusEnum nodeStatus = resolveNodeApproveResult(context);
+        // 3. 节点
+        WorkflowNodeInstance nextNodeInstance = createOrLoadParallelJoinNodeInstance(context, WorkflowNode.toEnd());
+        // 4.写入审核记录
+        workflowApprovalRecordService.insertRecordForReject(eto, workflowNodeInstance, nextNodeInstance);
+
+        if (WorkflowNodeInstanceStatusEnum.isPendingApproval(nodeStatus.getCode())) {
             return;
         }
 
-        handleDirectReject(context);
+        //  激活下个节点
+        workflowNodeInstanceService.update(
+                Wrappers.<WorkflowNodeInstance>lambdaUpdate()
+                        .eq(BaseIdEntity::getId, nextNodeInstance.getId())
+                        .eq(WorkflowNodeInstance::getStatus, WorkflowNodeInstanceStatusEnum.PENDING.getCode())
+                        .set(WorkflowNodeInstance::getStatus, WorkflowNodeInstanceStatusEnum.ACTIVE.getCode())
+                        .set(WorkflowNodeInstance::getFinishedAt, OperationTimeContext.get())
+                        .set(WorkflowNodeInstance::getActivatedAt, OperationTimeContext.get())
+        );
+
+        // 修改 当前节点实例
+        workflowNodeInstanceService.updateNodeForReject(workflowNodeInstance.getId(), eto.getComment());
+        // 修改 当前流程实例
+        workflowInstanceService.updateNodeForReject(workflowNodeInstance.getInstanceId(), WorkflowNodeInstance.toEnd());
+        // 其余未处理审批人实例统一取消
+        workflowNodeApproverInstanceService.cancelOtherPendingApprovers(workflowNodeInstance.getInstanceId(), workflowNodeInstance.getId(), eto.getApproverInstanceId());
     }
+
 
     private boolean hasRejectedBranch(Long instanceId, Long parallelBranchRootId) {
         List<WorkflowNodeInstance> nodeList = workflowNodeInstanceService.list(
@@ -516,11 +572,11 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         // 修改 当前节点所有审核人实例
         workflowNodeApproverInstanceService.updateNodeApproverForReject(nodeInstanceId, comment, approverInstanceId);
         // 插入 审核记录
-        workflowApprovalRecordService.insertRecordForReject(eto, workflowNodeInstance, WorkflowNodeInstance.toEndWorkflowNodeInstance());
+        workflowApprovalRecordService.insertRecordForReject(eto, workflowNodeInstance, WorkflowNodeInstance.toEnd());
         // 修改 当前节点实例
         workflowNodeInstanceService.updateNodeForReject(nodeInstanceId, comment);
         // 修改 当前流程实例
-        workflowInstanceService.updateNodeForReject(instanceId, WorkflowNodeInstance.toEndWorkflowNodeInstance());
+        workflowInstanceService.updateNodeForReject(instanceId, WorkflowNodeInstance.toEnd());
         // 其余未处理审批人实例统一取消
         workflowNodeApproverInstanceService.cancelOtherPendingApprovers(instanceId, nodeInstanceId, approverInstanceId);
     }
@@ -535,7 +591,7 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         workflowApprovalRecordService.insertRecordForReject(
                 context.eto(),
                 context.currentNodeInstance(),
-                WorkflowNodeInstance.toEndWorkflowNodeInstance()
+                WorkflowNodeInstance.toEnd()
         );
 
         List<WorkflowNodeApproverInstance> pendingList =
@@ -551,25 +607,63 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         }
 
         workflowNodeInstanceService.updateNodeForReject(context.currentNodeInstance().getId(), context.eto().getComment());
-        workflowInstanceService.updateNodeForReject(context.workflowInstance().getId(), WorkflowNodeInstance.toEndWorkflowNodeInstance());
+        workflowInstanceService.updateNodeForReject(context.workflowInstance().getId(), WorkflowNodeInstance.toEnd());
     }
 
 
+    /**
+     * 解析本次操作对节点实例的审批结果
+     */
     private WorkflowNodeInstanceStatusEnum resolveNodeApproveResult(AuditContext context) {
         String approveMode = context.currentNodeInstance().getApproveMode();
+        String action = context.eto().getAction();
 
-        if (WorkflowApproveModeEnum.isAnd(approveMode)) {
+        if (WorkflowAuditActionEnum.isApprove(action)) {
+            if (WorkflowApproveModeEnum.isAnd(approveMode)) {
+                return handleAndApprove(context);
+            }
+            if (WorkflowApproveModeEnum.isOr(approveMode)) {
+                return handleOrApprove(context);
+            }
+            if (WorkflowApproveModeEnum.isSequential(approveMode)) {
+                return handleSequentialApprove(context);
+            }
             return handleAndApprove(context);
+        } else {
+            if (WorkflowApproveModeEnum.isAnd(approveMode)) {
+                return evaluateAndNodeReject(context);
+            }
+            if (WorkflowApproveModeEnum.isOr(approveMode)) {
+                return evaluateOrNodeReject(context);
+            }
+            if (WorkflowApproveModeEnum.isSequential(approveMode)) {
+                return evaluateSequentialNodeReject(context);
+            }
+            return evaluateAndNodeReject(context);
+        }
+    }
+
+    private WorkflowNodeInstanceStatusEnum evaluateSequentialNodeReject(AuditContext context) {
+        return WorkflowNodeInstanceStatusEnum.REJECTED;
+    }
+
+    private WorkflowNodeInstanceStatusEnum evaluateOrNodeReject(AuditContext context) {
+        List<WorkflowNodeApproverInstance> pendingList =
+                workflowNodeApproverInstanceService.list(
+                        Wrappers.<WorkflowNodeApproverInstance>lambdaQuery()
+                                .eq(WorkflowNodeApproverInstance::getNodeInstanceId, context.currentNodeInstance().getId())
+                                .eq(WorkflowNodeApproverInstance::getStatus, WorkflowNodeApproverInstanceStatusEnum.PENDING.getCode())
+                );
+
+        // 只要还有待处理人，节点继续保持 ACTIVE，流程继续保持 RUNNING
+        if (!pendingList.isEmpty()) {
+            return WorkflowNodeInstanceStatusEnum.PENDING_APPROVAL;
         }
 
-        if (WorkflowApproveModeEnum.isOr(approveMode)) {
-            return handleOrApprove(context);
-        }
+        return WorkflowNodeInstanceStatusEnum.REJECTED;
+    }
 
-        if (WorkflowApproveModeEnum.isSequential(approveMode)) {
-            return handleSequentialApprove(context);
-        }
-
+    private WorkflowNodeInstanceStatusEnum evaluateAndNodeReject(AuditContext context) {
         return WorkflowNodeInstanceStatusEnum.REJECTED;
     }
 
@@ -696,7 +790,7 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
                 matchNodeInstance
         );
 
-        continueAfterNodeApproved(context, nextNodeInstance, matchNodeInstance);
+        continueAfterNodeApproved(context, new AuditRuntimeContext(WorkflowNodeInstanceStatusEnum.APPROVED), nextNodeInstance, matchNodeInstance);
     }
 
     /**
@@ -725,7 +819,10 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
             }
         }
 
-        return context.nodeMap().get(defaultTransition.getToNodeId());
+        if (defaultTransition != null) {
+            return context.nodeMap().get(defaultTransition.getToNodeId());
+        }
+        throw new BizException("条件节点未匹配到分支且未配置默认分支");
 
     }
 
