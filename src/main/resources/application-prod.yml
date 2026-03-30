@@ -2,5 +2,5 @@ spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: ${DB_URL:jdbc:mysql://localhost:3306/yuyu?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
-    username: ${DB_USERNAME:user}
-    password: ${DB_PASSWORD:user}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:0d829bab7b51de06}
