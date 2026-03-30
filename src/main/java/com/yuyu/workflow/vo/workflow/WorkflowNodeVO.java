@@ -29,6 +29,9 @@ public class WorkflowNodeVO {
     @Schema(description = "节点类型说明")
     private String nodeTypeMsg;
 
+    @Schema(description = "所属最近一层并行拆分节点定义ID")
+    private Long parallelSplitNodeId;
+
     @Schema(description = "审批模式")
     private String approveMode;
 

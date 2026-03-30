@@ -272,21 +272,32 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
     }
 
     private void handleParallelReject(AuditContext context) {
-        String approveMode = context.currentNodeInstance().getApproveMode();
+        WorkflowNodeInstance workflowNodeInstance = context.currentNodeInstance();
 
         workflowNodeApproverInstanceService.updateNodeApproverForReject(
-                context.currentNodeInstance().getId(),
+                workflowNodeInstance.getId(),
                 context.eto().getComment(),
                 context.eto().getApproverInstanceId()
         );
 
-        WorkflowNode workflowNode = context.nodeMap().get(context.currentNodeInstance().getDefinitionNodeId());
-        WorkflowNode matchJoinNode = findMatchJoinNode(workflowNode, context);
+        WorkflowNodeInstanceStatusEnum nodeStatus = resolveNodeApproveResult(context);
 
-        if (WorkflowApproveModeEnum.isOr(approveMode)) {
-            handleParallelOrReject(context);
+        WorkflowNode workflowNode = context.nodeMap().get(workflowNodeInstance.getDefinitionNodeId());
+        WorkflowNode matchJoinNode = findMatchJoinNode(workflowNode, context);
+        WorkflowNodeInstance joinNodeInstance = createOrLoadParallelJoinNodeInstance(context, matchJoinNode);
+
+        workflowApprovalRecordService.insertRecordForReject(context.eto(), workflowNodeInstance, joinNodeInstance);
+
+        if (WorkflowNodeInstanceStatusEnum.isPendingApproval(nodeStatus.getCode())) {
             return;
         }
+
+        processParallelJoinAfterBranchFinished(
+                context,
+                new AuditRuntimeContext(WorkflowNodeInstanceStatusEnum.REJECTED),
+                workflowNodeInstance,
+                joinNodeInstance
+        );
 
         handleParallelDirectReject(context);
     }
@@ -417,6 +428,8 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
             );
         } else if (WorkflowNodeInstanceStatusEnum.isRejected(currentNodeAuditedStatus.currentNodeAuditedStatus().getCode())) {
             // 后续审核方法合并后处理
+
+
         } else {
             // PENDING_APPROVAL状态不处理
         }

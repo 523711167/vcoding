@@ -34,6 +34,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
@@ -158,6 +159,59 @@ class WorkflowDefinitionServiceImplTests {
         assertEquals(100L, approverCaptor.getValue().getDefinitionId());
         verify(workflowNodeApproverDeptExpandService).rebuildByApproverIds(List.of(2001L));
         assertEquals(eto.getWorkFlowJson(), result.getWorkFlowJson());
+    }
+
+    @Test
+    void shouldPersistParallelSplitOwnerNodeId() {
+        WorkflowDefinitionCreateETO eto = new WorkflowDefinitionCreateETO();
+        eto.setCurrentUserId(9L);
+        eto.setName("并行审批");
+        eto.setCode("PARALLEL_APPROVAL");
+        eto.setWorkFlowJson(buildParallelOwnerWorkflowJson());
+
+        WorkflowDefinition entity = new WorkflowDefinition();
+        entity.setId(102L);
+        entity.setName("并行审批");
+        entity.setCode("PARALLEL_APPROVAL");
+        entity.setWorkflowJson(eto.getWorkFlowJson());
+        entity.setStatus(WorkflowDefinitionStatusEnum.DRAFT.getId());
+
+        when(workflowDefinitionMapper.selectOne(any())).thenReturn(null);
+        when(workflowDefinitionMapper.selectMaxVersionByCode("PARALLEL_APPROVAL")).thenReturn(null);
+        when(workflowDefinitionMapper.selectById(102L)).thenReturn(entity);
+        when(workflowNodeMapper.selectList(any())).thenReturn(Collections.emptyList());
+        when(workflowTransitionMapper.selectList(any())).thenReturn(Collections.emptyList());
+        when(userDeptMapper.selectById(2L)).thenReturn(buildEnabledDept(2L));
+
+        doAnswer(invocation -> {
+            WorkflowDefinition argument = invocation.getArgument(0);
+            argument.setId(102L);
+            return 1;
+        }).when(workflowDefinitionMapper).insert(any(WorkflowDefinition.class));
+        doAnswer(new NodeInsertAnswer()).when(workflowNodeMapper).insert(any(WorkflowNode.class));
+        doAnswer(new ApproverInsertAnswer()).when(workflowNodeApproverMapper).insert(any(WorkflowNodeApprover.class));
+
+        workflowDefinitionService.create(eto);
+
+        ArgumentCaptor<WorkflowNode> nodeCaptor = ArgumentCaptor.forClass(WorkflowNode.class);
+        verify(workflowNodeMapper, times(7)).insert(nodeCaptor.capture());
+        List<WorkflowNode> nodeList = nodeCaptor.getAllValues();
+
+        WorkflowNode startNode = nodeList.get(0);
+        WorkflowNode splitNode = nodeList.get(1);
+        WorkflowNode approvalNodeA = nodeList.get(2);
+        WorkflowNode conditionNode = nodeList.get(3);
+        WorkflowNode approvalNodeB = nodeList.get(4);
+        WorkflowNode joinNode = nodeList.get(5);
+        WorkflowNode endNode = nodeList.get(6);
+
+        assertNull(startNode.getParallelSplitNodeId());
+        assertNull(splitNode.getParallelSplitNodeId());
+        assertEquals(splitNode.getId(), approvalNodeA.getParallelSplitNodeId());
+        assertEquals(splitNode.getId(), conditionNode.getParallelSplitNodeId());
+        assertEquals(splitNode.getId(), approvalNodeB.getParallelSplitNodeId());
+        assertEquals(splitNode.getId(), joinNode.getParallelSplitNodeId());
+        assertNull(endNode.getParallelSplitNodeId());
     }
 
     @Test
@@ -762,6 +816,183 @@ class WorkflowDefinitionServiceImplTests {
                   ]
                 }
                 """.formatted(firstDefault, secondDefault);
+    }
+
+    /**
+     * 构造包含并行拆分、条件分支和并行聚合的流程。
+     */
+    private String buildParallelOwnerWorkflowJson() {
+        return """
+                {
+                  "nodes": [
+                    {
+                      "id": "START",
+                      "x": 120,
+                      "y": 220,
+                      "properties": {
+                        "nodeRole": "START_END",
+                        "approverIds": []
+                      },
+                      "text": {
+                        "value": "开始"
+                      }
+                    },
+                    {
+                      "id": "PARALLEL_SPLIT_NODE",
+                      "x": 300,
+                      "y": 220,
+                      "properties": {
+                        "nodeRole": "PARALLEL_SPLIT",
+                        "approverIds": []
+                      },
+                      "text": {
+                        "value": "并行拆分"
+                      }
+                    },
+                    {
+                      "id": "APPROVAL_A",
+                      "x": 480,
+                      "y": 140,
+                      "properties": {
+                        "nodeRole": "APPROVAL",
+                        "approverType": "DEPT",
+                        "approverIds": ["2"],
+                        "approveMode": "COUNTERSIGN"
+                      },
+                      "text": {
+                        "value": "审批A"
+                      }
+                    },
+                    {
+                      "id": "CONDITION_NODE",
+                      "x": 480,
+                      "y": 300,
+                      "properties": {
+                        "nodeRole": "CONDITION",
+                        "approverIds": []
+                      },
+                      "text": {
+                        "value": "条件判断"
+                      }
+                    },
+                    {
+                      "id": "APPROVAL_B",
+                      "x": 660,
+                      "y": 300,
+                      "properties": {
+                        "nodeRole": "APPROVAL",
+                        "approverType": "DEPT",
+                        "approverIds": ["2"],
+                        "approveMode": "COUNTERSIGN"
+                      },
+                      "text": {
+                        "value": "审批B"
+                      }
+                    },
+                    {
+                      "id": "PARALLEL_JOIN_NODE",
+                      "x": 840,
+                      "y": 220,
+                      "properties": {
+                        "nodeRole": "PARALLEL_JOIN",
+                        "approverIds": []
+                      },
+                      "text": {
+                        "value": "并行聚合"
+                      }
+                    },
+                    {
+                      "id": "END",
+                      "x": 1020,
+                      "y": 220,
+                      "properties": {
+                        "nodeRole": "START_END",
+                        "approverIds": []
+                      },
+                      "text": {
+                        "value": "结束"
+                      }
+                    }
+                  ],
+                  "edges": [
+                    {
+                      "sourceNodeId": "START",
+                      "targetNodeId": "PARALLEL_SPLIT_NODE",
+                      "properties": {
+                        "priority": 1
+                      },
+                      "text": {
+                        "value": "提交"
+                      }
+                    },
+                    {
+                      "sourceNodeId": "PARALLEL_SPLIT_NODE",
+                      "targetNodeId": "APPROVAL_A",
+                      "properties": {
+                        "priority": 10,
+                        "expression": "amount > 5000",
+                        "is_default": false
+                      },
+                      "text": {
+                        "value": "分支A"
+                      }
+                    },
+                    {
+                      "sourceNodeId": "PARALLEL_SPLIT_NODE",
+                      "targetNodeId": "CONDITION_NODE",
+                      "properties": {
+                        "priority": 20,
+                        "is_default": true
+                      },
+                      "text": {
+                        "value": "分支B"
+                      }
+                    },
+                    {
+                      "sourceNodeId": "APPROVAL_A",
+                      "targetNodeId": "PARALLEL_JOIN_NODE",
+                      "properties": {
+                        "priority": 30
+                      },
+                      "text": {
+                        "value": "A完成"
+                      }
+                    },
+                    {
+                      "sourceNodeId": "CONDITION_NODE",
+                      "targetNodeId": "APPROVAL_B",
+                      "properties": {
+                        "priority": 40,
+                        "expression": "department != 'FINANCE'",
+                        "is_default": true
+                      },
+                      "text": {
+                        "value": "进入审批B"
+                      }
+                    },
+                    {
+                      "sourceNodeId": "APPROVAL_B",
+                      "targetNodeId": "PARALLEL_JOIN_NODE",
+                      "properties": {
+                        "priority": 50
+                      },
+                      "text": {
+                        "value": "B完成"
+                      }
+                    },
+                    {
+                      "sourceNodeId": "PARALLEL_JOIN_NODE",
+                      "targetNodeId": "END",
+                      "properties": {
+                        "priority": 60
+                      },
+                      "text": {
+                        "value": "结束"
+                      }
+                    }
+                  ]
+                }
+                """;
     }
 
     /**

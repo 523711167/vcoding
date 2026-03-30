@@ -48,6 +48,7 @@ import org.springframework.util.StringUtils;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -560,8 +561,10 @@ public class WorkflowDefinitionServiceImpl extends ServiceImpl<WorkflowDefinitio
                                  List<WorkflowDefinitionNodeETO> nodes,
                                  List<WorkflowTransitionETO> transitions) {
         Map<String, Long> nodeIdMap = new LinkedHashMap<>();
+        Map<String, WorkflowNode> nodeEntityMap = new LinkedHashMap<>();
         Map<String, WorkflowDefinitionNodeETO> nodeConfigMap = nodes.stream()
                 .collect(Collectors.toMap(WorkflowDefinitionNodeETO::getCode, item -> item, (left, right) -> left, LinkedHashMap::new));
+        Map<String, String> parallelSplitOwnerMap = buildParallelSplitOwnerMap(nodes, transitions);
         List<Long> deptApproverIds = new ArrayList<>();
         for (WorkflowDefinitionNodeETO nodeETO : nodes) {
             WorkflowNode node = workflowDefinitionStructMapper.toNodeEntity(nodeETO);
@@ -570,7 +573,20 @@ public class WorkflowDefinitionServiceImpl extends ServiceImpl<WorkflowDefinitio
             node.setPositionY(Objects.nonNull(nodeETO.getPositionY()) ? nodeETO.getPositionY() : 0);
             workflowNodeMapper.insert(node);
             nodeIdMap.put(nodeETO.getCode(), node.getId());
+            nodeEntityMap.put(nodeETO.getCode(), node);
+        }
 
+        for (WorkflowDefinitionNodeETO nodeETO : nodes) {
+            String parallelSplitOwnerCode = parallelSplitOwnerMap.get(nodeETO.getCode());
+            if (StringUtils.hasText(parallelSplitOwnerCode)) {
+                WorkflowNode node = nodeEntityMap.get(nodeETO.getCode());
+                node.setParallelSplitNodeId(nodeIdMap.get(parallelSplitOwnerCode));
+                workflowNodeMapper.updateById(node);
+            }
+        }
+
+        for (WorkflowDefinitionNodeETO nodeETO : nodes) {
+            WorkflowNode node = nodeEntityMap.get(nodeETO.getCode());
             List<WorkflowNodeApproverETO> approverList = Objects.nonNull(nodeETO.getApproverList())
                     ? nodeETO.getApproverList()
                     : Collections.emptyList();
@@ -602,6 +618,115 @@ public class WorkflowDefinitionServiceImpl extends ServiceImpl<WorkflowDefinitio
             workflowTransitionMapper.insert(transition);
         }
         workflowNodeApproverDeptExpandService.rebuildByApproverIds(deptApproverIds);
+    }
+
+    /**
+     * 计算节点所属最近一层并行拆分节点。
+     */
+    private Map<String, String> buildParallelSplitOwnerMap(List<WorkflowDefinitionNodeETO> nodes,
+                                                           List<WorkflowTransitionETO> transitions) {
+        if (CollectionUtils.isEmpty(nodes) || CollectionUtils.isEmpty(transitions)) {
+            return Collections.emptyMap();
+        }
+        Map<String, WorkflowDefinitionNodeETO> nodeMap = nodes.stream()
+                .collect(Collectors.toMap(WorkflowDefinitionNodeETO::getCode, item -> item, (left, right) -> left, LinkedHashMap::new));
+        Map<String, List<String>> adjacencyMap = transitions.stream()
+                .collect(Collectors.groupingBy(
+                        WorkflowTransitionETO::getFromNodeCode,
+                        LinkedHashMap::new,
+                        Collectors.mapping(WorkflowTransitionETO::getToNodeCode, Collectors.toList())
+                ));
+        String startCode = nodes.stream()
+                .filter(node -> WorkflowNodeTypeEnum.START.getCode().equals(node.getNodeType()))
+                .map(WorkflowDefinitionNodeETO::getCode)
+                .findFirst()
+                .orElse(null);
+        if (!StringUtils.hasText(startCode)) {
+            return Collections.emptyMap();
+        }
+
+        Map<String, Integer> nodeDepthMap = buildNodeDepthMap(startCode, adjacencyMap);
+        List<WorkflowDefinitionNodeETO> splitNodeList = nodes.stream()
+                .filter(node -> WorkflowNodeTypeEnum.PARALLEL_SPLIT.getCode().equals(node.getNodeType()))
+                .sorted(Comparator.comparing(
+                                (WorkflowDefinitionNodeETO node) -> nodeDepthMap.getOrDefault(node.getCode(), Integer.MAX_VALUE))
+                        .thenComparing(WorkflowDefinitionNodeETO::getCode))
+                .toList();
+
+        Map<String, String> ownerMap = new LinkedHashMap<>();
+        for (WorkflowDefinitionNodeETO splitNode : splitNodeList) {
+            markNodesOwnedBySplit(splitNode.getCode(), nodeMap, adjacencyMap, ownerMap);
+        }
+        return ownerMap;
+    }
+
+    /**
+     * 构建从开始节点出发的最短层级深度。
+     */
+    private Map<String, Integer> buildNodeDepthMap(String startCode,
+                                                   Map<String, List<String>> adjacencyMap) {
+        Map<String, Integer> depthMap = new LinkedHashMap<>();
+        Deque<String> queue = new ArrayDeque<>();
+        queue.add(startCode);
+        depthMap.put(startCode, 0);
+        while (!queue.isEmpty()) {
+            String currentCode = queue.poll();
+            Integer currentDepth = depthMap.getOrDefault(currentCode, 0);
+            for (String nextCode : adjacencyMap.getOrDefault(currentCode, Collections.emptyList())) {
+                if (depthMap.containsKey(nextCode)) {
+                    continue;
+                }
+                depthMap.put(nextCode, currentDepth + 1);
+                queue.add(nextCode);
+            }
+        }
+        return depthMap;
+    }
+
+    /**
+     * 从指定并行拆分节点出发，标记其分支内节点及对应聚合节点的归属。
+     */
+    private void markNodesOwnedBySplit(String splitCode,
+                                       Map<String, WorkflowDefinitionNodeETO> nodeMap,
+                                       Map<String, List<String>> adjacencyMap,
+                                       Map<String, String> ownerMap) {
+        Deque<ParallelOwnerState> stack = new ArrayDeque<>();
+        for (String nextCode : adjacencyMap.getOrDefault(splitCode, Collections.emptyList())) {
+            stack.push(new ParallelOwnerState(nextCode, 0));
+        }
+
+        Set<String> visited = new LinkedHashSet<>();
+        while (!stack.isEmpty()) {
+            ParallelOwnerState state = stack.pop();
+            String visitedKey = state.nodeCode() + "#" + state.nestedDepth();
+            if (!visited.add(visitedKey)) {
+                continue;
+            }
+
+            WorkflowDefinitionNodeETO currentNode = nodeMap.get(state.nodeCode());
+            if (currentNode == null) {
+                continue;
+            }
+
+            ownerMap.put(state.nodeCode(), splitCode);
+
+            if (WorkflowNodeTypeEnum.PARALLEL_JOIN.getCode().equals(currentNode.getNodeType())
+                    && state.nestedDepth() == 0) {
+                continue;
+            }
+
+            int nextDepth = state.nestedDepth();
+            if (WorkflowNodeTypeEnum.PARALLEL_SPLIT.getCode().equals(currentNode.getNodeType())) {
+                nextDepth++;
+            } else if (WorkflowNodeTypeEnum.PARALLEL_JOIN.getCode().equals(currentNode.getNodeType())
+                    && nextDepth > 0) {
+                nextDepth--;
+            }
+
+            for (String nextCode : adjacencyMap.getOrDefault(state.nodeCode(), Collections.emptyList())) {
+                stack.push(new ParallelOwnerState(nextCode, nextDepth));
+            }
+        }
     }
 
     /**
@@ -972,6 +1097,12 @@ public class WorkflowDefinitionServiceImpl extends ServiceImpl<WorkflowDefinitio
      */
     private record ParsedWorkflow(List<WorkflowDefinitionNodeETO> nodes,
                                   List<WorkflowTransitionETO> transitions) {
+    }
+
+    /**
+     * 并行归属遍历状态。
+     */
+    private record ParallelOwnerState(String nodeCode, int nestedDepth) {
     }
 
     /**

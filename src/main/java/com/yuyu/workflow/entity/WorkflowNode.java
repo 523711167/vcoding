@@ -20,6 +20,8 @@ public class WorkflowNode extends BaseAuditEntity {
 
     private String nodeType;
 
+    private Long parallelSplitNodeId;
+
     private String approveMode;
 
     private Integer timeoutMinutes;
