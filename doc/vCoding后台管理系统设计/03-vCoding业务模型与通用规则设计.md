@@ -28,6 +28,7 @@
 - 工作流表统一使用 `tb_workflow_*`。
 - 用户权限相关表统一使用 `tb_user_*` 或 `tb_sys_*`。
 - 实体映射、SQL、初始化脚本和设计文档中的表名必须保持一致。
+- 新环境初始化脚本统一命名为 `sql/init.sql`，不再继续使用 `20000000.sql`。
 
 ### 3.2 分层规范
 
@@ -47,6 +48,24 @@
 - 所有对外接口、`QTO`、`ETO`、`VO`、统一返回对象都必须补全 Swagger 注解。
 - MapStruct 组件统一使用 `*StructMapper` 命名，且更新时只能“传入旧对象，返回新对象”。
 - 所有 `Mapper` 都必须显式提供 `removeById` 与 `removeByIds`。
+
+### 3.4 初始化脚本规范
+
+- `sql/init.sql` 面向新环境首次部署，必须直接提供当前系统的最终建表 DDL。
+- `init.sql` 不承载增量迁移语义；结构演进仍通过按日期命名的迁移 SQL 维护。
+- `init.sql` 中的初始化数据默认只保留系统运行最小闭环所需内容，不追求导出整库演示数据。
+- 当前初始化范围固定为：
+  - `admin` 内置管理员账号
+  - `ADMIN` 超级管理员角色
+  - 当前系统菜单数据
+  - 上述数据对应的必要关联表数据
+- “必要关联表数据”至少包括：
+  - `tb_user_role_rel`
+  - `tb_user_dept_rel`
+  - `tb_user_dept_rel_expand`
+  - `tb_user_role_menu`
+- `init.sql` 默认不初始化普通业务数据、流程定义数据、流程运行数据、业务申请数据。
+- 若菜单结构发生变更，必须同步更新 `init.sql` 中的 `tb_sys_menu` 和 `tb_user_role_menu` 初始化数据，保证新环境导入后超级管理员可直接访问全部菜单。
 
 ## 4. 技术选型
 
@@ -71,12 +90,12 @@
 
 职责：
 - 用一张通用申请表覆盖请假、报销、合同等业务场景。
-- 通过 `biz_code` 区分不同业务定义。
+- 通过 `biz_definition_id` 关联不同业务定义。
 - 将差异化字段统一收敛到 `form_data` JSON。
 - 提交审批时冗余保存 `workflow_name`，便于历史单据直接展示流程名称。
 
 关键字段：
-- `biz_code`
+- `biz_definition_id`
 - `title`
 - `biz_status`
 - `applicant_id`

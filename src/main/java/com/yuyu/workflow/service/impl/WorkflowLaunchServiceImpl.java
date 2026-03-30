@@ -7,30 +7,18 @@ import com.yuyu.workflow.common.context.OperationTimeContext;
 import com.yuyu.workflow.common.enums.*;
 import com.yuyu.workflow.common.exception.BizException;
 import com.yuyu.workflow.common.util.ObjectMapperUtils;
-import com.yuyu.workflow.convert.WorkflowNodeApproverInstanceStructMapper;
-import com.yuyu.workflow.entity.BizApply;
-import com.yuyu.workflow.entity.User;
-import com.yuyu.workflow.entity.UserDept;
-import com.yuyu.workflow.entity.UserDeptRel;
-import com.yuyu.workflow.entity.WorkflowInstance;
-import com.yuyu.workflow.entity.WorkflowNode;
-import com.yuyu.workflow.entity.WorkflowNodeApprover;
-import com.yuyu.workflow.entity.WorkflowNodeApproverInstance;
-import com.yuyu.workflow.entity.WorkflowNodeInstance;
-import com.yuyu.workflow.entity.WorkflowTransition;
+import com.yuyu.workflow.entity.*;
 import com.yuyu.workflow.entity.base.BaseIdEntity;
 import com.yuyu.workflow.eto.workflow.WorkflowAuditETO;
 import com.yuyu.workflow.eto.workflow.WorkflowBizSubmitETO;
 import com.yuyu.workflow.mapper.*;
 import com.yuyu.workflow.service.*;
-import com.yuyu.workflow.service.model.workflow.WorkflowRouteNode;
-import org.hibernate.validator.constraintvalidators.RegexpURLValidator;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.context.expression.MapAccessor;
 import org.springframework.expression.ExpressionParser;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -91,7 +79,9 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
 
     @Override
     public void submit(WorkflowBizSubmitETO eto) {
+        if (Objects.isNull(eto.getBizApplyId())) {
 
+        }
 
         loadSubmitContext(eto);
 
@@ -102,19 +92,20 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
 
     private SubmitContext loadSubmitContext(WorkflowBizSubmitETO eto) {
 
-        bizDefinitionService.getById()
-
+        BizDefinition bizDefinition = bizDefinitionService.getOne(
+                Wrappers.<BizDefinition>lambdaQuery().eq(BizDefinition::getBizCode, eto.getBizCode()));
+        Long workflowDefinitionId = bizDefinition.getWorkflowDefinitionId();
 
         // 整个流程定义节点连线
         List<WorkflowTransition> definitionWorkflowTransitions = workflowTransitionMapper.selectList(
                 Wrappers.<WorkflowTransition>lambdaQuery()
-                        .eq(WorkflowTransition::getDefinitionId, definitionNode.getDefinitionId())
+                        .eq(WorkflowTransition::getDefinitionId, workflowDefinitionId)
                         .orderByAsc(BaseIdEntity::getId)
         );
 
         List<WorkflowNode> definitionWorkflowNodes = workflowNodeMapper.selectList(
                 Wrappers.<WorkflowNode>lambdaQuery()
-                        .eq(WorkflowNode::getDefinitionId, definitionNode.getDefinitionId())
+                        .eq(WorkflowNode::getDefinitionId, workflowDefinitionId)
                         .orderByAsc(BaseIdEntity::getId)
         );
 
@@ -130,8 +121,8 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
 
         return new SubmitContext(
                 eto,
-                nodeMap
-                transitionsByFromNodeId,
+                nodeMap,
+                transitionsByFromNodeId
         );
     }
 
@@ -517,26 +508,6 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
     }
 
 
-    private void handleDirectReject(AuditContext context) {
-        WorkflowAuditETO eto = context.eto();
-        WorkflowNodeInstance workflowNodeInstance = context.currentNodeInstance();
-        String comment = eto.getComment();
-        Long approverInstanceId = eto.getApproverInstanceId();
-        Long instanceId = eto.getInstanceId();
-        Long nodeInstanceId = eto.getNodeInstanceId();
-
-        // 修改 当前节点所有审核人实例
-        workflowNodeApproverInstanceService.updateNodeApproverForReject(nodeInstanceId, comment, approverInstanceId);
-        // 插入 审核记录
-        workflowApprovalRecordService.insertRecordForReject(eto, workflowNodeInstance, WorkflowNodeInstance.toEnd());
-        // 修改 当前节点实例
-        workflowNodeInstanceService.updateNodeForReject(nodeInstanceId, comment);
-        // 修改 当前流程实例
-        workflowInstanceService.updateNodeForReject(instanceId, WorkflowNodeInstance.toEnd());
-        // 其余未处理审批人实例统一取消
-        workflowNodeApproverInstanceService.cancelOtherPendingApprovers(instanceId, nodeInstanceId, approverInstanceId);
-    }
-
     /**
      * 解析本次操作对节点实例的审批结果
      */
@@ -703,9 +674,9 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
                                       WorkflowNodeInstance nextNodeInstance) {
         Long definitionNodeId = currentWorkflowNodeInstance.getDefinitionNodeId();
         // 1.根据条件判断
-        List<WorkflowTransition> workflowTransitionList = context.transitionsByFromNodeId().get(definitionNodeId);
+
         // 匹配节点
-        WorkflowNode matchConditionNode = findMatchConditionNode(workflowTransitionList, context);
+        WorkflowNode matchConditionNode = findMatchConditionNode(definitionNodeId, context);
 
         WorkflowNodeInstance matchNodeInstance = createOrLoadParallelJoinNodeInstance(context, matchConditionNode);
 
@@ -722,7 +693,8 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
     /**
      *
      */
-    private WorkflowNode findMatchConditionNode(List<WorkflowTransition> workflowTransitionList, AuditContext context) {
+    private WorkflowNode findMatchConditionNode(Long definitionNodeId, AuditContext context) {
+        List<WorkflowTransition> workflowTransitionList = context.transitionsByFromNodeId().get(definitionNodeId);
         if (workflowTransitionList == null || workflowTransitionList.isEmpty()) {
             throw new BizException("条件节点缺少分支配置");
         }
@@ -736,7 +708,7 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
                 continue;
             }
 
-            if (!StringUtils.hasText(workflowTransition.getConditionExpr())) {
+            if (StringUtils.isBlank(workflowTransition.getConditionExpr())) {
                 continue;
             }
 
@@ -756,7 +728,7 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
      * 解析条件表达式上下文变量。
      */
     private Map<String, Object> buildConditionVariables(String formData) {
-        if (!StringUtils.hasText(formData)) {
+        if (StringUtils.isBlank(formData)) {
             return Collections.emptyMap();
         }
         try {

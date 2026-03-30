@@ -53,6 +53,7 @@
 - 工作流相关表统一命名为 `tb_workflow_*`，如 `tb_workflow_definition`、`tb_workflow_instance`、`tb_workflow_node`
 - 系统配置与权限相关表统一命名为 `tb_sys_*` 或 `tb_user_*` 体系，如 `tb_sys_menu`、`tb_sys_dict_type`、`tb_user_role_menu`
 - 代码中的实体映射、注解 SQL、初始化 SQL、迁移 SQL、设计文档必须与最终表名保持完全一致
+- 新环境初始化脚本统一收敛为 `sql/init.sql`，不再继续使用 `20000000.sql`
 
 ### 1.4 开发最高标准
 
@@ -1901,7 +1902,39 @@ PENDING ──────────────────────→ AC
 - 发起权限按业务定义配置在 `tb_biz_definition_role_rel` 中，不再按流程单独配置
 - 删除前需检查是否已被 `tb_biz_apply.biz_definition_id` 或 `tb_biz_definition_role_rel.biz_definition_id` 引用，并确认业务停用后再处理
 
-### 12.6 字典管理
+### 12.6 初始化脚本管理
+
+系统初始化脚本统一由 `sql/init.sql` 承载，面向新环境首次部署，不再继续使用 `20000000.sql` 作为初始化基线文件名。
+
+初始化脚本使用口径：
+- `init.sql` 必须直接提供当前系统最终表结构的完整建表 DDL，而不是依赖多份迁移 SQL 顺序执行
+- 增量结构演进仍通过 `sql/yyyyMMdd.sql` 迁移文件维护，`init.sql` 负责按最新结果收敛
+- `init.sql` 中的初始化数据仅保留系统运行最小闭环所需内容，不默认导出演示业务数据
+
+当前初始化数据范围：
+- `admin` 内置管理员账号
+- `ADMIN` 超级管理员角色
+- 当前系统全部菜单数据 `tb_sys_menu`
+- 与上述数据直接相关的必要关联数据
+
+必要关联数据至少包括：
+- `tb_user_role_rel`
+- `tb_user_dept_rel`
+- `tb_user_dept_rel_expand`
+- `tb_user_role_menu`
+
+显式不纳入初始化的数据范围：
+- 普通用户数据
+- 非管理员角色数据
+- 业务定义、流程定义、流程运行态、业务申请等业务数据
+- 仅用于演示或联调的临时数据
+
+维护约束：
+- 菜单结构发生变更时，必须同步更新 `init.sql` 中的 `tb_sys_menu` 和 `tb_user_role_menu`
+- 初始化脚本中的 `ADMIN` 角色必须默认拥有全部菜单访问权限，避免新环境导入后出现菜单无人可见
+- 初始化脚本中的 `admin` 账号必须绑定 `ADMIN` 角色，并具备主组织关系及必要的组织展开关系
+
+### 12.7 字典管理
 
 字典管理维护审批申请中可复用的枚举型基础数据，包括字典类型和字典项，是 `tb_biz_apply.form_data` 中枚举字段值的统一来源。
 
