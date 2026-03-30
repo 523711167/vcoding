@@ -95,6 +95,10 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
     @Override
     public void submit(WorkflowBizSubmitETO eto) {
 
+
+        // 创建流程实例 保存业务主健
+        // 从开始节点查找下个节点
+        // 节点查找审核人
     }
 
     @Override
