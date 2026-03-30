@@ -301,91 +301,6 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         throw new BizException("未找到并行聚合节点");
     }
 
-    private void handleParallelDirectReject(AuditContext context) {
-        workflowNodeApproverInstanceService.updateNodeApproverForReject(
-                context.currentNodeInstance().getId(),
-                context.eto().getComment(),
-                context.eto().getApproverInstanceId()
-        );
-
-        WorkflowRouteTreeBuilder.WorkflowGraphContext joinContext = buildWorkflowGraphContext(context);
-        WorkflowRouteNode routeTree = workflowRouteTreeBuilder.buildNextRouteTree(
-                context.currentNodeInstance().getDefinitionNodeId(), joinContext
-        );
-        WorkflowNode joinNode = routeTree.findNextHopNode(context.currentNodeInstance().getDefinitionNodeId(), joinContext);
-        if (joinNode == null) {
-            throw new BizException("未找到下个节点");
-        }
-        if (!WorkflowNodeTypeEnum.isParallelJoin(joinNode.getNodeType())) {
-            throw new BizException("下个节点不是并行聚合节点");
-        }
-
-        // 首个达到创建join节点，后续复用
-        WorkflowNodeInstance joinNodeInstance = createOrLoadParallelJoinNodeInstance(context, joinNode);
-        workflowApprovalRecordService.insertRecordForReject(context.eto(), context.currentNodeInstance(), joinNodeInstance);
-
-        workflowNodeInstanceService.updateNodeForReject(context.currentNodeInstance().getId(), context.eto().getComment());
-
-        workflowNodeApproverInstanceService.cancelOtherPendingApprovers(
-                context.workflowInstance().getId(),
-                context.currentNodeInstance().getId(),
-                context.eto().getApproverInstanceId()
-        );
-
-        processParallelJoinAfterBranchFinished(
-                context,
-                new AuditRuntimeContext(WorkflowNodeInstanceStatusEnum.REJECTED),
-                context.currentNodeInstance(),
-                joinNodeInstance
-        );
-    }
-
-    private void handleParallelOrReject(AuditContext context) {
-        workflowNodeApproverInstanceService.updateNodeApproverForReject(
-                context.currentNodeInstance().getId(),
-                context.eto().getComment(),
-                context.eto().getApproverInstanceId()
-        );
-
-        WorkflowRouteTreeBuilder.WorkflowGraphContext parallelJoinContext = buildWorkflowGraphContext(context);
-        WorkflowRouteNode routeTree = workflowRouteTreeBuilder.buildNextRouteTree(
-                context.currentNodeInstance().getDefinitionNodeId(),
-                parallelJoinContext
-        );
-        WorkflowNode nextParallelJoinNode = routeTree.findNextHopNode(context.currentNodeInstance().getDefinitionNodeId(), parallelJoinContext);
-        if (nextParallelJoinNode == null) {
-            throw new BizException("未找到下个节点");
-        }
-        if (!WorkflowNodeTypeEnum.isParallelJoin(nextParallelJoinNode.getNodeType())) {
-            throw new BizException("下个节点不是并行聚合节点");
-        }
-
-        WorkflowNodeInstance joinNodeInstance = createOrLoadParallelJoinNodeInstance(context, nextParallelJoinNode);
-
-        workflowApprovalRecordService.insertRecordForReject(context.eto(), context.currentNodeInstance(), joinNodeInstance);
-
-        List<WorkflowNodeApproverInstance> pendingList =
-                workflowNodeApproverInstanceService.list(
-                        Wrappers.<WorkflowNodeApproverInstance>lambdaQuery()
-                                .eq(WorkflowNodeApproverInstance::getNodeInstanceId, context.currentNodeInstance().getId())
-                                .eq(WorkflowNodeApproverInstance::getStatus, WorkflowNodeApproverInstanceStatusEnum.PENDING.getCode())
-                );
-
-        // 只要还有待处理人，节点继续保持 ACTIVE，流程继续保持 RUNNING
-        if (!pendingList.isEmpty()) {
-            return;
-        }
-
-        workflowNodeInstanceService.updateNodeForReject(context.currentNodeInstance().getId(), context.eto().getComment());
-
-        processParallelJoinAfterBranchFinished(
-                context,
-                new AuditRuntimeContext(WorkflowNodeInstanceStatusEnum.REJECTED),
-                context.currentNodeInstance(),
-                joinNodeInstance
-        );
-    }
-
     private void processParallelJoinAfterBranchFinished(AuditContext context, AuditRuntimeContext currentNodeAuditedStatus,
                                                         WorkflowNodeInstance currentWorkflowNodeInstance, WorkflowNodeInstance joinNodeInstance) {
         Long parallelBranchRootId = context.currentNodeInstance().getParallelBranchRootId();
@@ -583,36 +498,6 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         // 其余未处理审批人实例统一取消
         workflowNodeApproverInstanceService.cancelOtherPendingApprovers(instanceId, nodeInstanceId, approverInstanceId);
     }
-
-    private void handleOrReject(AuditContext context) {
-        workflowNodeApproverInstanceService.updateNodeApproverForReject(
-                context.currentNodeInstance().getId(),
-                context.eto().getComment(),
-                context.currentApproverInstance().getApproverId()
-        );
-
-        workflowApprovalRecordService.insertRecordForReject(
-                context.eto(),
-                context.currentNodeInstance(),
-                WorkflowNodeInstance.toEnd()
-        );
-
-        List<WorkflowNodeApproverInstance> pendingList =
-                workflowNodeApproverInstanceService.list(
-                        Wrappers.<WorkflowNodeApproverInstance>lambdaQuery()
-                                .eq(WorkflowNodeApproverInstance::getNodeInstanceId, context.currentNodeInstance().getId())
-                                .eq(WorkflowNodeApproverInstance::getStatus, WorkflowNodeApproverInstanceStatusEnum.PENDING.getCode())
-                );
-
-        // 只要还有待处理人，节点继续保持 ACTIVE，流程继续保持 RUNNING
-        if (!pendingList.isEmpty()) {
-            return;
-        }
-
-        workflowNodeInstanceService.updateNodeForReject(context.currentNodeInstance().getId(), context.eto().getComment());
-        workflowInstanceService.updateNodeForReject(context.workflowInstance().getId(), WorkflowNodeInstance.toEnd());
-    }
-
 
     /**
      * 解析本次操作对节点实例的审批结果
@@ -958,45 +843,6 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
                     .set(WorkflowInstance::getCurrentNodeName, nextNodeInstance.getDefinitionNodeName())
                     .set(WorkflowInstance::getCurrentNodeType, nextNodeInstance.getDefinitionNodeType())
                 );
-    }
-
-    /**
-     * 从已运行流程实例反查申请人上下文，供后续激活新审批节点时解析审批人。
-     */
-    private RuntimeApplicantContext buildApplicantContextFromInstance(WorkflowInstance workflowInstance) {
-        User applicant = userMapper.selectById(workflowInstance.getApplicantId());
-        if (Objects.isNull(applicant) || !Objects.equals(applicant.getStatus(), CommonStatusEnum.ENABLED.getId())) {
-            throw new BizException("申请人不存在或已停用");
-        }
-        UserDeptRel primaryDeptRel = userDeptRelMapper.selectOne(new LambdaQueryWrapper<UserDeptRel>()
-                .eq(UserDeptRel::getUserId, workflowInstance.getApplicantId())
-                .eq(UserDeptRel::getIsPrimary, YesNoEnum.YES.getId())
-                .last("LIMIT 1"));
-        UserDept primaryDept = null;
-        if (Objects.nonNull(primaryDeptRel) && Objects.nonNull(primaryDeptRel.getDeptId())) {
-            primaryDept = userDeptMapper.selectById(primaryDeptRel.getDeptId());
-        }
-        return new RuntimeApplicantContext(applicant, primaryDeptRel, primaryDept);
-    }
-
-    private WorkflowRouteTreeBuilder.WorkflowGraphContext buildWorkflowGraphContext(AuditContext context) {
-        return new WorkflowRouteTreeBuilder.WorkflowGraphContext(
-                context.nodeMap(),
-                context.transitionsByFromNodeId()
-        );
-    }
-
-    private record RuntimeApplicantContext(
-            User applicant,
-            UserDeptRel primaryDeptRel,
-            UserDept primaryDept
-    ) {
-    }
-
-    private record ResolvedApprover(
-            Long userId,
-            String userName
-    ) {
     }
 
     private record AuditContext(
