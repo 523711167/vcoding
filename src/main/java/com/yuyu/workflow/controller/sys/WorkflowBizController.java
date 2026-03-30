@@ -44,7 +44,8 @@ public class WorkflowBizController {
     @Operation(summary = "提交业务申请并发起审批")
     @PostMapping("/submit")
     public Resp<WorkflowBizSubmitVO> submit(@Valid @RequestBody WorkflowBizSubmitETO eto) {
-        throw notImplemented("提交业务申请并发起审批");
+        workflowLaunchService.submit(eto);
+        return Resp.success();
     }
 
     /**

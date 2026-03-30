@@ -20,6 +20,7 @@ import com.yuyu.workflow.entity.WorkflowNodeInstance;
 import com.yuyu.workflow.entity.WorkflowTransition;
 import com.yuyu.workflow.entity.base.BaseIdEntity;
 import com.yuyu.workflow.eto.workflow.WorkflowAuditETO;
+import com.yuyu.workflow.eto.workflow.WorkflowBizSubmitETO;
 import com.yuyu.workflow.mapper.*;
 import com.yuyu.workflow.service.BizApplyService;
 import com.yuyu.workflow.service.WorkflowApprovalRecordService;
@@ -119,6 +120,12 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         this.workflowRouteTreeBuilder = workflowRouteTreeBuilder;
         this.regexpURLValidator = regexpURLValidator;
     }
+
+    @Override
+    public void submit(WorkflowBizSubmitETO eto) {
+        
+    }
+
     @Override
     public void audit(WorkflowAuditETO eto) {
         OperationTimeContext.set(LocalDateTime.now());
@@ -928,7 +935,6 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         workflowNodeInstanceService.update(
                 Wrappers.<WorkflowNodeInstance>lambdaUpdate()
                         .eq(BaseIdEntity::getId, nodeInstanceId)
-                        .eq()
                         .set(WorkflowNodeInstance::getStatus, status)
                         .set(WorkflowNodeInstance::getFinishedAt, OperationTimeContext.get())
         );
@@ -943,14 +949,6 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
                         .set(WorkflowNodeInstance::getFinishedAt, OperationTimeContext.get())
         );
     }
-
-    private void finishSplitNodeAndActiveNextNode(Long parallelBranchRootId, Long nextNodeInstanceId) {
-        // 当前分支节点通过
-
-
-
-    }
-
 
     private void handlerApprovalNode(AuditContext context, AuditRuntimeContext auditRuntimeContext,
                                      WorkflowNodeInstance currentWorkflowNodeInstance, WorkflowNodeInstance nextNodeInstance) {

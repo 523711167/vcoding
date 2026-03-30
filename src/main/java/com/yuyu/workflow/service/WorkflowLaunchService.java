@@ -1,6 +1,7 @@
 package com.yuyu.workflow.service;
 
 import com.yuyu.workflow.eto.workflow.WorkflowAuditETO;
+import com.yuyu.workflow.eto.workflow.WorkflowBizSubmitETO;
 
 /**
  * 工作流发起服务。
@@ -22,4 +23,6 @@ public interface WorkflowLaunchService {
      * @param eto
      */
     void audit(WorkflowAuditETO eto);
+
+    void submit(WorkflowBizSubmitETO eto);
 }
