@@ -6,9 +6,9 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yuyu.workflow.common.context.OperationTimeContext;
 import com.yuyu.workflow.common.enums.WorkflowNodeInstanceStatusEnum;
 import com.yuyu.workflow.common.exception.BizException;
-import com.yuyu.workflow.entity.WorkflowInstance;
 import com.yuyu.workflow.entity.WorkflowNode;
 import com.yuyu.workflow.entity.WorkflowNodeInstance;
+import com.yuyu.workflow.entity.base.BaseIdEntity;
 import com.yuyu.workflow.mapper.WorkflowNodeInstanceMapper;
 import com.yuyu.workflow.service.WorkflowNodeInstanceService;
 import org.springframework.stereotype.Service;
@@ -120,10 +120,10 @@ public class WorkflowNodeInstanceServiceImpl extends ServiceImpl<WorkflowNodeIns
     }
 
     @Override
-    public WorkflowNodeInstance createOrLoadParallelJoinNodeInstance(WorkflowNode nextNode, WorkflowInstance workflowInstance) {
+    public WorkflowNodeInstance createOrLoadParallelJoinNodeInstance(WorkflowNode nextNode, Long workflowInstanceId) {
         Optional<WorkflowNodeInstance> exist = getOneOpt(
                 Wrappers.<WorkflowNodeInstance>lambdaQuery()
-                        .eq(WorkflowNodeInstance::getInstanceId, workflowInstance.getId())
+                        .eq(WorkflowNodeInstance::getInstanceId, workflowInstanceId)
                         .eq(WorkflowNodeInstance::getDefinitionNodeId, nextNode.getId())
                         .last("limit 1")
         );
@@ -133,7 +133,7 @@ public class WorkflowNodeInstanceServiceImpl extends ServiceImpl<WorkflowNodeIns
         }
 
         WorkflowNodeInstance joinNodeInstance = new WorkflowNodeInstance();
-        joinNodeInstance.setInstanceId(workflowInstance.getId());
+        joinNodeInstance.setInstanceId(workflowInstanceId);
         joinNodeInstance.setDefinitionNodeId(nextNode.getId());
         joinNodeInstance.setDefinitionNodeName(nextNode.getName());
         joinNodeInstance.setDefinitionNodeType(nextNode.getNodeType());
@@ -158,5 +158,16 @@ public class WorkflowNodeInstanceServiceImpl extends ServiceImpl<WorkflowNodeIns
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new))
                 .stream()
                 .toList();
+    }
+
+    @Override
+    public void activePendingNodeInstance(WorkflowNodeInstance pendingNodeInstance, Long branchRootInstanceId) {
+        update(
+                Wrappers.<WorkflowNodeInstance>lambdaUpdate()
+                        .eq(BaseIdEntity::getId, pendingNodeInstance.getId())
+                        .set(WorkflowNodeInstance::getParallelBranchRootId, branchRootInstanceId)
+                        .set(WorkflowNodeInstance::getStatus, WorkflowNodeInstanceStatusEnum.ACTIVE.getCode())
+                        .set(WorkflowNodeInstance::getActivatedAt, OperationTimeContext.get())
+        );
     }
 }
