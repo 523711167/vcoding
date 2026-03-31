@@ -2,9 +2,12 @@ package com.yuyu.workflow.service.impl;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.yuyu.workflow.common.base.UserContextParam;
 import com.yuyu.workflow.common.context.OperationTimeContext;
 import com.yuyu.workflow.common.enums.WorkflowInstanceStatusEnum;
 import com.yuyu.workflow.common.exception.BizException;
+import com.yuyu.workflow.entity.BizApply;
+import com.yuyu.workflow.entity.BizDefinition;
 import com.yuyu.workflow.entity.WorkflowInstance;
 import com.yuyu.workflow.entity.WorkflowNodeInstance;
 import com.yuyu.workflow.entity.base.BaseIdEntity;
@@ -71,7 +74,7 @@ public class WorkflowInstanceServiceImpl extends ServiceImpl<WorkflowInstanceMap
     }
 
     @Override
-    public void updateNodeForReject(Long instanceId, WorkflowNodeInstance workflowNodeInstance) {
+    public void updateWorkflowInstanceForReject(Long instanceId, WorkflowNodeInstance workflowNodeInstance) {
         baseMapper.update(
                 Wrappers.<WorkflowInstance>lambdaUpdate()
                         .eq(BaseIdEntity::getId, instanceId)
@@ -81,6 +84,38 @@ public class WorkflowInstanceServiceImpl extends ServiceImpl<WorkflowInstanceMap
                         .set(WorkflowInstance::getCurrentNodeType, workflowNodeInstance.getDefinitionNodeType())
                         .set(WorkflowInstance::getCurrentNodeName, workflowNodeInstance.getDefinitionNodeName())
         );
+    }
+
+    @Override
+    public void updateWorkflowInstanceForApproval(Long instanceId, WorkflowNodeInstance workflowNodeInstance) {
+        baseMapper.update(
+                Wrappers.<WorkflowInstance>lambdaUpdate()
+                        .eq(BaseIdEntity::getId, instanceId)
+                        .set(WorkflowInstance::getStatus, WorkflowInstanceStatusEnum.APPROVED.getCode())
+                        .set(WorkflowInstance::getFinishedAt, OperationTimeContext.get())
+                        .set(WorkflowInstance::getCurrentNodeId, workflowNodeInstance.getDefinitionNodeId())
+                        .set(WorkflowInstance::getCurrentNodeType, workflowNodeInstance.getDefinitionNodeType())
+                        .set(WorkflowInstance::getCurrentNodeName, workflowNodeInstance.getDefinitionNodeName())
+        );
+    }
+
+    @Override
+    public WorkflowInstance saveStartIntance(BizApply bizApply, BizDefinition bizDefinition, UserContextParam userContextParam) {
+        WorkflowInstance workflowInstance = new WorkflowInstance();
+        workflowInstance.setBizId(bizApply.getId());
+        workflowInstance.setDefinitionId(bizDefinition.getId());
+        workflowInstance.setDefinitionCode(bizDefinition.getBizCode());
+        workflowInstance.setTitle(bizApply.getTitle());
+        workflowInstance.setStatus(WorkflowInstanceStatusEnum.RUNNING.getCode());
+        workflowInstance.setApplicantId(bizApply.getApplicantId());
+        workflowInstance.setApplicantName(bizApply.getApplicantName());
+        workflowInstance.setFormData(bizApply.getFormData());
+        workflowInstance.setCurrentNodeId(null);
+        workflowInstance.setCurrentNodeName(null);
+        workflowInstance.setCurrentNodeType(null);
+        workflowInstance.setStartedAt(OperationTimeContext.get());
+        super.save(workflowInstance);
+        return workflowInstance;
     }
 
     @Override

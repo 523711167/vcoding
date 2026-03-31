@@ -8,7 +8,7 @@ import com.yuyu.workflow.common.enums.RoleCodeEnum;
 import com.yuyu.workflow.common.enums.RespCodeEnum;
 import com.yuyu.workflow.common.enums.YesNoEnum;
 import com.yuyu.workflow.common.exception.BizException;
-import com.yuyu.workflow.convert.MenuStructMapper;
+import com.yuyu.workflow.struct.MenuStructMapper;
 import com.yuyu.workflow.eto.menu.MenuCreateETO;
 import com.yuyu.workflow.eto.menu.MenuUpdateETO;
 import com.yuyu.workflow.entity.SysMenu;

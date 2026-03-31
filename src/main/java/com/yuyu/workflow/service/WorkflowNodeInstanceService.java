@@ -1,10 +1,15 @@
 package com.yuyu.workflow.service;
 
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.yuyu.workflow.common.enums.WorkflowNodeInstanceStatusEnum;
+import com.yuyu.workflow.entity.WorkflowInstance;
+import com.yuyu.workflow.entity.WorkflowNode;
 import com.yuyu.workflow.entity.WorkflowNodeInstance;
+import com.yuyu.workflow.service.impl.WorkflowLaunchServiceImpl;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 节点实例服务接口。
@@ -29,4 +34,8 @@ public interface WorkflowNodeInstanceService extends IService<WorkflowNodeInstan
     void updateNodeForApprove(Long nodeInstanceId, String comment);
 
     void updateNode(Long nodeInstanceId, String comment, WorkflowNodeInstanceStatusEnum nodeInstanceEnum);
+
+    WorkflowNodeInstance createOrLoadParallelJoinNodeInstance(WorkflowNode nextNode, WorkflowInstance workflowInstance);
+
+
 }

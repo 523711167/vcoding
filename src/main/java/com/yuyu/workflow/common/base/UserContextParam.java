@@ -15,4 +15,12 @@ public class UserContextParam {
 
     @Schema(description = "当前登录用户名", hidden = true)
     private String currentUsername;
+
+    @Schema(description = "当前登录用户所属主组织ID", hidden = true)
+    private Long currentPrimaryDeptId;
+
+
+    public UserContextParam getUserContextParam() {
+        return this;
+    }
 }

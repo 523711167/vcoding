@@ -1,10 +1,13 @@
 package com.yuyu.workflow.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yuyu.workflow.common.context.OperationTimeContext;
 import com.yuyu.workflow.common.enums.WorkflowNodeInstanceStatusEnum;
 import com.yuyu.workflow.common.exception.BizException;
+import com.yuyu.workflow.entity.WorkflowInstance;
+import com.yuyu.workflow.entity.WorkflowNode;
 import com.yuyu.workflow.entity.WorkflowNodeInstance;
 import com.yuyu.workflow.mapper.WorkflowNodeInstanceMapper;
 import com.yuyu.workflow.service.WorkflowNodeInstanceService;
@@ -13,11 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 /**
  * 节点实例服务实现。
@@ -118,6 +117,31 @@ public class WorkflowNodeInstanceServiceImpl extends ServiceImpl<WorkflowNodeIns
         workflowNodeInstance.setStatus(nodeInstanceEnum.getCode());
         workflowNodeInstance.setFinishedAt(OperationTimeContext.get());
         baseMapper.updateById(workflowNodeInstance);
+    }
+
+    @Override
+    public WorkflowNodeInstance createOrLoadParallelJoinNodeInstance(WorkflowNode nextNode, WorkflowInstance workflowInstance) {
+        Optional<WorkflowNodeInstance> exist = getOneOpt(
+                Wrappers.<WorkflowNodeInstance>lambdaQuery()
+                        .eq(WorkflowNodeInstance::getInstanceId, workflowInstance.getId())
+                        .eq(WorkflowNodeInstance::getDefinitionNodeId, nextNode.getId())
+                        .last("limit 1")
+        );
+
+        if (exist.isPresent()) {
+            return exist.get();
+        }
+
+        WorkflowNodeInstance joinNodeInstance = new WorkflowNodeInstance();
+        joinNodeInstance.setInstanceId(workflowInstance.getId());
+        joinNodeInstance.setDefinitionNodeId(nextNode.getId());
+        joinNodeInstance.setDefinitionNodeName(nextNode.getName());
+        joinNodeInstance.setDefinitionNodeType(nextNode.getNodeType());
+        joinNodeInstance.setParallelBranchRootId(null);
+        joinNodeInstance.setStatus(WorkflowNodeInstanceStatusEnum.PENDING.getCode());
+
+        super.save(joinNodeInstance);
+        return joinNodeInstance;
     }
 
     /**

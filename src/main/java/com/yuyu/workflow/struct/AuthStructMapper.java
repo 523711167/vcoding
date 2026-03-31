@@ -1,4 +1,4 @@
-package com.yuyu.workflow.convert;
+package com.yuyu.workflow.struct;
 
 import com.yuyu.workflow.config.MapStructConfig;
 import com.yuyu.workflow.security.LoginUserDetails;

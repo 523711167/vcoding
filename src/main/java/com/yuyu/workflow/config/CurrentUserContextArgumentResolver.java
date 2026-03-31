@@ -1,8 +1,8 @@
 package com.yuyu.workflow.config;
 
 import com.yuyu.workflow.common.base.UserContextParam;
-import com.yuyu.workflow.security.SecurityUtils;
 import org.springframework.core.MethodParameter;
+import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.support.WebDataBinderFactory;
 import org.springframework.web.context.request.NativeWebRequest;
@@ -13,15 +13,18 @@ import org.springframework.web.servlet.mvc.method.annotation.ServletModelAttribu
 /**
  * 统一填充非请求体参数中的当前登录用户上下文。
  */
+@Component
 public class CurrentUserContextArgumentResolver implements HandlerMethodArgumentResolver {
 
     private final ServletModelAttributeMethodProcessor delegate;
+    private final CurrentUserContextFiller currentUserContextFiller;
 
     /**
      * 创建支持模型属性参数绑定的当前用户上下文解析器。
      */
-    public CurrentUserContextArgumentResolver() {
+    public CurrentUserContextArgumentResolver(CurrentUserContextFiller currentUserContextFiller) {
         this.delegate = new ServletModelAttributeMethodProcessor(true);
+        this.currentUserContextFiller = currentUserContextFiller;
     }
 
     /**
@@ -43,8 +46,7 @@ public class CurrentUserContextArgumentResolver implements HandlerMethodArgument
                                   WebDataBinderFactory binderFactory) throws Exception {
         Object argument = delegate.resolveArgument(parameter, mavContainer, webRequest, binderFactory);
         if (argument instanceof UserContextParam userContextParam) {
-            userContextParam.setCurrentUserId(SecurityUtils.getCurrentUserId());
-            userContextParam.setCurrentUsername(SecurityUtils.getCurrentUsername());
+            currentUserContextFiller.fill(userContextParam);
         }
         return argument;
     }

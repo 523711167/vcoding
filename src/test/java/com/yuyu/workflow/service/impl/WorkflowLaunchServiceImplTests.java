@@ -6,6 +6,7 @@ import com.yuyu.workflow.config.JacksonConfig;
 import com.yuyu.workflow.entity.WorkflowInstance;
 import com.yuyu.workflow.entity.WorkflowNode;
 import com.yuyu.workflow.entity.WorkflowTransition;
+import com.yuyu.workflow.service.WorkflowLaunchService;
 import com.yuyu.workflow.service.WorkflowRouteTreeBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 class WorkflowLaunchServiceImplTests {
 
-    private WorkflowLaunchServiceImpl workflowLaunchService;
+    private WorkflowLaunchService workflowLaunchService;
     private Method findMatchConditionNodeMethod;
     private Constructor<?> auditContextConstructor;
 

@@ -45,6 +45,7 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
     private final ObjectMapperUtils objectMapperUtils;
     private final WorkflowRouteTreeBuilder workflowRouteTreeBuilder;
     private final BizDefinitionService bizDefinitionService;
+    private final WorkflowDefinitionService workflowDefinitionService;
 
     public WorkflowLaunchServiceImpl(BizApplyService bizApplyService,
                                      WorkflowInstanceService workflowInstanceService,
@@ -59,6 +60,7 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
                                      UserDeptMapper userDeptMapper,
                                      ObjectMapperUtils objectMapperUtils,
                                      BizDefinitionService bizDefinitionService,
+                                     WorkflowDefinitionService workflowDefinitionService,
                                      WorkflowRouteTreeBuilder workflowRouteTreeBuilder) {
         this.bizApplyService = bizApplyService;
         this.workflowInstanceService = workflowInstanceService;
@@ -74,35 +76,109 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         this.objectMapperUtils = objectMapperUtils;
         this.workflowRouteTreeBuilder = workflowRouteTreeBuilder;
         this.bizDefinitionService = bizDefinitionService;
+        this.workflowDefinitionService = workflowDefinitionService;
     }
 
     @Override
     public void submit(WorkflowBizSubmitETO eto) {
-        if (Objects.isNull(eto.getBizApplyId())) {
+        SubmitContext context = loadSubmitContext(eto);
+        validateSubmit(context);
+
+        WorkflowInstance workflowInstance = workflowInstanceService.saveStartIntance(context.bizApply(), context.bizDefinition(), eto.getUserContextParam());
+
+        // 开始节点
+        WorkflowNode startNode = context.definitionNodeList().stream()
+                .filter(item -> WorkflowNodeTypeEnum.isStart(item.getNodeType()))
+                .findFirst()
+                .get();
+        Map<Long, WorkflowNode> nodeMap = context.nodeMap();
+        List<WorkflowTransition> workflowTransitionList = context.transitionsByFromNodeId().get(startNode.getId());
+        // 实际开始节点
+        WorkflowNode actualStartNode = workflowTransitionList.stream().map(item -> nodeMap.get(item.getToNodeId())).findFirst().get();
+
+        if (WorkflowNodeTypeEnum.isEnd(actualStartNode.getNodeType())) {
+            WorkflowNodeInstance endNodeInstance = workflowNodeInstanceService.createOrLoadParallelJoinNodeInstance(actualStartNode, workflowInstance);
+            // 激活节点
+            // 直接结束
+            workflowInstanceService.updateWorkflowInstanceForApproval(workflowInstance.getId(), WorkflowNodeInstance.toEnd());
+            return;
+        }
+
+        if (WorkflowNodeTypeEnum.isApproval(actualStartNode.getNodeType())) {
 
         }
 
-        loadSubmitContext(eto);
+        WorkflowNodeInstance actualStartNodeInstance = workflowNodeInstanceService.createOrLoadParallelJoinNodeInstance(actualStartNode, workflowInstance);
 
-        // 创建流程实例 保存业务主健
-        // 从开始节点查找下个节点
-        // 节点查找审核人
+        // 条件节点 并行拆分 并行聚合节点处理
+        startWorkFlow(context, actualStartNodeInstance);
+    }
+
+    private void startWorkFlow(SubmitContext context, WorkflowNodeInstance actualStartNodeInstance ) {
+        Long definitionNodeId = actualStartNodeInstance.getDefinitionNodeId();
+        List<WorkflowTransition> workflowTransitionList = context.transitionsByFromNodeId().get(definitionNodeId);
+
+        for (WorkflowTransition workflowTransition : workflowTransitionList) {
+            WorkflowNode nextNode = context.nodeMap().get(workflowTransition.getToNodeId());
+
+            if (WorkflowNodeTypeEnum.isEnd(nextNode.getNodeType())) {
+//                startEnd(startNode, nextNode);
+                return;
+            }
+
+            if (WorkflowNodeTypeEnum.isApproval(nextNode.getNodeType())) {
+//                startApproval();
+            }
+
+            if (WorkflowNodeTypeEnum.isParallelJoin(nextNode.getNodeType())) {
+
+            }
+
+            if (WorkflowNodeTypeEnum.isParallelSplit(nextNode.getNodeType())) {
+
+            }
+
+            if (WorkflowNodeTypeEnum.isCondition(nextNode.getNodeType())) {
+
+            }
+        }
+    }
+
+    private void startEnd(WorkflowNode startNode, WorkflowNode nextNode) {
+        // 开始节点路由到结束节点，直接结束流程
+        if (WorkflowNodeTypeEnum.isStart(startNode.getNodeType())) {
+
+            workflowInstanceService.updateWorkflowInstanceForReject();
+        }
+
+
+
     }
 
     private SubmitContext loadSubmitContext(WorkflowBizSubmitETO eto) {
 
-        BizDefinition bizDefinition = bizDefinitionService.getOne(
-                Wrappers.<BizDefinition>lambdaQuery().eq(BizDefinition::getBizCode, eto.getBizCode()));
-        Long workflowDefinitionId = bizDefinition.getWorkflowDefinitionId();
+        Long bizId = eto.getBizApplyId();
+        BizApply bizApply = bizApplyService.getByIdOrThrow(bizId);
+        BizDefinition bizDefinition = bizDefinitionService.getById(bizApply.getBizDefinitionId());
+        WorkflowDefinition workflowDefinition = null;
+
+        Long workflowDefinitionId = bizDefinition != null ? bizDefinition.getWorkflowDefinitionId() : null;
+        if (Objects.nonNull(workflowDefinitionId)) {
+            workflowDefinition = workflowDefinitionService.getById(workflowDefinitionId);
+        }
 
         // 整个流程定义节点连线
-        List<WorkflowTransition> definitionWorkflowTransitions = workflowTransitionMapper.selectList(
+        List<WorkflowTransition> definitionWorkflowTransitions = Objects.isNull(workflowDefinitionId)
+                ? Collections.emptyList()
+                : workflowTransitionMapper.selectList(
                 Wrappers.<WorkflowTransition>lambdaQuery()
                         .eq(WorkflowTransition::getDefinitionId, workflowDefinitionId)
                         .orderByAsc(BaseIdEntity::getId)
         );
 
-        List<WorkflowNode> definitionWorkflowNodes = workflowNodeMapper.selectList(
+        List<WorkflowNode> definitionWorkflowNodes = Objects.isNull(workflowDefinitionId)
+                ? Collections.emptyList()
+                : workflowNodeMapper.selectList(
                 Wrappers.<WorkflowNode>lambdaQuery()
                         .eq(WorkflowNode::getDefinitionId, workflowDefinitionId)
                         .orderByAsc(BaseIdEntity::getId)
@@ -120,9 +196,54 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
 
         return new SubmitContext(
                 eto,
+                bizApply,
+                bizDefinition,
+                workflowDefinition,
+                definitionWorkflowNodes,
+                definitionWorkflowTransitions,
                 nodeMap,
                 transitionsByFromNodeId
         );
+    }
+
+    /**
+     * 提交前校验业务单、业务定义、流程定义和流程图基础完整性。
+     */
+    private void validateSubmit(SubmitContext context) {
+        bizApplyService.submitCheck(context.bizApply(), context.eto().getCurrentUserId());
+
+        if (Objects.isNull(context.bizDefinition())) {
+            throw new BizException("业务定义不存在");
+        }
+        if (Objects.isNull(context.bizDefinition().getWorkflowDefinitionId())) {
+            throw new BizException("业务定义未绑定流程");
+        }
+        if (Objects.isNull(context.workflowDefinition())) {
+            throw new BizException("绑定的流程定义不存在");
+        }
+        if (!Objects.equals(context.workflowDefinition().getStatus(), WorkflowDefinitionStatusEnum.PUBLISHED.getId())) {
+            throw new BizException("绑定的流程未发布");
+        }
+        if (context.definitionNodeList().isEmpty()) {
+            throw new BizException("流程定义缺少节点配置");
+        }
+
+        List<WorkflowNode> startNodeList = context.definitionNodeList().stream()
+                .filter(item -> WorkflowNodeTypeEnum.isStart(item.getNodeType()))
+                .toList();
+        if (startNodeList.isEmpty()) {
+            throw new BizException("流程定义缺少开始节点");
+        }
+        if (startNodeList.size() > 1) {
+            throw new BizException("流程定义存在多个开始节点");
+        }
+
+        WorkflowNode startNode = startNodeList.get(0);
+        List<WorkflowTransition> startTransitions = context.transitionsByFromNodeId()
+                .getOrDefault(startNode.getId(), Collections.emptyList());
+        if (startTransitions.isEmpty()) {
+            throw new BizException("开始节点缺少后续连线");
+        }
     }
 
     @Override
@@ -243,7 +364,7 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         List<WorkflowTransition> workflowTransitions = context.transitionsByFromNodeId().get(currentWorkflowNodeInstance.getId());
         for (WorkflowTransition workflowTransition : workflowTransitions) {
             WorkflowNode workflowNode = context.nodeMap().get(workflowTransition.getToNodeId());
-            WorkflowNodeInstance nextNodeInstance = createOrLoadParallelJoinNodeInstance(context, workflowNode);
+            WorkflowNodeInstance nextNodeInstance = workflowNodeInstanceService.createOrLoadParallelJoinNodeInstance(workflowNode, context.workflowInstance(), this);
 
             // 3. 写审批通过记录
             workflowApprovalRecordService.insertRecordForApprove(context.eto(), currentWorkflowNodeInstance, nextNodeInstance);
@@ -288,7 +409,7 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
 
         WorkflowNode workflowNode = context.nodeMap().get(workflowNodeInstance.getDefinitionNodeId());
         WorkflowNode matchJoinNode = findMatchJoinNode(workflowNode, context);
-        WorkflowNodeInstance joinNodeInstance = createOrLoadParallelJoinNodeInstance(context, matchJoinNode);
+        WorkflowNodeInstance joinNodeInstance = workflowNodeInstanceService.createOrLoadParallelJoinNodeInstance(matchJoinNode, context.workflowInstance(), this);
 
         workflowApprovalRecordService.insertRecordForReject(context.eto(), workflowNodeInstance, joinNodeInstance);
 
@@ -373,7 +494,7 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
                             .set(WorkflowNodeInstance::getActivatedAt, OperationTimeContext.get())
             );
 
-            WorkflowNodeInstance endNodeInstance = createOrLoadParallelJoinNodeInstance(context, WorkflowNode.toEnd());
+            WorkflowNodeInstance endNodeInstance = workflowNodeInstanceService.createOrLoadParallelJoinNodeInstance(WorkflowNode.toEnd(), context.workflowInstance(), this);
 
             workflowApprovalRecordService.insertRecordForRoute(context.eto(), joinNodeInstance, endNodeInstance);
 
@@ -407,7 +528,7 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
             // 自动路由无审核人，跳过修改记录
 
             WorkflowNode workflowNode = context.nodeMap().get(workflowTransition.getToNodeId());
-            WorkflowNodeInstance nextNodeInstance = createOrLoadParallelJoinNodeInstance(context, workflowNode);
+            WorkflowNodeInstance nextNodeInstance = workflowNodeInstanceService.createOrLoadParallelJoinNodeInstance(workflowNode, context.workflowInstance(), this);
 
             // 条件节点自动路由的记录
             workflowApprovalRecordService.insertRecordForRoute(
@@ -429,7 +550,7 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         // 2. 节点最终审核状态
         WorkflowNodeInstanceStatusEnum nodeStatus = resolveNodeApproveResult(context);
         // 3. 节点
-        WorkflowNodeInstance nextNodeInstance = createOrLoadParallelJoinNodeInstance(context, WorkflowNode.toEnd());
+        WorkflowNodeInstance nextNodeInstance = workflowNodeInstanceService.createOrLoadParallelJoinNodeInstance(WorkflowNode.toEnd(), context.workflowInstance(), this);
         // 4.写入审核记录
         workflowApprovalRecordService.insertRecordForReject(eto, workflowNodeInstance, nextNodeInstance);
 
@@ -450,7 +571,7 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         // 修改 当前节点实例
         workflowNodeInstanceService.updateNodeForReject(workflowNodeInstance.getId(), eto.getComment());
         // 修改 当前流程实例
-        workflowInstanceService.updateNodeForReject(workflowNodeInstance.getInstanceId(), WorkflowNodeInstance.toEnd());
+        workflowInstanceService.updateWorkflowInstanceForReject(workflowNodeInstance.getInstanceId(), WorkflowNodeInstance.toEnd());
         // 其余未处理审批人实例统一取消
         workflowNodeApproverInstanceService.cancelOtherPendingApprovers(workflowNodeInstance.getInstanceId(),
                 workflowNodeInstance.getId(), eto.getApproverInstanceId());
@@ -478,32 +599,6 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
 
         return nodeList.stream().noneMatch(item -> WorkflowNodeInstanceStatusEnum.isRunningNodeInstance(item.getStatus()));
     }
-
-    private WorkflowNodeInstance createOrLoadParallelJoinNodeInstance(AuditContext context,
-                                                                      WorkflowNode nextNode) {
-        Optional<WorkflowNodeInstance> exist = workflowNodeInstanceService.getOneOpt(
-                Wrappers.<WorkflowNodeInstance>lambdaQuery()
-                        .eq(WorkflowNodeInstance::getInstanceId, context.workflowInstance().getId())
-                        .eq(WorkflowNodeInstance::getDefinitionNodeId, nextNode.getId())
-                        .last("limit 1")
-        );
-
-        if (exist.isPresent()) {
-            return exist.get();
-        }
-
-        WorkflowNodeInstance joinNodeInstance = new WorkflowNodeInstance();
-        joinNodeInstance.setInstanceId(context.workflowInstance().getId());
-        joinNodeInstance.setDefinitionNodeId(nextNode.getId());
-        joinNodeInstance.setDefinitionNodeName(nextNode.getName());
-        joinNodeInstance.setDefinitionNodeType(nextNode.getNodeType());
-        joinNodeInstance.setParallelBranchRootId(null);
-        joinNodeInstance.setStatus(WorkflowNodeInstanceStatusEnum.PENDING.getCode());
-
-        workflowNodeInstanceService.save(joinNodeInstance);
-        return joinNodeInstance;
-    }
-
 
     /**
      * 解析本次操作对节点实例的审批结果
@@ -635,7 +730,7 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         for (WorkflowTransition workflowTransition : workflowTransitionList) {
             WorkflowNode nextWorkNode = context.nodeMap().get(workflowTransition.getToNodeId());
 
-            WorkflowNodeInstance splitNodeInstance = createOrLoadParallelJoinNodeInstance(context, nextWorkNode);
+            WorkflowNodeInstance splitNodeInstance = workflowNodeInstanceService.createOrLoadParallelJoinNodeInstance(nextWorkNode, context.workflowInstance(), this);
 
             if (WorkflowNodeInstanceStatusEnum.isApproved(currentNodeAuditedStatus.getCode())) {
                 // 当前节点通过
@@ -652,18 +747,22 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
             }
 
             // 激活下个节点
-            workflowNodeInstanceService.update(
-                    Wrappers.<WorkflowNodeInstance>lambdaUpdate()
-                            .eq(BaseIdEntity::getId, splitNodeInstance.getId())
-                            .set(WorkflowNodeInstance::getParallelBranchRootId, currentWorkflowNodeInstanceId)
-                            .set(WorkflowNodeInstance::getStatus, WorkflowNodeInstanceStatusEnum.ACTIVE.getCode())
-                            .set(WorkflowNodeInstance::getActivatedAt, OperationTimeContext.get())
-            );
+            activePendingNodeInstance(splitNodeInstance, currentWorkflowNodeInstanceId);
 
             workflowApprovalRecordService.insertRecordForRoute(context.eto(), splitNodeInstance, nextNodeInstance);
 
             continueAfterNodeApproved(context, new AuditRuntimeContext(WorkflowNodeInstanceStatusEnum.APPROVED), nextNodeInstance, splitNodeInstance);
         }
+    }
+
+    private void activePendingNodeInstance(WorkflowNodeInstance pendingNodeInstance, Long branchRootInstanceId) {
+        workflowNodeInstanceService.update(
+                Wrappers.<WorkflowNodeInstance>lambdaUpdate()
+                        .eq(BaseIdEntity::getId, pendingNodeInstance.getId())
+                        .set(WorkflowNodeInstance::getParallelBranchRootId, branchRootInstanceId)
+                        .set(WorkflowNodeInstance::getStatus, WorkflowNodeInstanceStatusEnum.ACTIVE.getCode())
+                        .set(WorkflowNodeInstance::getActivatedAt, OperationTimeContext.get())
+        );
     }
 
 
@@ -675,7 +774,7 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         // 匹配节点
         WorkflowNode matchConditionNode = findMatchConditionNode(definitionNodeId, context);
 
-        WorkflowNodeInstance matchNodeInstance = createOrLoadParallelJoinNodeInstance(context, matchConditionNode);
+        WorkflowNodeInstance matchNodeInstance = workflowNodeInstanceService.createOrLoadParallelJoinNodeInstance(matchConditionNode, context.workflowInstance(), this);
 
         // 条件节点自动路由的记录
         workflowApprovalRecordService.insertRecordForRoute(
@@ -879,7 +978,11 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
 
     private record SubmitContext(
             WorkflowBizSubmitETO eto,
-            // 流程实例
+            BizApply bizApply,
+            BizDefinition bizDefinition,
+            WorkflowDefinition workflowDefinition,
+            List<WorkflowNode> definitionNodeList,
+            List<WorkflowTransition> definitionTransitionList,
             Map<Long, WorkflowNode> nodeMap,
             Map<Long, List<WorkflowTransition>> transitionsByFromNodeId
     ) {

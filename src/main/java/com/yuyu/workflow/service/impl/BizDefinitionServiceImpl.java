@@ -10,7 +10,7 @@ import com.yuyu.workflow.common.enums.RoleCodeEnum;
 import com.yuyu.workflow.common.enums.RespCodeEnum;
 import com.yuyu.workflow.common.enums.WorkflowDefinitionStatusEnum;
 import com.yuyu.workflow.common.exception.BizException;
-import com.yuyu.workflow.convert.BizDefinitionStructMapper;
+import com.yuyu.workflow.struct.BizDefinitionStructMapper;
 import com.yuyu.workflow.entity.BizDefinition;
 import com.yuyu.workflow.entity.WorkflowDefinition;
 import com.yuyu.workflow.entity.UserRole;

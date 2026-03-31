@@ -1,4 +1,4 @@
-package com.yuyu.workflow.convert;
+package com.yuyu.workflow.struct;
 
 import com.yuyu.workflow.common.enums.CommonStatusEnum;
 import com.yuyu.workflow.common.mapstruct.BaseMapper;

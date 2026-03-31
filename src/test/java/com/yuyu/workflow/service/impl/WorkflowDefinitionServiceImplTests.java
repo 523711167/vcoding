@@ -4,7 +4,7 @@ import com.yuyu.workflow.common.enums.WorkflowDefinitionStatusEnum;
 import com.yuyu.workflow.common.exception.BizException;
 import com.yuyu.workflow.common.util.ObjectMapperUtils;
 import com.yuyu.workflow.config.JacksonConfig;
-import com.yuyu.workflow.convert.WorkflowDefinitionStructMapper;
+import com.yuyu.workflow.struct.WorkflowDefinitionStructMapper;
 import com.yuyu.workflow.entity.UserDept;
 import com.yuyu.workflow.entity.WorkflowDefinition;
 import com.yuyu.workflow.entity.WorkflowNode;

@@ -1,7 +1,6 @@
 package com.yuyu.workflow.config;
 
 import com.yuyu.workflow.common.base.UserContextParam;
-import com.yuyu.workflow.security.SecurityUtils;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpInputMessage;
 import org.springframework.http.converter.HttpMessageConverter;
@@ -16,6 +15,15 @@ import java.lang.reflect.Type;
  */
 @ControllerAdvice
 public class CurrentUserRequestBodyAdvice extends RequestBodyAdviceAdapter {
+
+    private final CurrentUserContextFiller currentUserContextFiller;
+
+    /**
+     * 注入统一上下文填充器。
+     */
+    public CurrentUserRequestBodyAdvice(CurrentUserContextFiller currentUserContextFiller) {
+        this.currentUserContextFiller = currentUserContextFiller;
+    }
 
     /**
      * 仅处理继承用户上下文基类的请求体参数。
@@ -38,8 +46,7 @@ public class CurrentUserRequestBodyAdvice extends RequestBodyAdviceAdapter {
                                 Type targetType,
                                 Class<? extends HttpMessageConverter<?>> converterType) {
         if (body instanceof UserContextParam userContextParam) {
-            userContextParam.setCurrentUserId(SecurityUtils.getCurrentUserId());
-            userContextParam.setCurrentUsername(SecurityUtils.getCurrentUsername());
+            currentUserContextFiller.fill(userContextParam);
         }
         return body;
     }

@@ -1,6 +1,9 @@
 package com.yuyu.workflow.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.yuyu.workflow.common.base.UserContextParam;
+import com.yuyu.workflow.entity.BizApply;
+import com.yuyu.workflow.entity.BizDefinition;
 import com.yuyu.workflow.entity.WorkflowInstance;
 import com.yuyu.workflow.entity.WorkflowNodeInstance;
 
@@ -17,5 +20,12 @@ public interface WorkflowInstanceService extends IService<WorkflowInstance> {
     /**
      * 审核拒绝修改流程实例状态
      */
-    void updateNodeForReject(Long instanceId, WorkflowNodeInstance workflowNodeInstance);
+    void updateWorkflowInstanceForReject(Long instanceId, WorkflowNodeInstance workflowNodeInstance);
+
+    /**
+     * 审核通过修改流程实例状态
+     */
+    void updateWorkflowInstanceForApproval(Long instanceId, WorkflowNodeInstance workflowNodeInstance);
+
+    WorkflowInstance saveStartIntance(BizApply bizApply, BizDefinition bizDefinition, UserContextParam userContextParam);
 }

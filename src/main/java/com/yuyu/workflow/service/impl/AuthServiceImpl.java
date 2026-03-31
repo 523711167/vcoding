@@ -1,6 +1,6 @@
 package com.yuyu.workflow.service.impl;
 
-import com.yuyu.workflow.convert.AuthStructMapper;
+import com.yuyu.workflow.struct.AuthStructMapper;
 import com.yuyu.workflow.security.AuthUserDetailsService;
 import com.yuyu.workflow.security.LoginUserDetails;
 import com.yuyu.workflow.security.SecurityUtils;

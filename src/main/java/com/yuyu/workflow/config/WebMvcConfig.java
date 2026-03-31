@@ -12,11 +12,20 @@ import java.util.List;
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
 
+    private final CurrentUserContextArgumentResolver currentUserContextArgumentResolver;
+
+    /**
+     * 注入当前用户上下文参数解析器。
+     */
+    public WebMvcConfig(CurrentUserContextArgumentResolver currentUserContextArgumentResolver) {
+        this.currentUserContextArgumentResolver = currentUserContextArgumentResolver;
+    }
+
     /**
      * 注册统一的当前用户上下文参数解析器。
      */
     @Override
     public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
-        resolvers.add(new CurrentUserContextArgumentResolver());
+        resolvers.add(currentUserContextArgumentResolver);
     }
 }
