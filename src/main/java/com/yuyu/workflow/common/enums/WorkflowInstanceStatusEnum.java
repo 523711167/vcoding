@@ -11,7 +11,9 @@ public enum WorkflowInstanceStatusEnum implements BaseEnum {
     RUNNING(1, "RUNNING", "进行中"),
     APPROVED(2, "APPROVED", "已通过"),
     REJECTED(3, "REJECTED", "已拒绝"),
-    CANCELED(4, "CANCELED", "已撤回");
+    CANCELED(4, "CANCELED", "已撤回"),
+    FINISHI(5, "FINISHI", "已完成")
+    ;
 
     private final Integer id;
     private final String code;
@@ -61,4 +63,9 @@ public enum WorkflowInstanceStatusEnum implements BaseEnum {
     public static boolean isCanceled(String code) {
         return CANCELED.getCode().equals(code);
     }
+
+    public static boolean isFinished(String code) {
+        return FINISHI.getCode().equals(code);
+    }
+
 }

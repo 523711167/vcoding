@@ -80,7 +80,7 @@ public class WorkflowInstanceServiceImpl extends ServiceImpl<WorkflowInstanceMap
                         .eq(BaseIdEntity::getId, instanceId)
                         .set(WorkflowInstance::getStatus, WorkflowInstanceStatusEnum.REJECTED.getCode())
                         .set(WorkflowInstance::getFinishedAt, OperationTimeContext.get())
-                        .set(WorkflowInstance::getCurrentNodeId, null)
+                        .set(WorkflowInstance::getCurrentNodeId, workflowNodeInstance.getId())
                         .set(WorkflowInstance::getCurrentNodeType, workflowNodeInstance.getDefinitionNodeType())
                         .set(WorkflowInstance::getCurrentNodeName, workflowNodeInstance.getDefinitionNodeName())
         );
@@ -93,7 +93,20 @@ public class WorkflowInstanceServiceImpl extends ServiceImpl<WorkflowInstanceMap
                         .eq(BaseIdEntity::getId, instanceId)
                         .set(WorkflowInstance::getStatus, WorkflowInstanceStatusEnum.APPROVED.getCode())
                         .set(WorkflowInstance::getFinishedAt, OperationTimeContext.get())
-                        .set(WorkflowInstance::getCurrentNodeId, workflowNodeInstance.getDefinitionNodeId())
+                        .set(WorkflowInstance::getCurrentNodeId, workflowNodeInstance.getId())
+                        .set(WorkflowInstance::getCurrentNodeType, workflowNodeInstance.getDefinitionNodeType())
+                        .set(WorkflowInstance::getCurrentNodeName, workflowNodeInstance.getDefinitionNodeName())
+        );
+    }
+
+    @Override
+    public void updateWorkflowInstanceForFinish(Long instanceId, WorkflowNodeInstance workflowNodeInstance, WorkflowInstanceStatusEnum statusEnum) {
+        baseMapper.update(
+                Wrappers.<WorkflowInstance>lambdaUpdate()
+                        .eq(BaseIdEntity::getId, instanceId)
+                        .set(WorkflowInstance::getStatus, statusEnum.getCode())
+                        .set(WorkflowInstance::getFinishedAt, OperationTimeContext.get())
+                        .set(WorkflowInstance::getCurrentNodeId, workflowNodeInstance.getId())
                         .set(WorkflowInstance::getCurrentNodeType, workflowNodeInstance.getDefinitionNodeType())
                         .set(WorkflowInstance::getCurrentNodeName, workflowNodeInstance.getDefinitionNodeName())
         );

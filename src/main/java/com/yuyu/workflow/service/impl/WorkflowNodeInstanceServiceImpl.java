@@ -101,12 +101,12 @@ public class WorkflowNodeInstanceServiceImpl extends ServiceImpl<WorkflowNodeIns
     }
 
     @Override
-    public void updateNodeForReject(Long nodeInstanceId, String comment) {
+    public void updateNodeInstanceForReject(Long nodeInstanceId, String comment) {
         updateNode(nodeInstanceId, comment, WorkflowNodeInstanceStatusEnum.REJECTED);
     }
 
     @Override
-    public void updateNodeForApprove(Long nodeInstanceId, String comment) {
+    public void updateNodeInstanceForApprove(Long nodeInstanceId, String comment) {
         updateNode(nodeInstanceId, comment, WorkflowNodeInstanceStatusEnum.APPROVED);
     }
 
@@ -173,7 +173,7 @@ public class WorkflowNodeInstanceServiceImpl extends ServiceImpl<WorkflowNodeIns
     }
 
     @Override
-    public void endNodeInstance(WorkflowNodeInstance pendingNodeInstance) {
+    public void updateNodeInstanceForEnd(WorkflowNodeInstance pendingNodeInstance) {
         update(
                 Wrappers.<WorkflowNodeInstance>lambdaUpdate()
                         .eq(BaseIdEntity::getId, pendingNodeInstance.getId())
