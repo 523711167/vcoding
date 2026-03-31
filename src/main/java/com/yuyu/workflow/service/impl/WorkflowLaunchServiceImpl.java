@@ -20,7 +20,6 @@ import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -128,8 +127,6 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
 
     @Override
     public void audit(WorkflowAuditETO eto) {
-        OperationTimeContext.set(LocalDateTime.now());
-
         AuditContext context = loadAuditContext(eto);
 
         if (WorkflowAuditActionEnum.isReject(eto.getAction())) {
