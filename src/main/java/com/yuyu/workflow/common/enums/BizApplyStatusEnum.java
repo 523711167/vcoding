@@ -56,4 +56,14 @@ public enum BizApplyStatusEnum implements BaseEnum {
     public static boolean isDraft(String code) {
         return DRAFT.getCode().equals(code);
     }
+
+    public static BizApplyStatusEnum toBizApplyStatusEnum(String code) {
+        if (WorkflowNodeInstanceStatusEnum.isRejected(code)) {
+            return REJECTED;
+        } else if (WorkflowNodeInstanceStatusEnum.isApproved(code)) {
+            return APPROVED;
+        } else {
+            return PENDING;
+        }
+    }
 }

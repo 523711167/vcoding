@@ -6,8 +6,10 @@ import com.yuyu.workflow.config.JacksonConfig;
 import com.yuyu.workflow.entity.WorkflowInstance;
 import com.yuyu.workflow.entity.WorkflowNode;
 import com.yuyu.workflow.entity.WorkflowTransition;
+import com.yuyu.workflow.service.WorkflowDefinitionService;
 import com.yuyu.workflow.service.WorkflowLaunchService;
 import com.yuyu.workflow.service.WorkflowRouteTreeBuilder;
+import com.yuyu.workflow.struct.WorkflowLaunchStructMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -19,6 +21,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
 
 /**
  * 工作流发起服务测试。
@@ -33,11 +36,22 @@ class WorkflowLaunchServiceImplTests {
     void setUp() throws Exception {
         ObjectMapperUtils objectMapperUtils = new ObjectMapperUtils(new JacksonConfig().objectMapper());
         workflowLaunchService = new WorkflowLaunchServiceImpl(
-                null, null, null, null, null,
-                null, null, null, null, null,
-                null, null, null, null, null,
-                null, null, objectMapperUtils, null, null,
-                null, new WorkflowRouteTreeBuilder(), null
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                objectMapperUtils,
+                null,
+                mock(WorkflowDefinitionService.class),
+                new WorkflowRouteTreeBuilder(),
+                mock(WorkflowLaunchStructMapper.class)
         );
 
         Class<?> auditContextClass =
@@ -47,7 +61,7 @@ class WorkflowLaunchServiceImplTests {
 
         findMatchConditionNodeMethod = WorkflowLaunchServiceImpl.class.getDeclaredMethod(
                 "findMatchConditionNode",
-                List.class,
+                Long.class,
                 auditContextClass
         );
         findMatchConditionNodeMethod.setAccessible(true);
@@ -63,12 +77,13 @@ class WorkflowLaunchServiceImplTests {
 
         Object auditContext = buildAuditContext(
                 "{\"amount\":6000}",
-                Map.of(hitNode.getId(), hitNode, defaultNode.getId(), defaultNode)
+                Map.of(hitNode.getId(), hitNode, defaultNode.getId(), defaultNode),
+                List.of(hitTransition, defaultTransition)
         );
 
         WorkflowNode result = (WorkflowNode) findMatchConditionNodeMethod.invoke(
                 workflowLaunchService,
-                List.of(hitTransition, defaultTransition),
+                1L,
                 auditContext
         );
 
@@ -86,12 +101,13 @@ class WorkflowLaunchServiceImplTests {
 
         Object auditContext = buildAuditContext(
                 "{\"amount\":1000}",
-                Map.of(missNode.getId(), missNode, defaultNode.getId(), defaultNode)
+                Map.of(missNode.getId(), missNode, defaultNode.getId(), defaultNode),
+                List.of(missTransition, defaultTransition)
         );
 
         WorkflowNode result = (WorkflowNode) findMatchConditionNodeMethod.invoke(
                 workflowLaunchService,
-                List.of(missTransition, defaultTransition),
+                1L,
                 auditContext
         );
 
@@ -106,12 +122,13 @@ class WorkflowLaunchServiceImplTests {
 
         Object auditContext = buildAuditContext(
                 "{\"amount\":1000}",
-                Map.of(missNode.getId(), missNode)
+                Map.of(missNode.getId(), missNode),
+                List.of(missTransition)
         );
 
         Throwable throwable = assertThrows(Throwable.class, () -> findMatchConditionNodeMethod.invoke(
                 workflowLaunchService,
-                List.of(missTransition),
+                1L,
                 auditContext
         ));
 
@@ -120,7 +137,9 @@ class WorkflowLaunchServiceImplTests {
         assertEquals("条件节点未匹配到分支且未配置默认分支", target.getMessage());
     }
 
-    private Object buildAuditContext(String formData, Map<Long, WorkflowNode> nodeMap) throws Exception {
+    private Object buildAuditContext(String formData,
+                                     Map<Long, WorkflowNode> nodeMap,
+                                     List<WorkflowTransition> transitionList) throws Exception {
         WorkflowInstance workflowInstance = new WorkflowInstance();
         workflowInstance.setFormData(formData);
 
@@ -131,9 +150,8 @@ class WorkflowLaunchServiceImplTests {
                 null,
                 List.of(),
                 null,
-                List.of(),
                 new LinkedHashMap<>(nodeMap),
-                Map.of()
+                Map.of(1L, transitionList)
         );
     }
 

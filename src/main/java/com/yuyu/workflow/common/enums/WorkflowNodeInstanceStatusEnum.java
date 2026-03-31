@@ -15,7 +15,9 @@ public enum WorkflowNodeInstanceStatusEnum implements BaseEnum {
     REJECTED(5, "REJECTED", "已拒绝"),
     SKIPPED(6, "SKIPPED", "已跳过"),
     CANCELED(7, "CANCELED", "已取消"),
-    TIMEOUT(8, "TIMEOUT", "已超时");
+    TIMEOUT(8, "TIMEOUT", "已超时"),
+    FINISH(9, "FINISH", "已完成")
+    ;
 
     private final Integer id;
     private final String code;
@@ -82,6 +84,10 @@ public enum WorkflowNodeInstanceStatusEnum implements BaseEnum {
 
     public static boolean isTimeout(String code) {
         return TIMEOUT.getCode().equals(code);
+    }
+
+    public static boolean isFinish(String code) {
+        return FINISH.getCode().equals(code);
     }
 
     public static boolean isRunningNodeInstance(String code) {

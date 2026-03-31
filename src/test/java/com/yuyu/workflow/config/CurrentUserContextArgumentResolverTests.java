@@ -1,8 +1,11 @@
 package com.yuyu.workflow.config;
 
+import com.yuyu.workflow.entity.UserDeptRel;
 import com.yuyu.workflow.eto.user.UserCreateETO;
+import com.yuyu.workflow.mapper.UserDeptRelMapper;
 import com.yuyu.workflow.qto.menu.MenuTreeQTO;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -22,15 +25,29 @@ import java.lang.reflect.Method;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * 当前用户上下文参数注入测试。
  */
 class CurrentUserContextArgumentResolverTests {
 
-    private final CurrentUserContextArgumentResolver resolver = new CurrentUserContextArgumentResolver();
+    private CurrentUserContextArgumentResolver resolver;
+    private CurrentUserRequestBodyAdvice requestBodyAdvice;
+    private UserDeptRelMapper userDeptRelMapper;
 
-    private final CurrentUserRequestBodyAdvice requestBodyAdvice = new CurrentUserRequestBodyAdvice();
+    @BeforeEach
+    void setUp() {
+        userDeptRelMapper = mock(UserDeptRelMapper.class);
+        UserDeptRel relation = new UserDeptRel();
+        relation.setDeptId(88L);
+        when(userDeptRelMapper.selectOne(org.mockito.ArgumentMatchers.any())).thenReturn(relation);
+
+        CurrentUserContextFiller currentUserContextFiller = new CurrentUserContextFiller(userDeptRelMapper);
+        resolver = new CurrentUserContextArgumentResolver(currentUserContextFiller);
+        requestBodyAdvice = new CurrentUserRequestBodyAdvice(currentUserContextFiller);
+    }
 
     @AfterEach
     void tearDown() {
@@ -67,6 +84,7 @@ class CurrentUserContextArgumentResolverTests {
         assertEquals(1, qto.getVisible());
         assertEquals(9L, qto.getCurrentUserId());
         assertEquals("admin", qto.getCurrentUsername());
+        assertEquals(88L, qto.getCurrentPrimaryDeptId());
     }
 
     /**
@@ -98,6 +116,7 @@ class CurrentUserContextArgumentResolverTests {
 
         assertEquals(9L, result.getCurrentUserId());
         assertEquals("admin", result.getCurrentUsername());
+        assertEquals(88L, result.getCurrentPrimaryDeptId());
     }
 
     /**

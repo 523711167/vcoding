@@ -7,16 +7,16 @@ import com.yuyu.workflow.entity.WorkflowInstance;
 import com.yuyu.workflow.entity.WorkflowNodeApproverInstance;
 import com.yuyu.workflow.entity.WorkflowNodeInstance;
 import com.yuyu.workflow.mapper.BizApplyMapper;
+import com.yuyu.workflow.mapper.UserMapper;
 import com.yuyu.workflow.mapper.WorkflowApprovalRecordMapper;
 import com.yuyu.workflow.mapper.WorkflowNodeMapper;
 import com.yuyu.workflow.mapper.UserRoleRelMapper;
 import com.yuyu.workflow.mapper.WorkflowInstanceMapper;
 import com.yuyu.workflow.mapper.WorkflowNodeApproverInstanceMapper;
 import com.yuyu.workflow.mapper.WorkflowNodeInstanceMapper;
+import com.yuyu.workflow.service.BizDefinitionService;
 import com.yuyu.workflow.service.UserService;
-import com.yuyu.workflow.service.WorkflowNodeApproverDeptExpandService;
-import com.yuyu.workflow.service.WorkflowNodeApproverInstanceService;
-import com.yuyu.workflow.service.WorkflowNodeApproverService;
+import com.yuyu.workflow.service.WorkflowDefinitionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -56,15 +56,13 @@ class WorkflowRuntimeServiceImplTests {
     @Mock
     private WorkflowNodeMapper workflowNodeMapper;
     @Mock
-    private WorkflowNodeApproverInstanceService innerWorkflowNodeApproverInstanceService;
-    @Mock
-    private WorkflowNodeApproverDeptExpandService workflowNodeApproverDeptExpandService;
-    @Mock
-    private WorkflowNodeApproverService workflowNodeApproverService;
-    @Mock
-    private UserRoleRelMapper userRoleRelMapper;
-    @Mock
     private UserService userService;
+    @Mock
+    private UserMapper userMapper;
+    @Mock
+    private BizDefinitionService bizDefinitionService;
+    @Mock
+    private WorkflowDefinitionService workflowDefinitionService;
 
     private BizApplyServiceImpl bizApplyService;
     private WorkflowInstanceServiceImpl workflowInstanceService;
@@ -74,16 +72,17 @@ class WorkflowRuntimeServiceImplTests {
 
     @BeforeEach
     void setUp() {
-        bizApplyService = new BizApplyServiceImpl(bizApplyMapper);
+        bizApplyService = new BizApplyServiceImpl(
+                bizApplyMapper,
+                userMapper,
+                bizDefinitionService,
+                workflowDefinitionService
+        );
         workflowInstanceService = new WorkflowInstanceServiceImpl(workflowInstanceMapper);
         workflowNodeInstanceService = new WorkflowNodeInstanceServiceImpl(workflowNodeInstanceMapper);
         workflowApprovalRecordService = new WorkflowApprovalRecordServiceImpl(workflowApprovalRecordMapper, workflowNodeMapper);
         workflowNodeApproverInstanceService = new WorkflowNodeApproverInstanceServiceImpl(
                 workflowNodeApproverInstanceMapper,
-                innerWorkflowNodeApproverInstanceService,
-                workflowNodeApproverDeptExpandService,
-                workflowNodeApproverService,
-                userRoleRelMapper,
                 userService
         );
     }

@@ -165,9 +165,33 @@ public class WorkflowNodeInstanceServiceImpl extends ServiceImpl<WorkflowNodeIns
         update(
                 Wrappers.<WorkflowNodeInstance>lambdaUpdate()
                         .eq(BaseIdEntity::getId, pendingNodeInstance.getId())
+                        .eq(WorkflowNodeInstance::getStatus, WorkflowNodeInstanceStatusEnum.PENDING.getCode())
                         .set(WorkflowNodeInstance::getParallelBranchRootId, branchRootInstanceId)
                         .set(WorkflowNodeInstance::getStatus, WorkflowNodeInstanceStatusEnum.ACTIVE.getCode())
                         .set(WorkflowNodeInstance::getActivatedAt, OperationTimeContext.get())
         );
+    }
+
+    @Override
+    public void endNodeInstance(WorkflowNodeInstance pendingNodeInstance) {
+        update(
+                Wrappers.<WorkflowNodeInstance>lambdaUpdate()
+                        .eq(BaseIdEntity::getId, pendingNodeInstance.getId())
+                        .set(WorkflowNodeInstance::getStatus, WorkflowNodeInstanceStatusEnum.FINISH.getCode())
+                        .set(WorkflowNodeInstance::getFinishedAt, OperationTimeContext.get())
+        );
+    }
+
+    @Override
+    public WorkflowNodeInstance createStartNodeInstance(WorkflowNode startNode, Long workflowInstanceId) {
+        WorkflowNodeInstance startNodeInstance = new WorkflowNodeInstance();
+        startNodeInstance.setInstanceId(workflowInstanceId);
+        startNodeInstance.setDefinitionNodeId(startNode.getId());
+        startNodeInstance.setDefinitionNodeName(startNode.getName());
+        startNodeInstance.setDefinitionNodeType(startNode.getNodeType());
+        startNodeInstance.setParallelBranchRootId(null);
+        startNodeInstance.setStatus(WorkflowNodeInstanceStatusEnum.PENDING.getCode());
+        super.save(startNodeInstance);
+        return startNodeInstance;
     }
 }
