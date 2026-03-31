@@ -431,22 +431,17 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
 
         // 所有分支结束后，处理后续Join节点的审批结果
         if (hasRejectedBranch(context.workflowInstance().getId(), parallelBranchRootId)) {
-            // 激活当前节点
-            workflowNodeInstanceService.update(
-                    Wrappers.<WorkflowNodeInstance>lambdaUpdate()
-                            .eq(BaseIdEntity::getId, joinNodeInstance.getId())
-                            .eq(WorkflowNodeInstance::getStatus, WorkflowNodeInstanceStatusEnum.PENDING.getCode())
-                            .set(WorkflowNodeInstance::getParallelBranchRootId, parallelBranchRootId)
-                            .set(WorkflowNodeInstance::getStatus, WorkflowNodeInstanceStatusEnum.ACTIVE.getCode())
-                            .set(WorkflowNodeInstance::getActivatedAt, OperationTimeContext.get())
-            );
 
-            WorkflowNodeInstance endNodeInstance = workflowNodeInstanceService.createOrLoadParallelJoinNodeInstance(WorkflowNode.toEnd(), context.workflowInstance().getId());
 
-            workflowApprovalRecordService.insertRecordForRoute(context.eto(), joinNodeInstance, endNodeInstance);
+            WorkflowTransition workflowTransition = context.transitionsByFromNodeId().get(joinNodeInstance.getDefinitionNodeId()).get(0);
+            WorkflowNode nextWorkflowNode = context.nodeMap().get(workflowTransition.getToNodeId());
 
-            processRouteAfterNodeApproved(context, new AuditRuntimeContext(WorkflowNodeInstanceStatusEnum.APPROVED),
-                    joinNodeInstance, endNodeInstance);
+            WorkflowNodeInstance nextNodeInstance = workflowNodeInstanceService.createOrLoadParallelJoinNodeInstance(nextWorkflowNode, context.workflowInstance().getId());
+
+            workflowApprovalRecordService.insertRecordForRoute(context.eto(), joinNodeInstance, nextNodeInstance);
+
+            processRouteAfterNodeApproved(context, new AuditRuntimeContext(WorkflowNodeInstanceStatusEnum.REJECTED),
+                    joinNodeInstance, nextNodeInstance);
             return;
         }
 
