@@ -432,7 +432,6 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         // 所有分支结束后，处理后续Join节点的审批结果
         if (hasRejectedBranch(context.workflowInstance().getId(), parallelBranchRootId)) {
 
-
             WorkflowTransition workflowTransition = context.transitionsByFromNodeId().get(joinNodeInstance.getDefinitionNodeId()).get(0);
             WorkflowNode nextWorkflowNode = context.nodeMap().get(workflowTransition.getToNodeId());
 

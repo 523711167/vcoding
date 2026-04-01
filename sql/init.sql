@@ -377,6 +377,33 @@ CREATE TABLE IF NOT EXISTS `tb_workflow_instance` (
   KEY `idx_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='流程实例表';
 
+CREATE TABLE IF NOT EXISTS `tb_workflow_parallel_scope` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `instance_id` BIGINT NOT NULL COMMENT '流程实例ID',
+  `definition_id` BIGINT NOT NULL COMMENT '流程定义ID',
+  `split_definition_node_id` BIGINT NOT NULL COMMENT '并行拆分节点定义ID',
+  `split_definition_node_name` VARCHAR(100) NOT NULL COMMENT '并行拆分节点定义名称（冗余）',
+  `split_definition_node_type` VARCHAR(32) NOT NULL COMMENT '并行拆分节点定义类型（冗余）',
+  `join_definition_node_id` BIGINT NOT NULL COMMENT '并行聚合节点定义ID',
+  `join_definition_node_name` VARCHAR(100) NOT NULL COMMENT '并行聚合节点定义名称（冗余）',
+  `join_definition_node_type` VARCHAR(32) NOT NULL COMMENT '并行聚合节点定义类型（冗余）',
+  `parent_scope_id` BIGINT DEFAULT NULL COMMENT '父并行作用域ID，最外层为空',
+  `status` VARCHAR(16) NOT NULL DEFAULT 'ACTIVE' COMMENT '作用域状态：ACTIVE=进行中 APPROVED=已通过 REJECTED=已拒绝 CANCELED=已取消',
+  `expected_branch_count` INT NOT NULL DEFAULT 0 COMMENT '理论应汇聚分支数',
+  `arrived_branch_count` INT NOT NULL DEFAULT 0 COMMENT '当前已到达聚合节点的分支数',
+  `finished_at` DATETIME DEFAULT NULL COMMENT '作用域完成时间',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `is_deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '软删除标记：0=正常 1=已删除',
+  PRIMARY KEY (`id`),
+  KEY `idx_instance_id` (`instance_id`),
+  KEY `idx_definition_id` (`definition_id`),
+  KEY `idx_parent_scope_id` (`parent_scope_id`),
+  KEY `idx_split_definition_node_id` (`split_definition_node_id`),
+  KEY `idx_join_definition_node_id` (`join_definition_node_id`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='流程并行作用域表';
+
 CREATE TABLE IF NOT EXISTS `tb_workflow_node_instance` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `instance_id` BIGINT NOT NULL COMMENT '所属流程实例ID',
@@ -384,6 +411,7 @@ CREATE TABLE IF NOT EXISTS `tb_workflow_node_instance` (
   `definition_node_name` VARCHAR(100) NOT NULL COMMENT '节点定义名称（冗余）',
   `definition_node_type` VARCHAR(32) NOT NULL COMMENT '节点定义类型（冗余）',
   `parallel_branch_root_id` BIGINT DEFAULT NULL COMMENT '所属最近一层并行拆分节点实例ID',
+  `parallel_scope_id` BIGINT DEFAULT NULL COMMENT '所属并行作用域ID',
   `status` VARCHAR(16) NOT NULL DEFAULT 'PENDING' COMMENT '状态：PENDING=待激活 ACTIVE=进行中 PENDING_APPROVAL=待定/审批中 APPROVED=已通过 REJECTED=已拒绝 SKIPPED=已跳过 CANCELED=已取消 TIMEOUT=已超时',
   `approve_mode` VARCHAR(16) DEFAULT NULL COMMENT '审批模式（冗余）',
   `activated_at` DATETIME DEFAULT NULL COMMENT '节点激活时间',
@@ -397,6 +425,7 @@ CREATE TABLE IF NOT EXISTS `tb_workflow_node_instance` (
   `is_deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '软删除标记：0=正常 1=已删除',
   PRIMARY KEY (`id`),
   KEY `idx_instance_id` (`instance_id`),
+  KEY `idx_parallel_scope_id` (`parallel_scope_id`),
   KEY `idx_status_deadline` (`status`, `deadline_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='节点实例表';
 

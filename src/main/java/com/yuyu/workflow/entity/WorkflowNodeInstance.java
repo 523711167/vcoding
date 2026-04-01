@@ -27,6 +27,8 @@ public class WorkflowNodeInstance extends BaseAuditEntity {
 
     private Long parallelBranchRootId;
 
+    private Long parallelScopeId;
+
     private String status;
 
     private String approveMode;
