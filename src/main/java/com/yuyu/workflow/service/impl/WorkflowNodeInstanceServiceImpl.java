@@ -5,12 +5,16 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yuyu.workflow.common.context.OperationTimeContext;
 import com.yuyu.workflow.common.enums.WorkflowNodeInstanceStatusEnum;
+import com.yuyu.workflow.common.enums.WorkflowNodeTypeEnum;
 import com.yuyu.workflow.common.exception.BizException;
 import com.yuyu.workflow.entity.WorkflowNode;
 import com.yuyu.workflow.entity.WorkflowNodeInstance;
+import com.yuyu.workflow.entity.WorkflowParallelScope;
 import com.yuyu.workflow.entity.base.BaseIdEntity;
 import com.yuyu.workflow.mapper.WorkflowNodeInstanceMapper;
 import com.yuyu.workflow.service.WorkflowNodeInstanceService;
+import com.yuyu.workflow.service.WorkflowParallelScopeService;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
@@ -24,11 +28,15 @@ import java.util.*;
 @Service
 public class WorkflowNodeInstanceServiceImpl extends ServiceImpl<WorkflowNodeInstanceMapper, WorkflowNodeInstance> implements WorkflowNodeInstanceService {
 
+    private final WorkflowParallelScopeService workflowParallelScopeService;
+
     /**
      * 注入节点实例服务依赖。
      */
-    public WorkflowNodeInstanceServiceImpl(WorkflowNodeInstanceMapper workflowNodeInstanceMapper) {
+    public WorkflowNodeInstanceServiceImpl(WorkflowNodeInstanceMapper workflowNodeInstanceMapper,
+                                           WorkflowParallelScopeService workflowParallelScopeService) {
         this.baseMapper = workflowNodeInstanceMapper;
+        this.workflowParallelScopeService = workflowParallelScopeService;
     }
 
     @Override
@@ -120,7 +128,7 @@ public class WorkflowNodeInstanceServiceImpl extends ServiceImpl<WorkflowNodeIns
     }
 
     @Override
-    public WorkflowNodeInstance createOrLoadParallelJoinNodeInstance(WorkflowNode nextNode, Long workflowInstanceId) {
+    public WorkflowNodeInstance createOrLoadParallelJoinNodeInstance(WorkflowNode nextNode, Long workflowInstanceId, Long scopeId) {
         Optional<WorkflowNodeInstance> exist = getOneOpt(
                 Wrappers.<WorkflowNodeInstance>lambdaQuery()
                         .eq(WorkflowNodeInstance::getInstanceId, workflowInstanceId)
@@ -137,7 +145,7 @@ public class WorkflowNodeInstanceServiceImpl extends ServiceImpl<WorkflowNodeIns
         joinNodeInstance.setDefinitionNodeId(nextNode.getId());
         joinNodeInstance.setDefinitionNodeName(nextNode.getName());
         joinNodeInstance.setDefinitionNodeType(nextNode.getNodeType());
-        joinNodeInstance.setParallelBranchRootId(null);
+        joinNodeInstance.setParallelScopeId(scopeId);
         joinNodeInstance.setStatus(WorkflowNodeInstanceStatusEnum.ACTIVE.getCode());
         joinNodeInstance.setActivatedAt(OperationTimeContext.get());
         joinNodeInstance.setApproveMode(nextNode.getApproveMode());
@@ -195,5 +203,29 @@ public class WorkflowNodeInstanceServiceImpl extends ServiceImpl<WorkflowNodeIns
         startNodeInstance.setStatus(WorkflowNodeInstanceStatusEnum.PENDING.getCode());
         super.save(startNodeInstance);
         return startNodeInstance;
+    }
+
+    @Override
+    public void updateScopeId(WorkflowNodeInstance currentWorkflowNodeInstance, WorkflowNodeInstance joinNodeInstance) {
+        if (Objects.nonNull(currentWorkflowNodeInstance.getParallelScopeId())) {
+            // 并行汇聚节点 路由 到并行汇聚节点
+            if (StringUtils.equalsAny(
+                    WorkflowNodeTypeEnum.PARALLEL_JOIN.getCode(),
+                    currentWorkflowNodeInstance.getDefinitionNodeType(),
+                    joinNodeInstance.getDefinitionNodeType())) {
+                WorkflowParallelScope workflowParallelScope = workflowParallelScopeService.getById(currentWorkflowNodeInstance.getParallelScopeId());
+                update(
+                        Wrappers.<WorkflowNodeInstance>lambdaUpdate()
+                                .eq(BaseIdEntity::getId, joinNodeInstance.getId())
+                                .set(WorkflowNodeInstance::getParallelScopeId, workflowParallelScope.getParentScopeId())
+                );
+            }
+
+            update(
+                    Wrappers.<WorkflowNodeInstance>lambdaUpdate()
+                            .eq(BaseIdEntity::getId, joinNodeInstance.getId())
+                            .set(WorkflowNodeInstance::getParallelScopeId, currentWorkflowNodeInstance.getParallelScopeId())
+            );
+        }
     }
 }

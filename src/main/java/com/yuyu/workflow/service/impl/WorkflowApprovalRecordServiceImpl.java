@@ -97,20 +97,38 @@ public class WorkflowApprovalRecordServiceImpl extends ServiceImpl<WorkflowAppro
     }
 
     @Override
-    public void insertRecordForReject(WorkflowAuditETO eto, WorkflowNodeInstance workflowNodeInstance, WorkflowNodeInstance toWorkflowNodeInstance) {
+    public void recordForReject(WorkflowAuditETO eto, WorkflowNodeInstance workflowNodeInstance, WorkflowNodeInstance toWorkflowNodeInstance) {
         WorkflowApprovalRecord record = buildApprovalRecord(eto, workflowNodeInstance, toWorkflowNodeInstance, WorkflowApprovalActionEnum.REJECT);
         baseMapper.insert(record);
     }
 
     @Override
-    public void insertRecordForApprove(WorkflowAuditETO eto, WorkflowNodeInstance workflowNodeInstance) {
+    public void recordForApprove(WorkflowAuditETO eto, WorkflowNodeInstance workflowNodeInstance) {
         WorkflowApprovalRecord record = buildApprovalRecord(eto, workflowNodeInstance, new WorkflowNodeInstance(), WorkflowApprovalActionEnum.APPROVE);
         baseMapper.insert(record);
     }
 
     @Override
-    public void insertRecordForRoute(WorkflowAuditETO eto, WorkflowNodeInstance workflowNodeInstance, WorkflowNodeInstance toWorkflowNodeInstance) {
+    public void recordForRoute(WorkflowAuditETO eto, WorkflowNodeInstance workflowNodeInstance, WorkflowNodeInstance toWorkflowNodeInstance) {
         WorkflowApprovalRecord record = buildApprovalRecord(eto, workflowNodeInstance, toWorkflowNodeInstance, WorkflowApprovalActionEnum.ROUTE);
+        baseMapper.insert(record);
+    }
+
+    @Override
+    public void recordForSplitTrigger(WorkflowAuditETO eto, WorkflowNodeInstance workflowNodeInstance, WorkflowNodeInstance toWorkflowNodeInstance) {
+        WorkflowApprovalRecord record = buildApprovalRecord(eto, workflowNodeInstance, toWorkflowNodeInstance, WorkflowApprovalActionEnum.SPLIT_TRIGGER);
+        baseMapper.insert(record);
+    }
+
+    @Override
+    public void recordForJoinArrive(WorkflowAuditETO eto, WorkflowNodeInstance workflowNodeInstance, WorkflowNodeInstance toWorkflowNodeInstance) {
+        WorkflowApprovalRecord record = buildApprovalRecord(eto, workflowNodeInstance, toWorkflowNodeInstance, WorkflowApprovalActionEnum.JOIN_ARRIVE);
+        baseMapper.insert(record);
+    }
+
+    @Override
+    public void recordForJoinPass(WorkflowAuditETO eto, WorkflowNodeInstance workflowNodeInstance, WorkflowNodeInstance toWorkflowNodeInstance) {
+        WorkflowApprovalRecord record = buildApprovalRecord(eto, workflowNodeInstance, toWorkflowNodeInstance, WorkflowApprovalActionEnum.JOIN_PASS);
         baseMapper.insert(record);
     }
 

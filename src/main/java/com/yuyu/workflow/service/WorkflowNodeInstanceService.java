@@ -31,11 +31,13 @@ public interface WorkflowNodeInstanceService extends IService<WorkflowNodeInstan
 
     void updateNode(Long nodeInstanceId, WorkflowNodeInstanceStatusEnum nodeInstanceEnum);
 
-    WorkflowNodeInstance createOrLoadParallelJoinNodeInstance(WorkflowNode nextNode, Long workflowInstanceId);
+    WorkflowNodeInstance createOrLoadParallelJoinNodeInstance(WorkflowNode nextNode, Long workflowInstanceId, Long scopeId);
 
     void activePendingNodeInstance(WorkflowNodeInstance pendingNodeInstance, Long branchRootInstanceId);
 
     void updateNodeInstanceForEnd(WorkflowNodeInstance pendingNodeInstance);
 
     WorkflowNodeInstance createStartNodeInstance(WorkflowNode startNode, Long workflowInstanceId);
+
+    void updateScopeId(WorkflowNodeInstance currentWorkflowNodeInstance, WorkflowNodeInstance joinNodeInstance);
 }
