@@ -1,10 +1,14 @@
 package com.yuyu.workflow.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.yuyu.workflow.common.PageVo;
 import com.yuyu.workflow.common.enums.BizApplyStatusEnum;
 import com.yuyu.workflow.common.enums.CommonStatusEnum;
 import com.yuyu.workflow.common.exception.BizException;
+import com.yuyu.workflow.struct.BizApplyCommandStructMapper;
 import com.yuyu.workflow.entity.BizApply;
 import com.yuyu.workflow.entity.BizDefinition;
 import com.yuyu.workflow.entity.WorkflowDefinition;
@@ -12,9 +16,14 @@ import com.yuyu.workflow.eto.biz.BizApplySaveDraftETO;
 import com.yuyu.workflow.eto.biz.BizApplyUpdateDraftETO;
 import com.yuyu.workflow.mapper.BizApplyMapper;
 import com.yuyu.workflow.mapper.UserMapper;
+import com.yuyu.workflow.qto.biz.BizApplyDraftIdQTO;
+import com.yuyu.workflow.qto.biz.BizApplyDraftListQTO;
+import com.yuyu.workflow.qto.biz.BizApplyDraftPageQTO;
 import com.yuyu.workflow.service.BizApplyService;
 import com.yuyu.workflow.service.BizDefinitionService;
 import com.yuyu.workflow.service.WorkflowDefinitionService;
+import com.yuyu.workflow.vo.biz.BizApplyDraftVO;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
@@ -35,6 +44,7 @@ public class BizApplyServiceImpl extends ServiceImpl<BizApplyMapper, BizApply> i
     private final UserMapper userMapper;
     private final BizDefinitionService bizDefinitionService;
     private final WorkflowDefinitionService workflowDefinitionService;
+    private final BizApplyCommandStructMapper bizApplyCommandStructMapper;
 
     /**
      * 注入业务申请服务依赖。
@@ -42,11 +52,13 @@ public class BizApplyServiceImpl extends ServiceImpl<BizApplyMapper, BizApply> i
     public BizApplyServiceImpl(BizApplyMapper bizApplyMapper,
                                UserMapper userMapper,
                                BizDefinitionService bizDefinitionService,
-                               WorkflowDefinitionService workflowDefinitionService) {
+                               WorkflowDefinitionService workflowDefinitionService,
+                               BizApplyCommandStructMapper bizApplyCommandStructMapper) {
         this.baseMapper = bizApplyMapper;
         this.userMapper = userMapper;
         this.bizDefinitionService = bizDefinitionService;
         this.workflowDefinitionService = workflowDefinitionService;
+        this.bizApplyCommandStructMapper = bizApplyCommandStructMapper;
     }
 
     @Override
@@ -141,6 +153,40 @@ public class BizApplyServiceImpl extends ServiceImpl<BizApplyMapper, BizApply> i
         return baseMapper.selectList(new LambdaQueryWrapper<BizApply>()
                 .in(BizApply::getWorkflowInstanceId, normalizedIds)
                 .orderByAsc(BizApply::getId));
+    }
+
+    @Override
+    public List<BizApplyDraftVO> listDrafts(BizApplyDraftListQTO qto) {
+        return baseMapper.selectList(buildDraftQuery(qto.getCurrentUserId(), qto.getBizDefinitionId(), qto.getTitle()))
+                .stream()
+                .map(bizApplyCommandStructMapper::toBizApplyDraftVO)
+                .toList();
+    }
+
+    @Override
+    public BizApplyDraftVO detailDraft(BizApplyDraftIdQTO qto) {
+        BizApply bizApply = getByIdOrThrow(qto.getId());
+        assertDraftOwner(bizApply, qto.getCurrentUserId());
+        if (!BizApplyStatusEnum.isDraft(bizApply.getBizStatus())) {
+            throw new BizException("当前业务申请不是草稿状态");
+        }
+        return bizApplyCommandStructMapper.toBizApplyDraftVO(bizApply);
+    }
+
+    @Override
+    public PageVo<BizApplyDraftVO> pageDrafts(BizApplyDraftPageQTO qto) {
+        IPage<BizApply> page = baseMapper.selectPage(
+                new Page<>(qto.getPageNum(), qto.getPageSize()),
+                buildDraftQuery(qto.getCurrentUserId(), qto.getBizDefinitionId(), qto.getTitle())
+        );
+        return PageVo.of(
+                page.getCurrent(),
+                page.getSize(),
+                page.getTotal(),
+                page.getRecords().stream()
+                        .map(bizApplyCommandStructMapper::toBizApplyDraftVO)
+                        .toList()
+        );
     }
 
     @Override
@@ -241,5 +287,20 @@ public class BizApplyServiceImpl extends ServiceImpl<BizApplyMapper, BizApply> i
         }
         WorkflowDefinition workflowDefinition = workflowDefinitionService.getById(bizDefinition.getWorkflowDefinitionId());
         return Objects.nonNull(workflowDefinition) ? workflowDefinition.getName() : null;
+    }
+
+    /**
+     * 构造当前用户草稿箱查询条件。
+     */
+    private LambdaQueryWrapper<BizApply> buildDraftQuery(Long currentUserId, Long bizDefinitionId, String title) {
+        if (Objects.isNull(currentUserId)) {
+            throw new BizException("当前用户不能为空");
+        }
+        return new LambdaQueryWrapper<BizApply>()
+                .eq(BizApply::getApplicantId, currentUserId)
+                .eq(BizApply::getBizStatus, BizApplyStatusEnum.DRAFT.getCode())
+                .eq(Objects.nonNull(bizDefinitionId), BizApply::getBizDefinitionId, bizDefinitionId)
+                .like(StringUtils.isNotBlank(title), BizApply::getTitle, title)
+                .orderByDesc(BizApply::getUpdatedAt, BizApply::getId);
     }
 }

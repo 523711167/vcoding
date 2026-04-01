@@ -1,9 +1,14 @@
 package com.yuyu.workflow.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.yuyu.workflow.common.PageVo;
 import com.yuyu.workflow.entity.BizApply;
 import com.yuyu.workflow.eto.biz.BizApplySaveDraftETO;
 import com.yuyu.workflow.eto.biz.BizApplyUpdateDraftETO;
+import com.yuyu.workflow.qto.biz.BizApplyDraftIdQTO;
+import com.yuyu.workflow.qto.biz.BizApplyDraftListQTO;
+import com.yuyu.workflow.qto.biz.BizApplyDraftPageQTO;
+import com.yuyu.workflow.vo.biz.BizApplyDraftVO;
 
 import java.util.List;
 
@@ -36,5 +41,20 @@ public interface BizApplyService extends IService<BizApply> {
      * 按流程实例主键集合查询业务申请。
      */
     List<BizApply> listByWorkflowInstanceIds(List<Long> workflowInstanceIdList);
+
+    /**
+     * 查询当前用户草稿箱列表。
+     */
+    List<BizApplyDraftVO> listDrafts(BizApplyDraftListQTO qto);
+
+    /**
+     * 查询当前用户草稿箱详情。
+     */
+    BizApplyDraftVO detailDraft(BizApplyDraftIdQTO qto);
+
+    /**
+     * 分页查询当前用户草稿箱列表。
+     */
+    PageVo<BizApplyDraftVO> pageDrafts(BizApplyDraftPageQTO qto);
 
 }
