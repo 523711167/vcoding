@@ -20,6 +20,7 @@ import org.springframework.expression.ExpressionParser;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -44,7 +45,6 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
     private final UserDeptRelMapper userDeptRelMapper;
     private final UserDeptMapper userDeptMapper;
     private final ObjectMapperUtils objectMapperUtils;
-    private final WorkflowRouteTreeBuilder workflowRouteTreeBuilder;
     private final BizDefinitionService bizDefinitionService;
     private final WorkflowDefinitionService workflowDefinitionService;
     private final WorkflowParallelScopeService workflowParallelScopeService;
@@ -66,7 +66,6 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
                                      BizDefinitionService bizDefinitionService,
                                      WorkflowDefinitionService workflowDefinitionService,
                                      WorkflowParallelScopeService workflowParallelScopeService,
-                                     WorkflowRouteTreeBuilder workflowRouteTreeBuilder,
                                      WorkflowLaunchStructMapper workflowLaunchStructMapper,
                                      WorkflowNodeService workflowNodeService) {
         this.bizApplyService = bizApplyService;
@@ -81,7 +80,6 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         this.userDeptRelMapper = userDeptRelMapper;
         this.userDeptMapper = userDeptMapper;
         this.objectMapperUtils = objectMapperUtils;
-        this.workflowRouteTreeBuilder = workflowRouteTreeBuilder;
         this.bizDefinitionService = bizDefinitionService;
         this.workflowDefinitionService = workflowDefinitionService;
         this.workflowParallelScopeService = workflowParallelScopeService;
@@ -90,11 +88,12 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void submit(WorkflowBizSubmitETO eto) {
         SubmitContext context = loadSubmitContext(eto);
         validateSubmit(context);
 
-        WorkflowInstance workflowInstance = workflowInstanceService.saveStartIntance(context.bizApply(), context.bizDefinition(), eto.getUserContextParam());
+        WorkflowInstance workflowInstance = workflowInstanceService.saveStartIntance(context.bizApply(), context.workflowDefinition(), eto.getUserContextParam());
 
         // 开始节点
         WorkflowNode startNode = context.definitionNodeList().stream()
@@ -221,6 +220,7 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void audit(WorkflowAuditETO eto) {
         AuditContext context = loadAuditContext(eto);
 

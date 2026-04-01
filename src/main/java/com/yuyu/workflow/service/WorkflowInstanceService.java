@@ -3,7 +3,7 @@ package com.yuyu.workflow.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.yuyu.workflow.common.base.UserContextParam;
 import com.yuyu.workflow.entity.BizApply;
-import com.yuyu.workflow.entity.BizDefinition;
+import com.yuyu.workflow.entity.WorkflowDefinition;
 import com.yuyu.workflow.entity.WorkflowInstance;
 import com.yuyu.workflow.entity.WorkflowNodeInstance;
 
@@ -29,5 +29,5 @@ public interface WorkflowInstanceService extends IService<WorkflowInstance> {
 
     void updateWorkflowInstanceForSite(Long instanceId, WorkflowNodeInstance workflowNodeInstance);
 
-    WorkflowInstance saveStartIntance(BizApply bizApply, BizDefinition bizDefinition, UserContextParam userContextParam);
+    WorkflowInstance saveStartIntance(BizApply bizApply, WorkflowDefinition workflowDefinition, UserContextParam userContextParam);
 }

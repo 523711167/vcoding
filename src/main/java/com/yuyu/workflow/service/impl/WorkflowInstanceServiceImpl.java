@@ -7,7 +7,7 @@ import com.yuyu.workflow.common.context.OperationTimeContext;
 import com.yuyu.workflow.common.enums.WorkflowInstanceStatusEnum;
 import com.yuyu.workflow.common.exception.BizException;
 import com.yuyu.workflow.entity.BizApply;
-import com.yuyu.workflow.entity.BizDefinition;
+import com.yuyu.workflow.entity.WorkflowDefinition;
 import com.yuyu.workflow.entity.WorkflowInstance;
 import com.yuyu.workflow.entity.WorkflowNodeInstance;
 import com.yuyu.workflow.entity.base.BaseIdEntity;
@@ -111,11 +111,11 @@ public class WorkflowInstanceServiceImpl extends ServiceImpl<WorkflowInstanceMap
     }
 
     @Override
-    public WorkflowInstance saveStartIntance(BizApply bizApply, BizDefinition bizDefinition, UserContextParam userContextParam) {
+    public WorkflowInstance saveStartIntance(BizApply bizApply, WorkflowDefinition workflowDefinition, UserContextParam userContextParam) {
         WorkflowInstance workflowInstance = new WorkflowInstance();
         workflowInstance.setBizId(bizApply.getId());
-        workflowInstance.setDefinitionId(bizDefinition.getId());
-        workflowInstance.setDefinitionCode(bizDefinition.getBizCode());
+        workflowInstance.setDefinitionId(workflowDefinition.getId());
+        workflowInstance.setDefinitionCode(workflowDefinition.getCode());
         workflowInstance.setTitle(bizApply.getTitle());
         workflowInstance.setStatus(WorkflowInstanceStatusEnum.RUNNING.getCode());
         workflowInstance.setApplicantId(bizApply.getApplicantId());
