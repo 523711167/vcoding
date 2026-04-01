@@ -1,6 +1,8 @@
 package com.yuyu.workflow.service.impl;
 
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.yuyu.workflow.common.enums.WorkflowNodeTypeEnum;
 import com.yuyu.workflow.common.exception.BizException;
 import com.yuyu.workflow.entity.WorkflowNode;
 import com.yuyu.workflow.mapper.WorkflowNodeMapper;
@@ -73,6 +75,18 @@ public class WorkflowNodeServiceImpl extends ServiceImpl<WorkflowNodeMapper, Wor
             return true;
         }
         return baseMapper.removeByIds(normalizedIds) > 0;
+    }
+
+    @Override
+    public WorkflowNode findMatchJoinNode(Long splitDefinitionNodeId, Long definitionId) {
+        WorkflowNode joinNode = getOne(
+                Wrappers.<WorkflowNode>lambdaQuery()
+                        .eq(WorkflowNode::getDefinitionId, definitionId)
+                        .eq(WorkflowNode::getNodeType, WorkflowNodeTypeEnum.PARALLEL_JOIN.getCode())
+                        .eq(WorkflowNode::getParallelSplitNodeId, splitDefinitionNodeId)
+                        .last("limit 1")
+        );
+        return joinNode;
     }
 
     /**

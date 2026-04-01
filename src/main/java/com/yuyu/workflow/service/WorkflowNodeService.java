@@ -12,4 +12,6 @@ public interface WorkflowNodeService extends IService<WorkflowNode> {
      * 按主键查询流程节点，不存在时抛出异常。
      */
     WorkflowNode getByIdOrThrow(Long id);
+
+    WorkflowNode findMatchJoinNode(Long splitDefinitionNodeId, Long definitionId);
 }

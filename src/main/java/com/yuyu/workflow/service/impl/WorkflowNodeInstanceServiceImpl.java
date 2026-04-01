@@ -166,7 +166,7 @@ public class WorkflowNodeInstanceServiceImpl extends ServiceImpl<WorkflowNodeIns
                 Wrappers.<WorkflowNodeInstance>lambdaUpdate()
                         .eq(BaseIdEntity::getId, pendingNodeInstance.getId())
                         .eq(WorkflowNodeInstance::getStatus, WorkflowNodeInstanceStatusEnum.PENDING.getCode())
-                        .set(WorkflowNodeInstance::getParallelBranchRootId, branchRootInstanceId)
+                        .set(WorkflowNodeInstance::getParallelScopeId, branchRootInstanceId)
                         .set(WorkflowNodeInstance::getStatus, WorkflowNodeInstanceStatusEnum.ACTIVE.getCode())
                         .set(WorkflowNodeInstance::getActivatedAt, OperationTimeContext.get())
         );

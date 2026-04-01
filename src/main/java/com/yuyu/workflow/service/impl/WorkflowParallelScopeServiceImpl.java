@@ -2,7 +2,10 @@ package com.yuyu.workflow.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.yuyu.workflow.common.enums.WorkflowNodeInstanceStatusEnum;
 import com.yuyu.workflow.common.exception.BizException;
+import com.yuyu.workflow.entity.WorkflowInstance;
+import com.yuyu.workflow.entity.WorkflowNode;
 import com.yuyu.workflow.entity.WorkflowParallelScope;
 import com.yuyu.workflow.mapper.WorkflowParallelScopeMapper;
 import com.yuyu.workflow.service.WorkflowParallelScopeService;
@@ -55,6 +58,40 @@ public class WorkflowParallelScopeServiceImpl extends ServiceImpl<WorkflowParall
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public WorkflowParallelScope createOnParallelSplitEnter(WorkflowInstance workflowInstance,
+                                                            WorkflowNode splitDefinitionNode,
+                                                            WorkflowNode joinDefinitionNode,
+                                                            Long parentScopeId,
+                                                            Integer expectedBranchCount) {
+        if (Objects.isNull(workflowInstance)) {
+            throw new BizException("流程实例不能为空");
+        }
+        if (Objects.isNull(splitDefinitionNode)) {
+            throw new BizException("并行拆分节点不能为空");
+        }
+        if (Objects.isNull(joinDefinitionNode)) {
+            throw new BizException("并行聚合节点不能为空");
+        }
+
+        WorkflowParallelScope workflowParallelScope = new WorkflowParallelScope();
+        workflowParallelScope.setInstanceId(workflowInstance.getId());
+        workflowParallelScope.setDefinitionId(workflowInstance.getDefinitionId());
+        workflowParallelScope.setSplitDefinitionNodeId(splitDefinitionNode.getId());
+        workflowParallelScope.setSplitDefinitionNodeName(splitDefinitionNode.getName());
+        workflowParallelScope.setSplitDefinitionNodeType(splitDefinitionNode.getNodeType());
+        workflowParallelScope.setJoinDefinitionNodeId(joinDefinitionNode.getId());
+        workflowParallelScope.setJoinDefinitionNodeName(joinDefinitionNode.getName());
+        workflowParallelScope.setJoinDefinitionNodeType(joinDefinitionNode.getNodeType());
+        workflowParallelScope.setParentScopeId(parentScopeId);
+        workflowParallelScope.setStatus(WorkflowNodeInstanceStatusEnum.ACTIVE.getCode());
+        workflowParallelScope.setExpectedBranchCount(Objects.requireNonNullElse(expectedBranchCount, 0));
+        workflowParallelScope.setArrivedBranchCount(0);
+        save(workflowParallelScope);
+        return workflowParallelScope;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public boolean save(WorkflowParallelScope workflowParallelScope) {
         if (Objects.isNull(workflowParallelScope)) {
             throw new BizException("并行作用域不能为空");
@@ -88,6 +125,24 @@ public class WorkflowParallelScopeServiceImpl extends ServiceImpl<WorkflowParall
     }
 
     /**
+     * 分支到达并行聚合节点后，累计当前并行作用域已到达分支数。
+     *
+     * @param parallelScopeId
+     */
+    @Override
+    public void markParallelBranchArrived(Long parallelScopeId) {
+        WorkflowParallelScope workflowParallelScope = getById(parallelScopeId);
+        if (Objects.isNull(workflowParallelScope)) {
+            throw new BizException("并行作用域不存在");
+        }
+
+        WorkflowParallelScope scopeUpdate = new WorkflowParallelScope();
+        scopeUpdate.setId(parallelScopeId);
+        scopeUpdate.setArrivedBranchCount(workflowParallelScope.getArrivedBranchCount() + 1);
+        super.updateById(scopeUpdate);
+    }
+
+    /**
      * 规范化主键集合。
      */
     private List<Long> normalizeIds(Collection<?> idList) {
@@ -102,4 +157,6 @@ public class WorkflowParallelScopeServiceImpl extends ServiceImpl<WorkflowParall
                 .stream()
                 .toList();
     }
+
+
 }

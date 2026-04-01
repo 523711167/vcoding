@@ -100,11 +100,11 @@ public class WorkflowInstanceServiceImpl extends ServiceImpl<WorkflowInstanceMap
     }
 
     @Override
-    public void updateWorkflowInstanceForFinish(Long instanceId, WorkflowNodeInstance workflowNodeInstance, WorkflowInstanceStatusEnum statusEnum) {
+    public void updateWorkflowInstanceForFinish(Long instanceId, WorkflowNodeInstance workflowNodeInstance) {
         baseMapper.update(
                 Wrappers.<WorkflowInstance>lambdaUpdate()
                         .eq(BaseIdEntity::getId, instanceId)
-                        .set(WorkflowInstance::getStatus, statusEnum.getCode())
+                        .set(WorkflowInstance::getStatus, WorkflowInstanceStatusEnum.FINISHI.getCode())
                         .set(WorkflowInstance::getFinishedAt, OperationTimeContext.get())
                         .set(WorkflowInstance::getCurrentNodeId, workflowNodeInstance.getId())
                         .set(WorkflowInstance::getCurrentNodeType, workflowNodeInstance.getDefinitionNodeType())
