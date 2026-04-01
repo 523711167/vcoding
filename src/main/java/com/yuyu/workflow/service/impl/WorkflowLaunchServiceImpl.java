@@ -125,6 +125,12 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
                 startNodeInstance,
                 actualStartNodeInstance
         );
+
+        // 业务修改
+        BizApply bizApply = new BizApply();
+        bizApply.setId(context.bizApply().getId());
+        bizApply.setBizStatus(BizApplyStatusEnum.PENDING.getCode());
+        bizApplyService.updateById(bizApply);
     }
 
 
