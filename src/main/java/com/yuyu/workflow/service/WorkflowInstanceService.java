@@ -27,7 +27,7 @@ public interface WorkflowInstanceService extends IService<WorkflowInstance> {
      */
     void updateWorkflowInstanceForApproval(Long instanceId, WorkflowNodeInstance workflowNodeInstance);
 
-    void updateWorkflowInstanceForFinish(Long instanceId, WorkflowNodeInstance workflowNodeInstance);
+    void updateWorkflowInstanceForSite(Long instanceId, WorkflowNodeInstance workflowNodeInstance);
 
     WorkflowInstance saveStartIntance(BizApply bizApply, BizDefinition bizDefinition, UserContextParam userContextParam);
 }

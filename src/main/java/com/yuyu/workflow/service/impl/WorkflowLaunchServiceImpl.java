@@ -348,6 +348,9 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
 
         // 通过处理
         List<WorkflowTransition> workflowTransitions = context.transitionsByFromNodeId().get(currentWorkflowNodeInstance.getDefinitionNodeId());
+        if (workflowTransitions.size() != 1) {
+            throw new BizException("流程定义设计错误：审批节点后续节点数必须为1");
+        }
         for (WorkflowTransition workflowTransition : workflowTransitions) {
             WorkflowNode workflowNode = context.nodeMap().get(workflowTransition.getToNodeId());
             //  查找下一个节点
@@ -700,12 +703,10 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
 
     private void handlerConditionNode(AuditContext context, WorkflowNodeInstance currentWorkflowNodeInstance,
                                       WorkflowNodeInstance nextNodeInstance) {
-        Long definitionNodeId = currentWorkflowNodeInstance.getDefinitionNodeId();
+        Long definitionNodeId = nextNodeInstance.getDefinitionNodeId();
 
-        workflowNodeInstanceService.activePendingNodeInstance(nextNodeInstance, currentWorkflowNodeInstance.getId());
         workflowNodeInstanceService.updateNodeInstanceForApprove(currentWorkflowNodeInstance.getId());
 
-        // 匹配节点
         WorkflowNode matchConditionNode = findMatchConditionNode(definitionNodeId, context);
 
         WorkflowNodeInstance matchNodeInstance = workflowNodeInstanceService.createOrLoadParallelJoinNodeInstance(matchConditionNode, context.workflowInstance().getId());
@@ -715,9 +716,6 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         processRouteAfterNodeApproved(context, new AuditRuntimeContext(WorkflowNodeInstanceStatusEnum.APPROVED), nextNodeInstance, matchNodeInstance);
     }
 
-    /**
-     *
-     */
     private WorkflowNode findMatchConditionNode(Long definitionNodeId, AuditContext context) {
         List<WorkflowTransition> workflowTransitionList = context.transitionsByFromNodeId().get(definitionNodeId);
         if (workflowTransitionList == null || workflowTransitionList.isEmpty()) {
@@ -806,7 +804,11 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         // 关闭结束节点
         workflowNodeInstanceService.updateNodeInstanceForEnd(nextNodeInstance);
         // 流程实例结束
-        workflowInstanceService.updateWorkflowInstanceForFinish(workInstanceId, nextNodeInstance);
+        if (WorkflowNodeInstanceStatusEnum.isApproved(auditRuntimeContext.currentNodeAuditedStatus().getCode())) {
+            workflowInstanceService.updateWorkflowInstanceForApproval(workInstanceId, nextNodeInstance);
+        } else {
+            workflowInstanceService.updateWorkflowInstanceForReject(workInstanceId, nextNodeInstance);
+        }
         // 业务修改
         BizApply bizApply = new BizApply();
         bizApply.setId(context.workflowInstance().getBizId());
@@ -819,8 +821,6 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         Long nodeInstanceId = currentWorkflowNodeInstance.getId();
         String status = auditRuntimeContext.currentNodeAuditedStatus().getCode();
 
-        // 下个节点激活
-        workflowNodeInstanceService.activePendingNodeInstance(nextNodeInstance, currentWorkflowNodeInstance.getParallelScopeId());
         // 当前节点通过
         if (WorkflowNodeInstanceStatusEnum.isApproved(status)) {
             workflowNodeInstanceService.updateNodeInstanceForApprove(nodeInstanceId);
@@ -830,7 +830,7 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
 
         saveApproverNode(nextNodeInstance);
 
-        workflowInstanceService.updateWorkflowInstanceForApproval(context.workflowInstance().getId(), nextNodeInstance);
+        workflowInstanceService.updateWorkflowInstanceForSite(context.workflowInstance().getId(), nextNodeInstance);
     }
 
     private void saveApproverNode(WorkflowNodeInstance nextNodeInstance) {
@@ -839,6 +839,10 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
                         .eq(WorkflowNodeApprover::getNodeId, nextNodeInstance.getDefinitionNodeId())
                         .orderByAsc(WorkflowNodeApprover::getSortOrder, WorkflowNodeApprover::getId)
         );
+        if (approverConfigs.isEmpty()) {
+            throw new BizException("审批节点缺少审批人配置");
+        }
+
         String approverType = approverConfigs.stream().map(WorkflowNodeApprover::getApproverType).distinct().findFirst().get();
         if (WorkflowApproverTypeEnum.isUser(approverType)) {
             workflowNodeApproverInstanceService.saveApproverInstancesForUser(nextNodeInstance);

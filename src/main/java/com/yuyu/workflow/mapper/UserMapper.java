@@ -46,9 +46,9 @@ public interface UserMapper extends BaseMapper<User> {
             SELECT distinct t.*
             FROM tb_user t
             INNER JOIN tb_workflow_node_approver y ON y.approver_value = t.id
-            WHERE t.status = 1 AND t.is_deleted = 0 and y.approver_type = 'USER'  and y.node_id = #{workflowNodeId} order by y.sort_order 
+            WHERE t.status = 1 AND t.is_deleted = 0 and y.approver_type = 'USER'  and y.node_id = #{definitionNodeId} order by y.sort_order 
             """)
-    List<User> selectWorkflowApproverUser(@Param("workflowNodeId") Long workflowNodeId);
+    List<User> selectWorkflowApproverUser(@Param("definitionNodeId") Long definitionNodeId);
 
     @Select("""
             SELECT distinct u.*

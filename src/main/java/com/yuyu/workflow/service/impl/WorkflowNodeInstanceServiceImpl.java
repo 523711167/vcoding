@@ -140,6 +140,7 @@ public class WorkflowNodeInstanceServiceImpl extends ServiceImpl<WorkflowNodeIns
         joinNodeInstance.setParallelBranchRootId(null);
         joinNodeInstance.setStatus(WorkflowNodeInstanceStatusEnum.ACTIVE.getCode());
         joinNodeInstance.setActivatedAt(OperationTimeContext.get());
+        joinNodeInstance.setApproveMode(nextNode.getApproveMode());
 
         super.save(joinNodeInstance);
         return joinNodeInstance;
