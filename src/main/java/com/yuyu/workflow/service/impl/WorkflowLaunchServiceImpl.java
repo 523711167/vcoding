@@ -111,7 +111,19 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
 
         workflowNodeInstanceService.activePendingNodeInstance(startNodeInstance, workflowInstance.getId());
 
-        processRouteAfterNodeApproved(workflowLaunchStructMapper.toAuditContext(workflowAuditETO), new AuditRuntimeContext(WorkflowNodeInstanceStatusEnum.APPROVED), startNodeInstance, actualStartNodeInstance);
+        processRouteAfterNodeApproved(
+                workflowLaunchStructMapper.toAuditContext(
+                        workflowAuditETO,
+                        workflowInstance,
+                        startNodeInstance,
+                        startNode,
+                        context.nodeMap(),
+                        context.transitionsByFromNodeId()
+                ),
+                new AuditRuntimeContext(WorkflowNodeInstanceStatusEnum.APPROVED),
+                startNodeInstance,
+                actualStartNodeInstance
+        );
     }
 
 
