@@ -142,6 +142,11 @@ public class WorkflowParallelScopeServiceImpl extends ServiceImpl<WorkflowParall
         super.updateById(scopeUpdate);
     }
 
+    @Override
+    public Long getParentScopeId(Long parallelScopeId) {
+        return getById(parallelScopeId).getParentScopeId();
+    }
+
     /**
      * 规范化主键集合。
      */

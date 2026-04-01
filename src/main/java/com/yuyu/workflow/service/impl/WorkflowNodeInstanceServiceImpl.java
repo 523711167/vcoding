@@ -220,12 +220,6 @@ public class WorkflowNodeInstanceServiceImpl extends ServiceImpl<WorkflowNodeIns
                                 .set(WorkflowNodeInstance::getParallelScopeId, workflowParallelScope.getParentScopeId())
                 );
             }
-
-            update(
-                    Wrappers.<WorkflowNodeInstance>lambdaUpdate()
-                            .eq(BaseIdEntity::getId, joinNodeInstance.getId())
-                            .set(WorkflowNodeInstance::getParallelScopeId, currentWorkflowNodeInstance.getParallelScopeId())
-            );
         }
     }
 }

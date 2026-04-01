@@ -32,4 +32,6 @@ public interface WorkflowParallelScopeService extends IService<WorkflowParallelS
                                                      Integer expectedBranchCount);
 
     void markParallelBranchArrived(Long parallelScopeId);
+
+    Long getParentScopeId(Long parallelScopeId);
 }
