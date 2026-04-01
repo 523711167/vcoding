@@ -25,11 +25,11 @@ public interface WorkflowNodeInstanceService extends IService<WorkflowNodeInstan
     /**
      * 审核拒绝，节点修改状态
      */
-    void updateNodeInstanceForReject(Long nodeInstanceId, String comment);
+    void updateNodeInstanceForReject(Long nodeInstanceId);
 
-    void updateNodeInstanceForApprove(Long nodeInstanceId, String comment);
+    void updateNodeInstanceForApprove(Long nodeInstanceId);
 
-    void updateNode(Long nodeInstanceId, String comment, WorkflowNodeInstanceStatusEnum nodeInstanceEnum);
+    void updateNode(Long nodeInstanceId, WorkflowNodeInstanceStatusEnum nodeInstanceEnum);
 
     WorkflowNodeInstance createOrLoadParallelJoinNodeInstance(WorkflowNode nextNode, Long workflowInstanceId);
 

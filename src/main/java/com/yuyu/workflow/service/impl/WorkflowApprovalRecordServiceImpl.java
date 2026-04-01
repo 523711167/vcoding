@@ -103,8 +103,8 @@ public class WorkflowApprovalRecordServiceImpl extends ServiceImpl<WorkflowAppro
     }
 
     @Override
-    public void insertRecordForApprove(WorkflowAuditETO eto, WorkflowNodeInstance workflowNodeInstance, WorkflowNodeInstance toWorkflowNodeInstance) {
-        WorkflowApprovalRecord record = buildApprovalRecord(eto, workflowNodeInstance, toWorkflowNodeInstance, WorkflowApprovalActionEnum.APPROVE);
+    public void insertRecordForApprove(WorkflowAuditETO eto, WorkflowNodeInstance workflowNodeInstance) {
+        WorkflowApprovalRecord record = buildApprovalRecord(eto, workflowNodeInstance, new WorkflowNodeInstance(), WorkflowApprovalActionEnum.APPROVE);
         baseMapper.insert(record);
     }
 
@@ -124,11 +124,11 @@ public class WorkflowApprovalRecordServiceImpl extends ServiceImpl<WorkflowAppro
         record.setAction(workflowApprovalActionEnum.getCode());
         record.setNodeInstanceType(workflowNodeInstance.getDefinitionNodeType());
         record.setNodeInstanceName(workflowNodeInstance.getDefinitionNodeName());
-        record.setComment(eto.getComment());
-        record.setFromNodeId(workflowNodeInstance.getId());
+        record.setComment(workflowApprovalActionEnum.getName());
+        record.setFromNodeId(workflowNodeInstance.getDefinitionNodeId());
         record.setFromNodeType(workflowNodeInstance.getDefinitionNodeType());
         record.setFromNodeName(workflowNodeInstance.getDefinitionNodeName());
-        record.setToNodeId(toWorkflowNodeInstance.getId());
+        record.setToNodeId(toWorkflowNodeInstance.getDefinitionNodeId());
         record.setToNodeType(toWorkflowNodeInstance.getDefinitionNodeType());
         record.setToNodeName(toWorkflowNodeInstance.getDefinitionNodeName());
         record.setExtraData(null);

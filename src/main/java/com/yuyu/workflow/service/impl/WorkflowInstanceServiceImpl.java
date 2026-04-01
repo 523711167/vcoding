@@ -106,7 +106,7 @@ public class WorkflowInstanceServiceImpl extends ServiceImpl<WorkflowInstanceMap
                         .eq(BaseIdEntity::getId, instanceId)
                         .set(WorkflowInstance::getStatus, WorkflowInstanceStatusEnum.FINISHI.getCode())
                         .set(WorkflowInstance::getFinishedAt, OperationTimeContext.get())
-                        .set(WorkflowInstance::getCurrentNodeId, workflowNodeInstance.getId())
+                        .set(WorkflowInstance::getCurrentNodeId, workflowNodeInstance.getDefinitionNodeId())
                         .set(WorkflowInstance::getCurrentNodeType, workflowNodeInstance.getDefinitionNodeType())
                         .set(WorkflowInstance::getCurrentNodeName, workflowNodeInstance.getDefinitionNodeName())
         );

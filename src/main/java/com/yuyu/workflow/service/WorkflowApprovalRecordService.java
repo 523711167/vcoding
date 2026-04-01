@@ -30,7 +30,7 @@ public interface WorkflowApprovalRecordService extends IService<WorkflowApproval
     /**
      * 审核人拒绝，写入审批记录
      */
-    void insertRecordForApprove(WorkflowAuditETO eto, WorkflowNodeInstance workflowNodeInstance, WorkflowNodeInstance toWorkflowNodeInstance);
+    void insertRecordForApprove(WorkflowAuditETO eto, WorkflowNodeInstance workflowNodeInstance);
 
     /**
      * 审核人拒绝，写入审批记录

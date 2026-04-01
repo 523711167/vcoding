@@ -101,17 +101,17 @@ public class WorkflowNodeInstanceServiceImpl extends ServiceImpl<WorkflowNodeIns
     }
 
     @Override
-    public void updateNodeInstanceForReject(Long nodeInstanceId, String comment) {
-        updateNode(nodeInstanceId, comment, WorkflowNodeInstanceStatusEnum.REJECTED);
+    public void updateNodeInstanceForReject(Long nodeInstanceId) {
+        updateNode(nodeInstanceId, WorkflowNodeInstanceStatusEnum.REJECTED);
     }
 
     @Override
-    public void updateNodeInstanceForApprove(Long nodeInstanceId, String comment) {
-        updateNode(nodeInstanceId, comment, WorkflowNodeInstanceStatusEnum.APPROVED);
+    public void updateNodeInstanceForApprove(Long nodeInstanceId) {
+        updateNode(nodeInstanceId, WorkflowNodeInstanceStatusEnum.APPROVED);
     }
 
     @Override
-    public void updateNode(Long nodeInstanceId, String comment, WorkflowNodeInstanceStatusEnum nodeInstanceEnum) {
+    public void updateNode(Long nodeInstanceId, WorkflowNodeInstanceStatusEnum nodeInstanceEnum) {
         WorkflowNodeInstance workflowNodeInstance = new WorkflowNodeInstance();
         workflowNodeInstance.setId(nodeInstanceId);
         workflowNodeInstance.setStatus(nodeInstanceEnum.getCode());
@@ -138,7 +138,8 @@ public class WorkflowNodeInstanceServiceImpl extends ServiceImpl<WorkflowNodeIns
         joinNodeInstance.setDefinitionNodeName(nextNode.getName());
         joinNodeInstance.setDefinitionNodeType(nextNode.getNodeType());
         joinNodeInstance.setParallelBranchRootId(null);
-        joinNodeInstance.setStatus(WorkflowNodeInstanceStatusEnum.PENDING.getCode());
+        joinNodeInstance.setStatus(WorkflowNodeInstanceStatusEnum.ACTIVE.getCode());
+        joinNodeInstance.setActivatedAt(OperationTimeContext.get());
 
         super.save(joinNodeInstance);
         return joinNodeInstance;
