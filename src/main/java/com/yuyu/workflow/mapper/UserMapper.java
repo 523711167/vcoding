@@ -43,7 +43,7 @@ public interface UserMapper extends BaseMapper<User> {
 
 
     @Select("""
-            SELECT distinct t.*
+            SELECT t.*
             FROM tb_user t
             INNER JOIN tb_workflow_node_approver y ON y.approver_value = t.id
             WHERE t.status = 1 AND t.is_deleted = 0 and y.approver_type = 'USER'  and y.node_id = #{definitionNodeId} order by y.sort_order 
@@ -51,7 +51,7 @@ public interface UserMapper extends BaseMapper<User> {
     List<User> selectWorkflowApproverUser(@Param("definitionNodeId") Long definitionNodeId);
 
     @Select("""
-            SELECT distinct u.*
+            SELECT u.*
             FROM tb_workflow_node_approver wna
             INNER JOIN tb_user_role_rel urr ON urr.role_id = wna.approver_value
             INNER JOIN tb_user u ON u.id = urr.user_id
@@ -64,7 +64,7 @@ public interface UserMapper extends BaseMapper<User> {
     List<User> selectWorkflowApproverRoleUsers(@Param("definitionNodeId") Long definitionNodeId);
 
     @Select("""
-            SELECT distinct u.*
+            SELECT u.*
             FROM tb_workflow_node_approver_dept_expand wnade
             INNER JOIN tb_workflow_node_approver wna ON wna.id = wnade.approver_id
             INNER JOIN tb_user_dept_rel_expand udre ON udre.dept_id = wnade.dept_id
