@@ -10,13 +10,14 @@ import com.yuyu.workflow.mapper.BizApplyMapper;
 import com.yuyu.workflow.mapper.UserMapper;
 import com.yuyu.workflow.mapper.WorkflowApprovalRecordMapper;
 import com.yuyu.workflow.mapper.WorkflowNodeMapper;
-import com.yuyu.workflow.mapper.UserRoleRelMapper;
 import com.yuyu.workflow.mapper.WorkflowInstanceMapper;
 import com.yuyu.workflow.mapper.WorkflowNodeApproverInstanceMapper;
 import com.yuyu.workflow.mapper.WorkflowNodeInstanceMapper;
 import com.yuyu.workflow.service.BizDefinitionService;
 import com.yuyu.workflow.service.UserService;
 import com.yuyu.workflow.service.WorkflowDefinitionService;
+import com.yuyu.workflow.service.WorkflowParallelScopeService;
+import com.yuyu.workflow.struct.BizApplyStructMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -63,6 +64,10 @@ class WorkflowRuntimeServiceImplTests {
     private BizDefinitionService bizDefinitionService;
     @Mock
     private WorkflowDefinitionService workflowDefinitionService;
+    @Mock
+    private BizApplyStructMapper bizApplyStructMapper;
+    @Mock
+    private WorkflowParallelScopeService workflowParallelScopeService;
 
     private BizApplyServiceImpl bizApplyService;
     private WorkflowInstanceServiceImpl workflowInstanceService;
@@ -76,10 +81,14 @@ class WorkflowRuntimeServiceImplTests {
                 bizApplyMapper,
                 userMapper,
                 bizDefinitionService,
-                workflowDefinitionService
+                workflowDefinitionService,
+                bizApplyStructMapper
         );
         workflowInstanceService = new WorkflowInstanceServiceImpl(workflowInstanceMapper);
-        workflowNodeInstanceService = new WorkflowNodeInstanceServiceImpl(workflowNodeInstanceMapper);
+        workflowNodeInstanceService = new WorkflowNodeInstanceServiceImpl(
+                workflowNodeInstanceMapper,
+                workflowParallelScopeService
+        );
         workflowApprovalRecordService = new WorkflowApprovalRecordServiceImpl(workflowApprovalRecordMapper, workflowNodeMapper);
         workflowNodeApproverInstanceService = new WorkflowNodeApproverInstanceServiceImpl(
                 workflowNodeApproverInstanceMapper,

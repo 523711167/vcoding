@@ -6,8 +6,11 @@ import com.yuyu.workflow.config.JacksonConfig;
 import com.yuyu.workflow.entity.WorkflowInstance;
 import com.yuyu.workflow.entity.WorkflowNode;
 import com.yuyu.workflow.entity.WorkflowTransition;
+import com.yuyu.workflow.service.WorkflowNodeService;
 import com.yuyu.workflow.service.WorkflowDefinitionService;
 import com.yuyu.workflow.service.WorkflowLaunchService;
+import com.yuyu.workflow.service.WorkflowParallelScopeService;
+import com.yuyu.workflow.service.WorkflowTransitionService;
 import com.yuyu.workflow.struct.WorkflowLaunchStructMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -49,8 +52,10 @@ class WorkflowLaunchServiceImplTests {
                 objectMapperUtils,
                 null,
                 mock(WorkflowDefinitionService.class),
-                new WorkflowRouteTreeBuilder(),
-                mock(WorkflowLaunchStructMapper.class)
+                mock(WorkflowParallelScopeService.class),
+                mock(WorkflowLaunchStructMapper.class),
+                mock(WorkflowNodeService.class),
+                mock(WorkflowTransitionService.class)
         );
 
         Class<?> auditContextClass =

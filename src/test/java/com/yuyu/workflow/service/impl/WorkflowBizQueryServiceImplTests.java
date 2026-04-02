@@ -130,9 +130,9 @@ class WorkflowBizQueryServiceImplTests {
 
         PageVo<WorkflowTodoVO> page = workflowBizQueryService.todoPage(qto);
 
-        assertEquals(1L, page.getTotal());
-        assertEquals(1, page.getRecords().size());
-        assertEquals("待处理", page.getRecords().get(0).getApproverStatusMsg());
+        assertEquals(1L, page.total());
+        assertEquals(1, page.records().size());
+        assertEquals("待处理", page.records().get(0).getApproverStatusMsg());
     }
 
     /**
@@ -152,8 +152,8 @@ class WorkflowBizQueryServiceImplTests {
         when(workflowTodoStructMapper.toTargetList(Collections.emptyList())).thenReturn(Collections.emptyList());
 
         PageVo<WorkflowTodoVO> page = workflowBizQueryService.todoPage(qto);
-        assertEquals(0L, page.getTotal());
-        assertTrue(page.getRecords().isEmpty());
+        assertEquals(0L, page.total());
+        assertTrue(page.records().isEmpty());
     }
 
     /**
