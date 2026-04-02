@@ -9,19 +9,19 @@ import com.yuyu.workflow.entity.UserDeptRel;
 import com.yuyu.workflow.entity.UserDeptRelExpand;
 import com.yuyu.workflow.entity.UserRole;
 import com.yuyu.workflow.entity.UserRoleDeptExpand;
-import com.yuyu.workflow.mapper.BizApplyMapper;
-import com.yuyu.workflow.mapper.UserDeptRelExpandMapper;
-import com.yuyu.workflow.mapper.UserDeptRelMapper;
-import com.yuyu.workflow.mapper.UserRoleDeptExpandMapper;
-import com.yuyu.workflow.mapper.UserRoleMapper;
-import com.yuyu.workflow.mapper.WorkflowNodeApproverInstanceMapper;
 import com.yuyu.workflow.qto.workflow.WorkflowQueryDetailQTO;
 import com.yuyu.workflow.qto.workflow.WorkflowQueryListQTO;
 import com.yuyu.workflow.qto.workflow.WorkflowQueryPageQTO;
 import com.yuyu.workflow.qto.workflow.WorkflowTodoDetailQTO;
 import com.yuyu.workflow.qto.workflow.WorkflowTodoListQTO;
 import com.yuyu.workflow.qto.workflow.WorkflowTodoPageQTO;
+import com.yuyu.workflow.service.BizApplyService;
+import com.yuyu.workflow.service.RoleService;
+import com.yuyu.workflow.service.UserDeptRelExpandService;
+import com.yuyu.workflow.service.UserDeptRelService;
+import com.yuyu.workflow.service.UserRoleDeptExpandService;
 import com.yuyu.workflow.service.WorkflowBizQueryService;
+import com.yuyu.workflow.service.WorkflowNodeApproverInstanceService;
 import com.yuyu.workflow.struct.WorkflowQueryStructMapper;
 import com.yuyu.workflow.struct.WorkflowTodoStructMapper;
 import com.yuyu.workflow.vo.workflow.WorkflowQueryVO;
@@ -34,7 +34,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -46,32 +45,32 @@ public class WorkflowBizQueryServiceImpl implements WorkflowBizQueryService {
     private static final long DEFAULT_PAGE_NUM = 1L;
     private static final long DEFAULT_PAGE_SIZE = 10L;
 
-    private final BizApplyMapper bizApplyMapper;
-    private final UserRoleMapper userRoleMapper;
-    private final UserDeptRelMapper userDeptRelMapper;
-    private final UserDeptRelExpandMapper userDeptRelExpandMapper;
-    private final UserRoleDeptExpandMapper userRoleDeptExpandMapper;
-    private final WorkflowNodeApproverInstanceMapper workflowNodeApproverInstanceMapper;
+    private final BizApplyService bizApplyService;
+    private final RoleService roleService;
+    private final UserDeptRelService userDeptRelService;
+    private final UserDeptRelExpandService userDeptRelExpandService;
+    private final UserRoleDeptExpandService userRoleDeptExpandService;
+    private final WorkflowNodeApproverInstanceService workflowNodeApproverInstanceService;
     private final WorkflowQueryStructMapper workflowQueryStructMapper;
     private final WorkflowTodoStructMapper workflowTodoStructMapper;
 
     /**
      * 注入工作流业务查询依赖。
      */
-    public WorkflowBizQueryServiceImpl(BizApplyMapper bizApplyMapper,
-                                       UserRoleMapper userRoleMapper,
-                                       UserDeptRelMapper userDeptRelMapper,
-                                       UserDeptRelExpandMapper userDeptRelExpandMapper,
-                                       UserRoleDeptExpandMapper userRoleDeptExpandMapper,
-                                       WorkflowNodeApproverInstanceMapper workflowNodeApproverInstanceMapper,
+    public WorkflowBizQueryServiceImpl(BizApplyService bizApplyService,
+                                       RoleService roleService,
+                                       UserDeptRelService userDeptRelService,
+                                       UserDeptRelExpandService userDeptRelExpandService,
+                                       UserRoleDeptExpandService userRoleDeptExpandService,
+                                       WorkflowNodeApproverInstanceService workflowNodeApproverInstanceService,
                                        WorkflowQueryStructMapper workflowQueryStructMapper,
                                        WorkflowTodoStructMapper workflowTodoStructMapper) {
-        this.bizApplyMapper = bizApplyMapper;
-        this.userRoleMapper = userRoleMapper;
-        this.userDeptRelMapper = userDeptRelMapper;
-        this.userDeptRelExpandMapper = userDeptRelExpandMapper;
-        this.userRoleDeptExpandMapper = userRoleDeptExpandMapper;
-        this.workflowNodeApproverInstanceMapper = workflowNodeApproverInstanceMapper;
+        this.bizApplyService = bizApplyService;
+        this.roleService = roleService;
+        this.userDeptRelService = userDeptRelService;
+        this.userDeptRelExpandService = userDeptRelExpandService;
+        this.userRoleDeptExpandService = userRoleDeptExpandService;
+        this.workflowNodeApproverInstanceService = workflowNodeApproverInstanceService;
         this.workflowQueryStructMapper = workflowQueryStructMapper;
         this.workflowTodoStructMapper = workflowTodoStructMapper;
     }
@@ -79,7 +78,7 @@ public class WorkflowBizQueryServiceImpl implements WorkflowBizQueryService {
     @Override
     public List<WorkflowTodoVO> todoList(WorkflowTodoListQTO qto) {
         requireCurrentUserId(qto.getCurrentUserId());
-        List<WorkflowTodoVO> result = workflowNodeApproverInstanceMapper.selectTodoList(qto);
+        List<WorkflowTodoVO> result = workflowNodeApproverInstanceService.listTodos(qto);
         return workflowTodoStructMapper.toTargetList(result);
     }
 
@@ -90,7 +89,7 @@ public class WorkflowBizQueryServiceImpl implements WorkflowBizQueryService {
         long pageSize = resolvePageSize(qto.getPageSize());
         IPage<WorkflowTodoVO> page = new Page<>(pageNum, pageSize);
 
-        IPage<WorkflowTodoVO> resultPage = workflowNodeApproverInstanceMapper.selectTodoPage(page, qto);
+        IPage<WorkflowTodoVO> resultPage = workflowNodeApproverInstanceService.pageTodos(page, qto);
         List<WorkflowTodoVO> records = workflowTodoStructMapper.toTargetList(resultPage.getRecords());
         return PageVo.of(resultPage.getCurrent(), resultPage.getSize(), resultPage.getTotal(), records);
     }
@@ -98,7 +97,7 @@ public class WorkflowBizQueryServiceImpl implements WorkflowBizQueryService {
     @Override
     public WorkflowTodoVO todoDetail(WorkflowTodoDetailQTO qto) {
         requireCurrentUserId(qto.getCurrentUserId());
-        WorkflowTodoVO result = workflowNodeApproverInstanceMapper.selectTodoDetail(qto);
+        WorkflowTodoVO result = workflowNodeApproverInstanceService.detailTodo(qto);
         if (Objects.isNull(result)) {
             throw new BizException("代办记录不存在");
         }
@@ -109,28 +108,20 @@ public class WorkflowBizQueryServiceImpl implements WorkflowBizQueryService {
     public List<WorkflowQueryVO> queryList(WorkflowQueryListQTO qto) {
         Long currentUserId = requireCurrentUserId(qto.getCurrentUserId());
         QueryPermission permission = resolveQueryPermission(currentUserId);
-        if (Boolean.FALSE.equals(permission.viewAllData) && CollectionUtils.isEmpty(permission.visibleApplicantIdList)) {
-            return Collections.emptyList();
-        }
-        qto.setViewAllData(permission.viewAllData);
-        qto.setVisibleApplicantIdList(permission.visibleApplicantIdList);
-        return workflowQueryStructMapper.toTargetList(bizApplyMapper.selectQueryList(qto));
+        qto.setHasAllData(permission.hasAllData);
+        qto.setVisibleDeptIdList(permission.visibleDeptIdList);
+        return workflowQueryStructMapper.toTargetList(bizApplyService.listQueries(qto));
     }
 
     @Override
     public PageVo<WorkflowQueryVO> queryPage(WorkflowQueryPageQTO qto) {
         Long currentUserId = requireCurrentUserId(qto.getCurrentUserId());
         QueryPermission permission = resolveQueryPermission(currentUserId);
-        if (Boolean.FALSE.equals(permission.viewAllData) && CollectionUtils.isEmpty(permission.visibleApplicantIdList)) {
-            long pageNum = resolvePageNum(qto.getPageNum());
-            long pageSize = resolvePageSize(qto.getPageSize());
-            return PageVo.of(pageNum, pageSize, 0L, Collections.emptyList());
-        }
-        qto.setViewAllData(permission.viewAllData);
-        qto.setVisibleApplicantIdList(permission.visibleApplicantIdList);
+        qto.setHasAllData(permission.hasAllData);
+        qto.setVisibleDeptIdList(permission.visibleDeptIdList);
 
         IPage<WorkflowQueryVO> page = new Page<>(resolvePageNum(qto.getPageNum()), resolvePageSize(qto.getPageSize()));
-        IPage<WorkflowQueryVO> resultPage = bizApplyMapper.selectQueryPage(page, qto);
+        IPage<WorkflowQueryVO> resultPage = bizApplyService.pageQueries(page, qto);
         return PageVo.of(
                 resultPage.getCurrent(),
                 resultPage.getSize(),
@@ -143,12 +134,9 @@ public class WorkflowBizQueryServiceImpl implements WorkflowBizQueryService {
     public WorkflowQueryVO queryDetail(WorkflowQueryDetailQTO qto) {
         Long currentUserId = requireCurrentUserId(qto.getCurrentUserId());
         QueryPermission permission = resolveQueryPermission(currentUserId);
-        if (Boolean.FALSE.equals(permission.viewAllData) && CollectionUtils.isEmpty(permission.visibleApplicantIdList)) {
-            throw new BizException("无权限查看该记录");
-        }
-        qto.setViewAllData(permission.viewAllData);
-        qto.setVisibleApplicantIdList(permission.visibleApplicantIdList);
-        WorkflowQueryVO result = bizApplyMapper.selectQueryDetail(qto);
+        qto.setHasAllData(permission.hasAllData);
+        qto.setVisibleDeptIdList(permission.visibleDeptIdList);
+        WorkflowQueryVO result = bizApplyService.detailQuery(qto);
         if (Objects.isNull(result)) {
             throw new BizException("查询记录不存在或无权限查看");
         }
@@ -180,19 +168,16 @@ public class WorkflowBizQueryServiceImpl implements WorkflowBizQueryService {
     }
 
     /**
-     * 解析查询箱权限：本人发起 + 角色数据权限并集。
+     * 解析查询箱权限：按当前用户角色数据权限计算组织范围，用于 SQL 的本人 + 组织交集判断。
      */
     private QueryPermission resolveQueryPermission(Long currentUserId) {
-        Set<Long> visibleApplicantIds = new LinkedHashSet<>();
-        visibleApplicantIds.add(currentUserId);
-
-        List<Long> enabledRoleIds = userRoleMapper.selectEnabledIdsByUserId(currentUserId);
+        List<Long> enabledRoleIds = roleService.listEnabledRoleIdsByUserId(currentUserId);
         if (CollectionUtils.isEmpty(enabledRoleIds)) {
-            return new QueryPermission(false, visibleApplicantIds.stream().toList());
+            return new QueryPermission(false, Collections.emptyList());
         }
-        List<UserRole> roleList = userRoleMapper.selectBatchIds(enabledRoleIds);
+        List<UserRole> roleList = roleService.listByIds(enabledRoleIds);
         if (CollectionUtils.isEmpty(roleList)) {
-            return new QueryPermission(false, visibleApplicantIds.stream().toList());
+            return new QueryPermission(false, Collections.emptyList());
         }
 
         Set<String> dataScopes = roleList.stream()
@@ -202,32 +187,73 @@ public class WorkflowBizQueryServiceImpl implements WorkflowBizQueryService {
         if (dataScopes.contains(DataScopeEnum.ALL.getCode())) {
             return new QueryPermission(true, Collections.emptyList());
         }
+        return new QueryPermission(false, resolveVisibleDeptIds(currentUserId, roleList, dataScopes).stream().toList());
+    }
 
-        if (dataScopes.contains(DataScopeEnum.CURRENT_DEPT.getCode())) {
-            visibleApplicantIds.addAll(resolveApplicantIdsByDeptIds(resolveCurrentDeptIds(currentUserId)));
+    /**
+     * 计算查询箱可见组织范围。
+     */
+    private Set<Long> resolveVisibleDeptIds(Long currentUserId, List<UserRole> roleList, Set<String> dataScopes) {
+        ScopeFlags scopeFlags = ScopeFlags.from(dataScopes);
+
+        // 仅本人数据：不放开任何组织范围，最终由 SQL 中 applicant_id = currentUserId 兜底。
+        if (scopeFlags.selfOnly()) {
+            return Collections.emptySet();
         }
-        if (dataScopes.contains(DataScopeEnum.CURRENT_AND_CHILD_DEPT.getCode())) {
-            visibleApplicantIds.addAll(resolveApplicantIdsByDeptIds(resolveCurrentAndChildDeptIds(currentUserId)));
+
+        Set<Long> baseDeptIds = resolveBaseDeptIds(currentUserId, scopeFlags);
+        if (!scopeFlags.hasCustomDept()) {
+            return baseDeptIds;
         }
-        if (dataScopes.contains(DataScopeEnum.CUSTOM_DEPT.getCode())) {
-            Set<Long> customRoleIds = roleList.stream()
-                    .filter(role -> Objects.equals(role.getDataScope(), DataScopeEnum.CUSTOM_DEPT.getCode()))
-                    .map(UserRole::getId)
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toCollection(LinkedHashSet::new));
-            visibleApplicantIds.addAll(resolveApplicantIdsByDeptIds(resolveCustomDeptIds(customRoleIds)));
+
+        Set<Long> customDeptIds = resolveCustomDeptIdsByRoleList(roleList);
+        return mergeBaseAndCustomDeptIds(baseDeptIds, customDeptIds);
+    }
+
+    /**
+     * 计算“当前组织口径”的基础组织范围。
+     */
+    private Set<Long> resolveBaseDeptIds(Long currentUserId, ScopeFlags scopeFlags) {
+        if (scopeFlags.hasCurrentAndChildDept()) {
+            return resolveCurrentAndChildDeptIds(currentUserId);
         }
-        return new QueryPermission(false, visibleApplicantIds.stream().toList());
+        if (scopeFlags.hasCurrentDept()) {
+            return resolveCurrentDeptIds(currentUserId);
+        }
+        return Collections.emptySet();
+    }
+
+    /**
+     * 解析角色自定义组织范围。
+     */
+    private Set<Long> resolveCustomDeptIdsByRoleList(List<UserRole> roleList) {
+        Set<Long> customRoleIds = roleList.stream()
+                .filter(role -> Objects.equals(role.getDataScope(), DataScopeEnum.CUSTOM_DEPT.getCode()))
+                .map(UserRole::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        return resolveCustomDeptIds(customRoleIds);
+    }
+
+    /**
+     * 合并“基础组织范围”与“自定义组织范围”。
+     */
+    private Set<Long> mergeBaseAndCustomDeptIds(Set<Long> baseDeptIds, Set<Long> customDeptIds) {
+        if (CollectionUtils.isEmpty(baseDeptIds)) {
+            return new LinkedHashSet<>(customDeptIds);
+        }
+        // 只要出现 CUSTOM_DEPT + 组织范围组合，统一按交集收敛。
+        return intersectDeptIds(baseDeptIds, customDeptIds);
     }
 
     /**
      * 解析当前用户直属组织（主组织+副组织，不展开子组织）。
      */
     private Set<Long> resolveCurrentDeptIds(Long currentUserId) {
-        return userDeptRelMapper.selectList(
-                        com.baomidou.mybatisplus.core.toolkit.Wrappers.<UserDeptRel>lambdaQuery()
-                                .eq(UserDeptRel::getUserId, currentUserId)
-                                .select(UserDeptRel::getDeptId)
+        return userDeptRelService.list(
+                        com.baomidou.mybatisplus.core.toolkit.Wrappers.<UserDeptRel>query()
+                                .eq("user_id", currentUserId)
+                                .select("dept_id")
                 ).stream()
                 .map(UserDeptRel::getDeptId)
                 .filter(Objects::nonNull)
@@ -238,10 +264,10 @@ public class WorkflowBizQueryServiceImpl implements WorkflowBizQueryService {
      * 解析当前用户组织（主组织+副组织）及其子组织。
      */
     private Set<Long> resolveCurrentAndChildDeptIds(Long currentUserId) {
-        return userDeptRelExpandMapper.selectList(
-                        com.baomidou.mybatisplus.core.toolkit.Wrappers.<UserDeptRelExpand>lambdaQuery()
-                                .eq(UserDeptRelExpand::getUserId, currentUserId)
-                                .select(UserDeptRelExpand::getDeptId)
+        return userDeptRelExpandService.list(
+                        com.baomidou.mybatisplus.core.toolkit.Wrappers.<UserDeptRelExpand>query()
+                                .eq("user_id", currentUserId)
+                                .select("dept_id")
                 ).stream()
                 .map(UserDeptRelExpand::getDeptId)
                 .filter(Objects::nonNull)
@@ -255,36 +281,51 @@ public class WorkflowBizQueryServiceImpl implements WorkflowBizQueryService {
         if (CollectionUtils.isEmpty(customRoleIds)) {
             return Collections.emptySet();
         }
-        return userRoleDeptExpandMapper.selectList(
-                        com.baomidou.mybatisplus.core.toolkit.Wrappers.<UserRoleDeptExpand>lambdaQuery()
-                                .in(UserRoleDeptExpand::getRoleId, customRoleIds)
-                                .select(UserRoleDeptExpand::getDeptId)
+        return userRoleDeptExpandService.list(
+                        com.baomidou.mybatisplus.core.toolkit.Wrappers.<UserRoleDeptExpand>query()
+                                .in("role_id", customRoleIds)
+                                .select("dept_id")
                 ).stream()
                 .map(UserRoleDeptExpand::getDeptId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
-    /**
-     * 按组织集合查询申请人主键集合（含主组织+副组织命中）。
-     */
-    private Set<Long> resolveApplicantIdsByDeptIds(Set<Long> deptIds) {
-        if (CollectionUtils.isEmpty(deptIds)) {
+    private Set<Long> intersectDeptIds(Set<Long> left, Set<Long> right) {
+        if (CollectionUtils.isEmpty(left) || CollectionUtils.isEmpty(right)) {
             return Collections.emptySet();
         }
-        return userDeptRelMapper.selectList(
-                        com.baomidou.mybatisplus.core.toolkit.Wrappers.<UserDeptRel>lambdaQuery()
-                                .in(UserDeptRel::getDeptId, deptIds)
-                                .select(UserDeptRel::getUserId)
-                ).stream()
-                .map(UserDeptRel::getUserId)
-                .filter(Objects::nonNull)
+        Set<Long> rightSet = new LinkedHashSet<>(right);
+        return left.stream()
+                .filter(rightSet::contains)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     /**
      * 查询权限计算结果。
      */
-    private record QueryPermission(boolean viewAllData, List<Long> visibleApplicantIdList) {
+    private record QueryPermission(boolean hasAllData, List<Long> visibleDeptIdList) {
+    }
+
+    /**
+     * 数据权限类型标记。
+     */
+    private record ScopeFlags(boolean hasSelf,
+                              boolean hasCurrentDept,
+                              boolean hasCurrentAndChildDept,
+                              boolean hasCustomDept) {
+
+        private static ScopeFlags from(Set<String> dataScopes) {
+            return new ScopeFlags(
+                    dataScopes.contains(DataScopeEnum.SELF.getCode()),
+                    dataScopes.contains(DataScopeEnum.CURRENT_DEPT.getCode()),
+                    dataScopes.contains(DataScopeEnum.CURRENT_AND_CHILD_DEPT.getCode()),
+                    dataScopes.contains(DataScopeEnum.CUSTOM_DEPT.getCode())
+            );
+        }
+
+        private boolean selfOnly() {
+            return hasSelf && !hasCurrentDept && !hasCurrentAndChildDept && !hasCustomDept;
+        }
     }
 }

@@ -72,4 +72,9 @@ public interface RoleService extends IService<UserRole> {
      * 查询角色下用户。
      */
     List<UserSimpleVO> getUsers(Long roleId);
+
+    /**
+     * 查询指定用户已启用角色主键集合。
+     */
+    List<Long> listEnabledRoleIdsByUserId(Long userId);
 }

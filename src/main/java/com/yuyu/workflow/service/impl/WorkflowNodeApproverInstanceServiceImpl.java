@@ -2,6 +2,7 @@ package com.yuyu.workflow.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yuyu.workflow.common.context.OperationTimeContext;
@@ -16,9 +17,13 @@ import com.yuyu.workflow.entity.WorkflowNodeInstance;
 import com.yuyu.workflow.eto.workflow.WorkflowRejectAuditETO;
 import com.yuyu.workflow.mapper.UserMapper;
 import com.yuyu.workflow.mapper.WorkflowNodeApproverInstanceMapper;
+import com.yuyu.workflow.qto.workflow.WorkflowTodoDetailQTO;
+import com.yuyu.workflow.qto.workflow.WorkflowTodoListQTO;
+import com.yuyu.workflow.qto.workflow.WorkflowTodoPageQTO;
 import com.yuyu.workflow.service.UserService;
 import com.yuyu.workflow.service.WorkflowNodeApproverDeptExpandService;
 import com.yuyu.workflow.service.WorkflowNodeApproverInstanceService;
+import com.yuyu.workflow.vo.workflow.WorkflowTodoVO;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
@@ -232,6 +237,22 @@ public class WorkflowNodeApproverInstanceServiceImpl extends ServiceImpl<Workflo
         }
 
         saveUserList(workflowNodeInstance, userList, approveMode);
+    }
+
+    @Override
+    public List<WorkflowTodoVO> listTodos(WorkflowTodoListQTO qto) {
+        return baseMapper.selectTodoList(qto);
+    }
+
+    @Override
+    public IPage<WorkflowTodoVO> pageTodos(IPage<WorkflowTodoVO> page,
+                                           WorkflowTodoPageQTO qto) {
+        return baseMapper.selectTodoPage(page, qto);
+    }
+
+    @Override
+    public WorkflowTodoVO detailTodo(WorkflowTodoDetailQTO qto) {
+        return baseMapper.selectTodoDetail(qto);
     }
 
     private void saveUserList(WorkflowNodeInstance workflowNodeInstance, List<User> userList, String approveMode) {

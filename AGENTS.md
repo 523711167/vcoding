@@ -28,6 +28,7 @@
 - `Service`：负责业务逻辑、事务和规则校验。
 - `Mapper`：只做数据访问，不承载业务分支。
 - `Entity`：只用于持久化映射，不直接作为接口入参或出参。
+- 引入 MyBatis-Plus 后，业务模块统一通过 `Service` 调用数据能力；除 `ServiceImpl` 内部外，禁止在 `Controller`、其他 `Service`、`Struct` 中直接注入或调用 `Mapper`。
 
 ### 命名与结构
 - 包路径统一使用 `com.yuyu.workflow`。

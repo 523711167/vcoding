@@ -28,8 +28,8 @@ public class WorkflowQueryPageQTO extends BasePageQTO {
     private String bizStatus;
 
     @Schema(hidden = true)
-    private Boolean viewAllData;
+    private Boolean hasAllData;
 
     @Schema(hidden = true)
-    private List<Long> visibleApplicantIdList;
+    private List<Long> visibleDeptIdList;
 }

@@ -1,6 +1,7 @@
 package com.yuyu.workflow.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.yuyu.workflow.common.PageVo;
 import com.yuyu.workflow.entity.BizApply;
 import com.yuyu.workflow.eto.biz.BizApplySaveDraftETO;
@@ -8,7 +9,11 @@ import com.yuyu.workflow.eto.biz.BizApplyUpdateDraftETO;
 import com.yuyu.workflow.qto.biz.BizApplyDraftIdQTO;
 import com.yuyu.workflow.qto.biz.BizApplyDraftListQTO;
 import com.yuyu.workflow.qto.biz.BizApplyDraftPageQTO;
+import com.yuyu.workflow.qto.workflow.WorkflowQueryDetailQTO;
+import com.yuyu.workflow.qto.workflow.WorkflowQueryListQTO;
+import com.yuyu.workflow.qto.workflow.WorkflowQueryPageQTO;
 import com.yuyu.workflow.vo.biz.BizApplyDraftVO;
+import com.yuyu.workflow.vo.workflow.WorkflowQueryVO;
 
 import java.util.List;
 
@@ -56,5 +61,20 @@ public interface BizApplyService extends IService<BizApply> {
      * 分页查询当前用户草稿箱列表。
      */
     PageVo<BizApplyDraftVO> pageDrafts(BizApplyDraftPageQTO qto);
+
+    /**
+     * 查询查询箱列表。
+     */
+    List<WorkflowQueryVO> listQueries(WorkflowQueryListQTO qto);
+
+    /**
+     * 分页查询查询箱列表。
+     */
+    IPage<WorkflowQueryVO> pageQueries(IPage<WorkflowQueryVO> page, WorkflowQueryPageQTO qto);
+
+    /**
+     * 查询查询箱详情。
+     */
+    WorkflowQueryVO detailQuery(WorkflowQueryDetailQTO qto);
 
 }

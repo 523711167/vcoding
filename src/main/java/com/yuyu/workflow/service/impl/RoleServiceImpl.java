@@ -238,6 +238,14 @@ public class RoleServiceImpl extends ServiceImpl<UserRoleMapper, UserRole> imple
                 .toList();
     }
 
+    @Override
+    public List<Long> listEnabledRoleIdsByUserId(Long userId) {
+        if (Objects.isNull(userId)) {
+            return Collections.emptyList();
+        }
+        return userRoleMapper.selectEnabledIdsByUserId(userId);
+    }
+
     /**
      * 按主键查询角色，不存在时抛出业务异常。
      */

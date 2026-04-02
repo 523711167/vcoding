@@ -19,10 +19,14 @@ import com.yuyu.workflow.mapper.UserMapper;
 import com.yuyu.workflow.qto.biz.BizApplyDraftIdQTO;
 import com.yuyu.workflow.qto.biz.BizApplyDraftListQTO;
 import com.yuyu.workflow.qto.biz.BizApplyDraftPageQTO;
+import com.yuyu.workflow.qto.workflow.WorkflowQueryDetailQTO;
+import com.yuyu.workflow.qto.workflow.WorkflowQueryListQTO;
+import com.yuyu.workflow.qto.workflow.WorkflowQueryPageQTO;
 import com.yuyu.workflow.service.BizApplyService;
 import com.yuyu.workflow.service.BizDefinitionService;
 import com.yuyu.workflow.service.WorkflowDefinitionService;
 import com.yuyu.workflow.vo.biz.BizApplyDraftVO;
+import com.yuyu.workflow.vo.workflow.WorkflowQueryVO;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -187,8 +191,23 @@ public class BizApplyServiceImpl extends ServiceImpl<BizApplyMapper, BizApply> i
                 page.getTotal(),
                 page.getRecords().stream()
                         .map(bizApplyStructMapper::toBizApplyDraftVO)
-                        .toList()
+                .toList()
         );
+    }
+
+    @Override
+    public List<WorkflowQueryVO> listQueries(WorkflowQueryListQTO qto) {
+        return baseMapper.selectQueryList(qto);
+    }
+
+    @Override
+    public IPage<WorkflowQueryVO> pageQueries(IPage<WorkflowQueryVO> page, WorkflowQueryPageQTO qto) {
+        return baseMapper.selectQueryPage(page, qto);
+    }
+
+    @Override
+    public WorkflowQueryVO detailQuery(WorkflowQueryDetailQTO qto) {
+        return baseMapper.selectQueryDetail(qto);
     }
 
     @Override

@@ -1,11 +1,16 @@
 package com.yuyu.workflow.service;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.yuyu.workflow.common.enums.WorkflowNodeApproverInstanceStatusEnum;
 import com.yuyu.workflow.common.enums.WorkflowNodeInstanceStatusEnum;
 import com.yuyu.workflow.entity.WorkflowNodeApproverInstance;
 import com.yuyu.workflow.entity.WorkflowNodeInstance;
 import com.yuyu.workflow.eto.workflow.WorkflowRejectAuditETO;
+import com.yuyu.workflow.qto.workflow.WorkflowTodoDetailQTO;
+import com.yuyu.workflow.qto.workflow.WorkflowTodoListQTO;
+import com.yuyu.workflow.qto.workflow.WorkflowTodoPageQTO;
+import com.yuyu.workflow.vo.workflow.WorkflowTodoVO;
 
 import java.util.List;
 
@@ -60,5 +65,19 @@ public interface WorkflowNodeApproverInstanceService extends IService<WorkflowNo
 
     void saveApproverInstancesFordept(WorkflowNodeInstance workflowNodeInstance);
 
+    /**
+     * 查询代办箱列表。
+     */
+    List<WorkflowTodoVO> listTodos(WorkflowTodoListQTO qto);
+
+    /**
+     * 查询代办箱分页。
+     */
+    IPage<WorkflowTodoVO> pageTodos(IPage<WorkflowTodoVO> page, WorkflowTodoPageQTO qto);
+
+    /**
+     * 查询代办箱详情。
+     */
+    WorkflowTodoVO detailTodo(WorkflowTodoDetailQTO qto);
 
 }
