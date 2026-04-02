@@ -24,9 +24,6 @@ public class BizDefinitionVO {
     @Schema(description = "业务描述")
     private String bizDesc;
 
-    @Schema(description = "绑定流程定义ID")
-    private Long workflowDefinitionId;
-
     @Schema(description = "绑定流程定义编码")
     private String workflowDefinitionCode;
 

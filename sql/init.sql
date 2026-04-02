@@ -235,7 +235,7 @@ CREATE TABLE IF NOT EXISTS `tb_biz_definition` (
   `biz_code` VARCHAR(64) NOT NULL COMMENT '业务编码（全局唯一）',
   `biz_name` VARCHAR(128) NOT NULL COMMENT '业务名称',
   `biz_desc` VARCHAR(500) DEFAULT NULL COMMENT '业务描述',
-  `workflow_definition_id` BIGINT NOT NULL COMMENT '绑定的流程定义ID',
+  `workflow_definition_code` VARCHAR(64) NOT NULL COMMENT '绑定的流程定义编码',
   `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态：1=正常 0=停用',
   `created_by` BIGINT NOT NULL COMMENT '创建人用户ID',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -243,7 +243,7 @@ CREATE TABLE IF NOT EXISTS `tb_biz_definition` (
   `is_deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '软删除标记：0=正常 1=已删除',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_biz_code` (`biz_code`),
-  KEY `idx_workflow_definition_id` (`workflow_definition_id`)
+  KEY `idx_workflow_definition_code` (`workflow_definition_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='业务定义表';
 
 CREATE TABLE IF NOT EXISTS `tb_biz_definition_role_rel` (

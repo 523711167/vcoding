@@ -35,9 +35,10 @@ public class BizDefinitionCreateETO extends UserContextParam {
     @Size(max = 500, message = "bizDesc长度不能超过500")
     private String bizDesc;
 
-    @Schema(description = "绑定流程定义ID", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "workflowDefinitionId不能为空")
-    private Long workflowDefinitionId;
+    @Schema(description = "绑定流程定义编码", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotBlank(message = "workflowDefinitionCode不能为空")
+    @Size(max = 64, message = "workflowDefinitionCode长度不能超过64")
+    private String workflowDefinitionCode;
 
     @Schema(description = "状态：1=正常 0=停用", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "status不能为空")

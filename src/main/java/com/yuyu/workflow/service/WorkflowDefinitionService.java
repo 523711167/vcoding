@@ -33,4 +33,6 @@ public interface WorkflowDefinitionService extends IService<WorkflowDefinition> 
     void publish(WorkflowDefinitionPublishETO eto);
 
     void disable(WorkflowDefinitionDisableETO eto);
+
+    WorkflowDefinition getLatestPublishedByCode(String code);
 }

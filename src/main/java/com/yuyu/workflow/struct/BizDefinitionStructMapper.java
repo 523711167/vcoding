@@ -52,7 +52,7 @@ public interface BizDefinitionStructMapper extends BaseMapper<BizDefinition, Biz
     @Mapping(target = "isDeleted", ignore = true)
     @Mapping(target = "bizName", source = "eto.bizName")
     @Mapping(target = "bizDesc", source = "eto.bizDesc")
-    @Mapping(target = "workflowDefinitionId", source = "eto.workflowDefinitionId")
+    @Mapping(target = "workflowDefinitionCode", source = "eto.workflowDefinitionCode")
     @Mapping(target = "status", source = "eto.status")
     BizDefinition toUpdatedEntity(BizDefinitionUpdateETO eto, BizDefinition oldEntity);
 }

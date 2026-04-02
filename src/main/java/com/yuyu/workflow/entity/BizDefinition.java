@@ -29,9 +29,9 @@ public class BizDefinition extends BaseAuditEntity {
     private String bizDesc;
 
     /**
-     * 绑定的流程定义ID。
+     * 绑定的流程定义编码。
      */
-    private Long workflowDefinitionId;
+    private String workflowDefinitionCode;
 
     /**
      * 状态。

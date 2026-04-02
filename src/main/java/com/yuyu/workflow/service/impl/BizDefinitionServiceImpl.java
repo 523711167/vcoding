@@ -38,7 +38,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -76,7 +75,7 @@ public class BizDefinitionServiceImpl extends ServiceImpl<BizDefinitionMapper, B
     @Transactional(rollbackFor = Exception.class)
     public BizDefinitionVO create(BizDefinitionCreateETO eto) {
         assertBizCodeUnique(eto.getBizCode(), null);
-        validateWorkflowDefinitionId(eto.getWorkflowDefinitionId());
+        validateWorkflowDefinitionCode(eto.getWorkflowDefinitionCode());
         BizDefinition entity = bizDefinitionStructMapper.toEntity(eto);
         entity.setCreatedBy(requireCurrentUserId(eto.getCurrentUserId()));
         bizDefinitionMapper.insert(entity);
@@ -87,7 +86,7 @@ public class BizDefinitionServiceImpl extends ServiceImpl<BizDefinitionMapper, B
     @Override
     @Transactional(rollbackFor = Exception.class)
     public BizDefinitionVO update(BizDefinitionUpdateETO eto) {
-        validateWorkflowDefinitionId(eto.getWorkflowDefinitionId());
+        validateWorkflowDefinitionCode(eto.getWorkflowDefinitionCode());
         BizDefinition entity = bizDefinitionStructMapper.toUpdatedEntity(eto, getBizDefinitionOrThrow(eto.getId()));
         bizDefinitionMapper.updateById(entity);
         bizDefinitionRoleRelService.replaceRoles(entity.getId(), eto.getRoleIds());
@@ -108,7 +107,7 @@ public class BizDefinitionServiceImpl extends ServiceImpl<BizDefinitionMapper, B
         return buildBizDefinitionVOList(bizDefinitionMapper.selectList(buildQuery(
                 qto.getBizCode(),
                 qto.getBizName(),
-                qto.getWorkflowDefinitionId(),
+                qto.getWorkflowDefinitionCode(),
                 qto.getStatus()
         )));
     }
@@ -117,7 +116,7 @@ public class BizDefinitionServiceImpl extends ServiceImpl<BizDefinitionMapper, B
     public PageVo<BizDefinitionVO> page(BizDefinitionPageQTO qto) {
         IPage<BizDefinition> page = bizDefinitionMapper.selectPage(
                 new Page<>(qto.getPageNum(), qto.getPageSize()),
-                buildQuery(qto.getBizCode(), qto.getBizName(), qto.getWorkflowDefinitionId(), qto.getStatus())
+                buildQuery(qto.getBizCode(), qto.getBizName(), qto.getWorkflowDefinitionCode(), qto.getStatus())
         );
         return PageVo.of(page.getCurrent(), page.getSize(), page.getTotal(), buildBizDefinitionVOList(page.getRecords()));
     }
@@ -159,12 +158,12 @@ public class BizDefinitionServiceImpl extends ServiceImpl<BizDefinitionMapper, B
      */
     private LambdaQueryWrapper<BizDefinition> buildQuery(String bizCode,
                                                          String bizName,
-                                                         Long workflowDefinitionId,
+                                                         String workflowDefinitionCode,
                                                          Integer status) {
         return new LambdaQueryWrapper<BizDefinition>()
                 .like(StringUtils.hasText(bizCode), BizDefinition::getBizCode, bizCode)
                 .like(StringUtils.hasText(bizName), BizDefinition::getBizName, bizName)
-                .eq(Objects.nonNull(workflowDefinitionId), BizDefinition::getWorkflowDefinitionId, workflowDefinitionId)
+                .eq(StringUtils.hasText(workflowDefinitionCode), BizDefinition::getWorkflowDefinitionCode, workflowDefinitionCode)
                 .eq(Objects.nonNull(status), BizDefinition::getStatus, status)
                 .orderByDesc(BizDefinition::getUpdatedAt, BizDefinition::getId);
     }
@@ -176,7 +175,7 @@ public class BizDefinitionServiceImpl extends ServiceImpl<BizDefinitionMapper, B
         if (CollectionUtils.isEmpty(entityList)) {
             return Collections.emptyList();
         }
-        Map<Long, WorkflowDefinition> workflowDefinitionMap = getWorkflowDefinitionMap(entityList);
+        Map<String, WorkflowDefinition> workflowDefinitionMap = getWorkflowDefinitionMap(entityList);
         return entityList.stream()
                 .map(entity -> buildBizDefinitionVO(entity, workflowDefinitionMap))
                 .toList();
@@ -197,10 +196,10 @@ public class BizDefinitionServiceImpl extends ServiceImpl<BizDefinitionMapper, B
     /**
      * 将单个业务定义实体组装为返回对象。
      */
-    private BizDefinitionVO buildBizDefinitionVO(BizDefinition entity, Map<Long, WorkflowDefinition> workflowDefinitionMap) {
+    private BizDefinitionVO buildBizDefinitionVO(BizDefinition entity, Map<String, WorkflowDefinition> workflowDefinitionMap) {
         BizDefinitionVO vo = bizDefinitionStructMapper.toTarget(entity);
         vo.setStatusMsg(CommonStatusEnum.getMsgById(entity.getStatus()));
-        WorkflowDefinition workflowDefinition = workflowDefinitionMap.get(entity.getWorkflowDefinitionId());
+        WorkflowDefinition workflowDefinition = workflowDefinitionMap.get(entity.getWorkflowDefinitionCode());
         if (Objects.nonNull(workflowDefinition)) {
             vo.setWorkflowDefinitionCode(workflowDefinition.getCode());
             vo.setWorkflowDefinitionName(workflowDefinition.getName());
@@ -244,29 +243,34 @@ public class BizDefinitionServiceImpl extends ServiceImpl<BizDefinitionMapper, B
     /**
      * 校验绑定流程定义必须存在且已发布。
      */
-    private void validateWorkflowDefinitionId(Long workflowDefinitionId) {
-        WorkflowDefinition workflowDefinition = workflowDefinitionMapper.selectById(workflowDefinitionId);
+    private void validateWorkflowDefinitionCode(String workflowDefinitionCode) {
+        WorkflowDefinition workflowDefinition = workflowDefinitionMapper.selectLatestPublishedByCode(workflowDefinitionCode);
         if (Objects.isNull(workflowDefinition)) {
-            throw new BizException("绑定的流程定义不存在");
-        }
-        if (!Objects.equals(workflowDefinition.getStatus(), WorkflowDefinitionStatusEnum.PUBLISHED.getId())) {
-            throw new BizException("仅允许绑定已发布流程定义");
+            throw new BizException("仅允许绑定存在已发布版本的流程编码");
         }
     }
 
     /**
-     * 构造流程定义主键到实体的映射关系。
+     * 构造流程定义编码到最新已发布实体的映射关系。
      */
-    private Map<Long, WorkflowDefinition> getWorkflowDefinitionMap(List<BizDefinition> entityList) {
-        Set<Long> workflowDefinitionIds = entityList.stream()
-                .map(BizDefinition::getWorkflowDefinitionId)
-                .filter(Objects::nonNull)
+    private Map<String, WorkflowDefinition> getWorkflowDefinitionMap(List<BizDefinition> entityList) {
+        Set<String> workflowDefinitionCodes = entityList.stream()
+                .map(BizDefinition::getWorkflowDefinitionCode)
+                .filter(StringUtils::hasText)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
-        if (CollectionUtils.isEmpty(workflowDefinitionIds)) {
+        if (CollectionUtils.isEmpty(workflowDefinitionCodes)) {
             return Collections.emptyMap();
         }
-        return workflowDefinitionMapper.selectBatchIds(workflowDefinitionIds).stream()
-                .collect(Collectors.toMap(WorkflowDefinition::getId, Function.identity(), (left, right) -> left));
+        List<WorkflowDefinition> definitionList = workflowDefinitionMapper.selectList(new LambdaQueryWrapper<WorkflowDefinition>()
+                .in(WorkflowDefinition::getCode, workflowDefinitionCodes)
+                .eq(WorkflowDefinition::getStatus, WorkflowDefinitionStatusEnum.PUBLISHED.getId())
+                .orderByAsc(WorkflowDefinition::getCode)
+                .orderByDesc(WorkflowDefinition::getVersion, WorkflowDefinition::getId));
+        Map<String, WorkflowDefinition> result = new java.util.LinkedHashMap<>();
+        for (WorkflowDefinition definition : definitionList) {
+            result.putIfAbsent(definition.getCode(), definition);
+        }
+        return result;
     }
 
     /**

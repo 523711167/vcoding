@@ -21,8 +21,8 @@ public class BizDefinitionPageQTO extends BasePageQTO {
     @Schema(description = "业务名称")
     private String bizName;
 
-    @Schema(description = "绑定流程定义ID")
-    private Long workflowDefinitionId;
+    @Schema(description = "绑定流程定义编码")
+    private String workflowDefinitionCode;
 
     @Schema(description = "状态：1=正常 0=停用")
     @EnumIdValid(enumClass = CommonStatusEnum.class, message = "status不合法")

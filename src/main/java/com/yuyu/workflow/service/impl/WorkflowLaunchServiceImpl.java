@@ -147,10 +147,11 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         BizDefinition bizDefinition = bizDefinitionService.getById(bizApply.getBizDefinitionId());
         WorkflowDefinition workflowDefinition = null;
 
-        Long workflowDefinitionId = bizDefinition != null ? bizDefinition.getWorkflowDefinitionId() : null;
-        if (Objects.nonNull(workflowDefinitionId)) {
-            workflowDefinition = workflowDefinitionService.getById(workflowDefinitionId);
+        String workflowDefinitionCode = bizDefinition != null ? bizDefinition.getWorkflowDefinitionCode() : null;
+        if (StringUtils.isNotBlank(workflowDefinitionCode)) {
+            workflowDefinition = workflowDefinitionService.getLatestPublishedByCode(workflowDefinitionCode);
         }
+        Long workflowDefinitionId = workflowDefinition != null ? workflowDefinition.getId() : null;
 
         // 整个流程定义节点连线
         List<WorkflowTransition> definitionWorkflowTransitions = Objects.isNull(workflowDefinitionId)
@@ -200,13 +201,10 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         if (Objects.isNull(context.bizDefinition())) {
             throw new BizException("业务定义不存在");
         }
-        if (Objects.isNull(context.bizDefinition().getWorkflowDefinitionId())) {
+        if (StringUtils.isBlank(context.bizDefinition().getWorkflowDefinitionCode())) {
             throw new BizException("业务定义未绑定流程");
         }
         if (Objects.isNull(context.workflowDefinition())) {
-            throw new BizException("绑定的流程定义不存在");
-        }
-        if (!Objects.equals(context.workflowDefinition().getStatus(), WorkflowDefinitionStatusEnum.PUBLISHED.getId())) {
             throw new BizException("绑定的流程未发布");
         }
         if (context.definitionNodeList().isEmpty()) {

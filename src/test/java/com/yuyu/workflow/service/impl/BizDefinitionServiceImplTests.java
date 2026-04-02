@@ -85,18 +85,18 @@ class BizDefinitionServiceImplTests {
         eto.setBizCode("LEAVE");
         eto.setBizName("请假申请");
         eto.setBizDesc("请假业务");
-        eto.setWorkflowDefinitionId(100L);
+        eto.setWorkflowDefinitionCode("LEAVE_APPROVAL");
         eto.setStatus(CommonStatusEnum.ENABLED.getId());
         eto.setRoleIds(List.of(3L, 4L));
 
         WorkflowDefinition workflowDefinition = buildWorkflowDefinition(100L, "LEAVE_APPROVAL", "请假审批", WorkflowDefinitionStatusEnum.PUBLISHED.getId());
-        BizDefinition savedEntity = buildBizDefinition(1L, "LEAVE", "请假申请", 100L, CommonStatusEnum.ENABLED.getId(), 9L);
+        BizDefinition savedEntity = buildBizDefinition(1L, "LEAVE", "请假申请", "LEAVE_APPROVAL", CommonStatusEnum.ENABLED.getId(), 9L);
 
         when(bizDefinitionMapper.selectAnyByBizCode("LEAVE")).thenReturn(null);
-        when(workflowDefinitionMapper.selectById(100L)).thenReturn(workflowDefinition);
+        when(workflowDefinitionMapper.selectLatestPublishedByCode("LEAVE_APPROVAL")).thenReturn(workflowDefinition);
         when(bizDefinitionMapper.selectById(1L)).thenReturn(savedEntity);
         when(userRoleMapper.selectAnyByCode(RoleCodeEnum.ADMIN.getCode())).thenReturn(buildRole(1L, RoleCodeEnum.ADMIN.getCode()));
-        when(workflowDefinitionMapper.selectBatchIds(any())).thenReturn(List.of(workflowDefinition));
+        when(workflowDefinitionMapper.selectList(any())).thenReturn(List.of(workflowDefinition));
         doAnswer(invocation -> {
             BizDefinition entity = invocation.getArgument(0);
             entity.setId(1L);
@@ -123,17 +123,15 @@ class BizDefinitionServiceImplTests {
         eto.setCurrentUserId(9L);
         eto.setBizCode("LEAVE");
         eto.setBizName("请假申请");
-        eto.setWorkflowDefinitionId(100L);
+        eto.setWorkflowDefinitionCode("LEAVE_APPROVAL");
         eto.setStatus(CommonStatusEnum.ENABLED.getId());
 
-        WorkflowDefinition workflowDefinition = buildWorkflowDefinition(100L, "LEAVE_APPROVAL", "请假审批", WorkflowDefinitionStatusEnum.DRAFT.getId());
-
         when(bizDefinitionMapper.selectAnyByBizCode("LEAVE")).thenReturn(null);
-        when(workflowDefinitionMapper.selectById(100L)).thenReturn(workflowDefinition);
+        when(workflowDefinitionMapper.selectLatestPublishedByCode("LEAVE_APPROVAL")).thenReturn(null);
 
         BizException exception = assertThrows(BizException.class, () -> bizDefinitionService.create(eto));
 
-        assertEquals("仅允许绑定已发布流程定义", exception.getMessage());
+        assertEquals("仅允许绑定存在已发布版本的流程编码", exception.getMessage());
         verify(bizDefinitionMapper, never()).insert(any(BizDefinition.class));
     }
 
@@ -146,18 +144,18 @@ class BizDefinitionServiceImplTests {
         eto.setId(1L);
         eto.setBizName("请假申请-新");
         eto.setBizDesc("新的描述");
-        eto.setWorkflowDefinitionId(100L);
+        eto.setWorkflowDefinitionCode("LEAVE_APPROVAL_V2");
         eto.setStatus(CommonStatusEnum.DISABLED.getId());
         eto.setRoleIds(List.of(5L, 6L));
 
-        BizDefinition oldEntity = buildBizDefinition(1L, "LEAVE", "请假申请", 99L, CommonStatusEnum.ENABLED.getId(), 8L);
-        WorkflowDefinition workflowDefinition = buildWorkflowDefinition(100L, "LEAVE_APPROVAL", "请假审批", WorkflowDefinitionStatusEnum.PUBLISHED.getId());
-        BizDefinition updatedEntity = buildBizDefinition(1L, "LEAVE", "请假申请-新", 100L, CommonStatusEnum.DISABLED.getId(), 8L);
+        BizDefinition oldEntity = buildBizDefinition(1L, "LEAVE", "请假申请", "LEAVE_APPROVAL", CommonStatusEnum.ENABLED.getId(), 8L);
+        WorkflowDefinition workflowDefinition = buildWorkflowDefinition(101L, "LEAVE_APPROVAL_V2", "请假审批V2", WorkflowDefinitionStatusEnum.PUBLISHED.getId());
+        BizDefinition updatedEntity = buildBizDefinition(1L, "LEAVE", "请假申请-新", "LEAVE_APPROVAL_V2", CommonStatusEnum.DISABLED.getId(), 8L);
         updatedEntity.setBizDesc("新的描述");
 
         when(bizDefinitionMapper.selectById(1L)).thenReturn(oldEntity, updatedEntity);
-        when(workflowDefinitionMapper.selectById(100L)).thenReturn(workflowDefinition);
-        when(workflowDefinitionMapper.selectBatchIds(any())).thenReturn(List.of(workflowDefinition));
+        when(workflowDefinitionMapper.selectLatestPublishedByCode("LEAVE_APPROVAL_V2")).thenReturn(workflowDefinition);
+        when(workflowDefinitionMapper.selectList(any())).thenReturn(List.of(workflowDefinition));
 
         BizDefinitionVO result = bizDefinitionService.update(eto);
 
@@ -177,11 +175,11 @@ class BizDefinitionServiceImplTests {
         BizDefinitionListQTO qto = new BizDefinitionListQTO();
         qto.setBizCode("LEAVE");
 
-        BizDefinition entity = buildBizDefinition(1L, "LEAVE", "请假申请", 100L, CommonStatusEnum.ENABLED.getId(), 9L);
+        BizDefinition entity = buildBizDefinition(1L, "LEAVE", "请假申请", "LEAVE_APPROVAL", CommonStatusEnum.ENABLED.getId(), 9L);
         WorkflowDefinition workflowDefinition = buildWorkflowDefinition(100L, "LEAVE_APPROVAL", "请假审批", WorkflowDefinitionStatusEnum.PUBLISHED.getId());
 
         when(bizDefinitionMapper.selectList(any())).thenReturn(List.of(entity));
-        when(workflowDefinitionMapper.selectBatchIds(any())).thenReturn(List.of(workflowDefinition));
+        when(workflowDefinitionMapper.selectList(any())).thenReturn(List.of(workflowDefinition));
 
         List<BizDefinitionVO> result = bizDefinitionService.list(qto);
 
@@ -201,7 +199,7 @@ class BizDefinitionServiceImplTests {
         qto.setPageSize(10L);
         qto.setStatus(CommonStatusEnum.ENABLED.getId());
 
-        BizDefinition entity = buildBizDefinition(1L, "LEAVE", "请假申请", 100L, CommonStatusEnum.ENABLED.getId(), 9L);
+        BizDefinition entity = buildBizDefinition(1L, "LEAVE", "请假申请", "LEAVE_APPROVAL", CommonStatusEnum.ENABLED.getId(), 9L);
         Page<BizDefinition> page = new Page<>(1L, 10L);
         page.setTotal(1L);
         page.setRecords(List.of(entity));
@@ -229,7 +227,7 @@ class BizDefinitionServiceImplTests {
         qto.setPageNum(1L);
         qto.setPageSize(10L);
 
-        BizDefinition entity = buildBizDefinition(3L, "MOYU", "客户摸鱼", 100L, CommonStatusEnum.ENABLED.getId(), 1L);
+        BizDefinition entity = buildBizDefinition(3L, "MOYU", "客户摸鱼", "MOYU_APPROVAL", CommonStatusEnum.ENABLED.getId(), 1L);
         Page<BizDefinition> page = new Page<>(1L, 10L);
         page.setTotal(1L);
         page.setRecords(List.of(entity));
@@ -256,17 +254,17 @@ class BizDefinitionServiceImplTests {
         eto.setCurrentUserId(9L);
         eto.setBizCode("EXPENSE");
         eto.setBizName("报销申请");
-        eto.setWorkflowDefinitionId(100L);
+        eto.setWorkflowDefinitionCode("EXPENSE_APPROVAL");
         eto.setStatus(CommonStatusEnum.ENABLED.getId());
 
         WorkflowDefinition workflowDefinition = buildWorkflowDefinition(100L, "EXPENSE_APPROVAL", "报销审批", WorkflowDefinitionStatusEnum.PUBLISHED.getId());
-        BizDefinition savedEntity = buildBizDefinition(2L, "EXPENSE", "报销申请", 100L, CommonStatusEnum.ENABLED.getId(), 9L);
+        BizDefinition savedEntity = buildBizDefinition(2L, "EXPENSE", "报销申请", "EXPENSE_APPROVAL", CommonStatusEnum.ENABLED.getId(), 9L);
 
         when(bizDefinitionMapper.selectAnyByBizCode("EXPENSE")).thenReturn(null);
-        when(workflowDefinitionMapper.selectById(100L)).thenReturn(workflowDefinition);
+        when(workflowDefinitionMapper.selectLatestPublishedByCode("EXPENSE_APPROVAL")).thenReturn(workflowDefinition);
         when(userRoleMapper.selectAnyByCode(RoleCodeEnum.ADMIN.getCode())).thenReturn(buildRole(1L, RoleCodeEnum.ADMIN.getCode()));
         when(bizDefinitionMapper.selectById(2L)).thenReturn(savedEntity);
-        when(workflowDefinitionMapper.selectBatchIds(any())).thenReturn(List.of(workflowDefinition));
+        when(workflowDefinitionMapper.selectList(any())).thenReturn(List.of(workflowDefinition));
         doAnswer(invocation -> {
             BizDefinition entity = invocation.getArgument(0);
             entity.setId(2L);
@@ -283,7 +281,7 @@ class BizDefinitionServiceImplTests {
      */
     @Test
     void shouldRemoveInitiatorsWhenDeletingBizDefinition() {
-        BizDefinition entity = buildBizDefinition(1L, "LEAVE", "请假申请", 100L, CommonStatusEnum.ENABLED.getId(), 9L);
+        BizDefinition entity = buildBizDefinition(1L, "LEAVE", "请假申请", "LEAVE_APPROVAL", CommonStatusEnum.ENABLED.getId(), 9L);
         when(bizDefinitionMapper.selectById(1L)).thenReturn(entity);
 
         bizDefinitionService.delete(List.of(1L));
@@ -298,14 +296,14 @@ class BizDefinitionServiceImplTests {
     private BizDefinition buildBizDefinition(Long id,
                                              String bizCode,
                                              String bizName,
-                                             Long workflowDefinitionId,
+                                             String workflowDefinitionCode,
                                              Integer status,
                                              Long createdBy) {
         BizDefinition entity = new BizDefinition();
         entity.setId(id);
         entity.setBizCode(bizCode);
         entity.setBizName(bizName);
-        entity.setWorkflowDefinitionId(workflowDefinitionId);
+        entity.setWorkflowDefinitionCode(workflowDefinitionCode);
         entity.setStatus(status);
         entity.setCreatedBy(createdBy);
         return entity;

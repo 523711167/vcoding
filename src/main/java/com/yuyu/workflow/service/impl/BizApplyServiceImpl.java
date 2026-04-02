@@ -141,12 +141,12 @@ public class BizApplyServiceImpl extends ServiceImpl<BizApplyMapper, BizApply> i
             throw new BizException("当前业务申请已发起流程，不能重复提交");
         }
         BizDefinition bizDefinition = getBizDefinitionOrThrow(bizApply.getBizDefinitionId());
-        if (Objects.isNull(bizDefinition.getWorkflowDefinitionId())) {
+        if (StringUtils.isBlank(bizDefinition.getWorkflowDefinitionCode())) {
             throw new BizException("业务定义未绑定流程");
         }
-        WorkflowDefinition workflowDefinition = workflowDefinitionService.getById(bizDefinition.getWorkflowDefinitionId());
+        WorkflowDefinition workflowDefinition = workflowDefinitionService.getLatestPublishedByCode(bizDefinition.getWorkflowDefinitionCode());
         if (Objects.isNull(workflowDefinition)) {
-            throw new BizException("绑定的流程定义不存在");
+            throw new BizException("绑定的流程未发布");
         }
     }
 
@@ -303,10 +303,10 @@ public class BizApplyServiceImpl extends ServiceImpl<BizApplyMapper, BizApply> i
      * 解析当前业务绑定的流程名称快照。
      */
     private String resolveWorkflowName(BizDefinition bizDefinition) {
-        if (Objects.isNull(bizDefinition.getWorkflowDefinitionId())) {
+        if (StringUtils.isBlank(bizDefinition.getWorkflowDefinitionCode())) {
             return null;
         }
-        WorkflowDefinition workflowDefinition = workflowDefinitionService.getById(bizDefinition.getWorkflowDefinitionId());
+        WorkflowDefinition workflowDefinition = workflowDefinitionService.getLatestPublishedByCode(bizDefinition.getWorkflowDefinitionCode());
         return Objects.nonNull(workflowDefinition) ? workflowDefinition.getName() : null;
     }
 

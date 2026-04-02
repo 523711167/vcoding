@@ -39,4 +39,18 @@ public interface WorkflowDefinitionMapper extends BaseMapper<WorkflowDefinition>
      */
     @Select("SELECT MAX(version) FROM tb_workflow_definition WHERE code = #{code} AND is_deleted = 0")
     Integer selectMaxVersionByCode(String code);
+
+    /**
+     * 查询指定流程编码最新已发布版本。
+     */
+    @Select("""
+            SELECT *
+            FROM tb_workflow_definition
+            WHERE code = #{code}
+              AND status = 1
+              AND is_deleted = 0
+            ORDER BY version DESC, id DESC
+            LIMIT 1
+            """)
+    WorkflowDefinition selectLatestPublishedByCode(String code);
 }

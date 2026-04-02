@@ -236,6 +236,14 @@ public class WorkflowDefinitionServiceImpl extends ServiceImpl<WorkflowDefinitio
         workflowDefinitionMapper.updateById(disabledEntity);
     }
 
+    @Override
+    public WorkflowDefinition getLatestPublishedByCode(String code) {
+        if (!StringUtils.hasText(code)) {
+            return null;
+        }
+        return workflowDefinitionMapper.selectLatestPublishedByCode(code);
+    }
+
     /**
      * 统一构造定义查询条件。
      */
