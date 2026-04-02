@@ -10,6 +10,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -40,6 +41,7 @@ class OAuth2TokenEndpointFailureHandlerTests {
         jdbcTemplate.execute("DROP TABLE IF EXISTS tb_user_role_rel");
         jdbcTemplate.execute("DROP TABLE IF EXISTS tb_sys_menu");
         jdbcTemplate.execute("DROP TABLE IF EXISTS tb_user_role");
+        jdbcTemplate.execute("DROP TABLE IF EXISTS tb_login_log");
         jdbcTemplate.execute("DROP TABLE IF EXISTS tb_user");
 
         jdbcTemplate.execute("""
@@ -85,6 +87,21 @@ class OAuth2TokenEndpointFailureHandlerTests {
                     menu_id BIGINT
                 )
                 """);
+        jdbcTemplate.execute("""
+                CREATE TABLE tb_login_log (
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    user_id BIGINT,
+                    username VARCHAR(64),
+                    result VARCHAR(16),
+                    fail_reason VARCHAR(255),
+                    client_ip VARCHAR(64),
+                    user_agent VARCHAR(512),
+                    login_at TIMESTAMP NULL,
+                    created_at TIMESTAMP NULL,
+                    updated_at TIMESTAMP NULL,
+                    is_deleted INT DEFAULT 0
+                )
+                """);
 
         jdbcTemplate.update(
                 "INSERT INTO tb_user (id, username, password, real_name, avatar, status, is_deleted) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -117,6 +134,9 @@ class OAuth2TokenEndpointFailureHandlerTests {
                 .andExpect(jsonPath("$.msg").value("用户名或密码错误"))
                 .andExpect(jsonPath("$.data").isMap())
                 .andExpect(jsonPath("$.data").isEmpty());
+        assertEquals(1, countByResult("FAIL"));
+        assertEquals("not_exists_user", latestUsername());
+        assertEquals("用户名或密码错误", latestFailReason());
     }
 
     /**
@@ -138,5 +158,56 @@ class OAuth2TokenEndpointFailureHandlerTests {
                 .andExpect(jsonPath("$.msg").value("用户名或密码错误"))
                 .andExpect(jsonPath("$.data").isMap())
                 .andExpect(jsonPath("$.data").isEmpty());
+        assertEquals(1, countByResult("FAIL"));
+        assertEquals("admin", latestUsername());
+        assertEquals("用户名或密码错误", latestFailReason());
+    }
+
+    /**
+     * 非 password_login 模式失败时不记录登录失败日志。
+     */
+    @Test
+    void shouldNotRecordLoginFailWhenGrantTypeIsNotPasswordLogin() throws Exception {
+        mockMvc.perform(post("/oauth2/token")
+                        .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .param("grant_type", "client_credentials")
+                        .param("client_id", "workflow-client")
+                        .param("client_secret", "wrong-secret")
+                        .param("scope", "api"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON));
+        assertEquals(0, countByResult("FAIL"));
+    }
+
+    /**
+     * 统计指定结果日志数量。
+     */
+    private int countByResult(String result) {
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM tb_login_log WHERE result = ? AND is_deleted = 0",
+                Integer.class,
+                result
+        );
+        return count == null ? 0 : count;
+    }
+
+    /**
+     * 查询最近一条登录日志用户名。
+     */
+    private String latestUsername() {
+        return jdbcTemplate.queryForObject(
+                "SELECT username FROM tb_login_log ORDER BY id DESC LIMIT 1",
+                String.class
+        );
+    }
+
+    /**
+     * 查询最近一条登录日志失败原因。
+     */
+    private String latestFailReason() {
+        return jdbcTemplate.queryForObject(
+                "SELECT fail_reason FROM tb_login_log ORDER BY id DESC LIMIT 1",
+                String.class
+        );
     }
 }

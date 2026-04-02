@@ -34,16 +34,30 @@ public class PasswordLoginGrantAuthenticationToken extends OAuth2AuthorizationGr
     private final Set<String> scopes;
 
     /**
+     * 客户端IP地址。
+     */
+    private final String clientIp;
+
+    /**
+     * 客户端User-Agent。
+     */
+    private final String userAgent;
+
+    /**
      * 构造自定义 password_login grant 认证令牌。
      */
     public PasswordLoginGrantAuthenticationToken(Authentication clientPrincipal,
                                                  String username,
                                                  String password,
+                                                 String clientIp,
+                                                 String userAgent,
                                                  Set<String> scopes,
                                                  Map<String, Object> additionalParameters) {
         super(PASSWORD_LOGIN_GRANT_TYPE, clientPrincipal, additionalParameters);
         this.username = username;
         this.password = password;
+        this.clientIp = clientIp;
+        this.userAgent = userAgent;
         this.scopes = scopes == null ? Collections.emptySet() : Collections.unmodifiableSet(scopes);
     }
 
@@ -66,5 +80,19 @@ public class PasswordLoginGrantAuthenticationToken extends OAuth2AuthorizationGr
      */
     public Set<String> getScopes() {
         return scopes;
+    }
+
+    /**
+     * 获取客户端IP地址。
+     */
+    public String getClientIp() {
+        return clientIp;
+    }
+
+    /**
+     * 获取客户端User-Agent。
+     */
+    public String getUserAgent() {
+        return userAgent;
     }
 }

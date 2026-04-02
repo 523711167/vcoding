@@ -48,6 +48,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -162,6 +163,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 buildUserRoleMap(List.of(id)).getOrDefault(id, Collections.emptyList()),
                 buildUserDeptMap(List.of(id)).getOrDefault(id, Collections.emptyList())
         );
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateLastLoginAt(Long userId, LocalDateTime loginAt) {
+        if (Objects.isNull(userId) || Objects.isNull(loginAt)) {
+            return;
+        }
+        userMapper.update(null, new LambdaUpdateWrapper<User>()
+                .eq(User::getId, userId)
+                .set(User::getLastLoginAt, loginAt));
     }
 
     @Override

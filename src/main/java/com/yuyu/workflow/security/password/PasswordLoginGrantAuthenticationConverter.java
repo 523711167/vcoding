@@ -1,5 +1,6 @@
 package com.yuyu.workflow.security.password;
 
+import com.yuyu.workflow.common.util.HttpRequestClientUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -34,6 +35,8 @@ public class PasswordLoginGrantAuthenticationConverter implements Authentication
         MultiValueMap<String, String> parameters = getParameters(request);
         String username = parameters.getFirst("username");
         String password = parameters.getFirst("password");
+        String clientIp = HttpRequestClientUtils.resolveClientIp(request);
+        String userAgent = HttpRequestClientUtils.resolveUserAgent(request);
         Set<String> scopes = parseScopes(parameters.getFirst(OAuth2ParameterNames.SCOPE));
         Map<String, Object> additionalParameters = new LinkedHashMap<>();
         parameters.forEach((key, values) -> {
@@ -51,6 +54,8 @@ public class PasswordLoginGrantAuthenticationConverter implements Authentication
                 clientPrincipal,
                 username,
                 password,
+                clientIp,
+                userAgent,
                 scopes,
                 additionalParameters
         );

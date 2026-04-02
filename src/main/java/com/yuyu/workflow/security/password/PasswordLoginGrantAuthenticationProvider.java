@@ -74,11 +74,17 @@ public class PasswordLoginGrantAuthenticationProvider implements AuthenticationP
         Set<String> authorizedScopes = resolveAuthorizedScopes(passwordLoginAuthentication.getScopes(), registeredClient);
         Authentication userAuthentication;
         try {
-            userAuthentication = authenticationManager.authenticate(
+            UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken =
                     UsernamePasswordAuthenticationToken.unauthenticated(
                             passwordLoginAuthentication.getUsername(),
                             passwordLoginAuthentication.getPassword()
-                    )
+                    );
+            usernamePasswordAuthenticationToken.setDetails(new PasswordLoginRequestMetadata(
+                    passwordLoginAuthentication.getClientIp(),
+                    passwordLoginAuthentication.getUserAgent()
+            ));
+            userAuthentication = authenticationManager.authenticate(
+                    usernamePasswordAuthenticationToken
             );
         } catch (AuthenticationException ex) {
             throw new OAuth2AuthenticationException(

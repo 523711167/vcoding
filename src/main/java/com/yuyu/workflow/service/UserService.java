@@ -15,6 +15,7 @@ import com.yuyu.workflow.vo.user.RoleSimpleVO;
 import com.yuyu.workflow.vo.user.UserDeptVO;
 import com.yuyu.workflow.vo.user.UserVO;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface UserService extends IService<User> {
@@ -78,4 +79,9 @@ public interface UserService extends IService<User> {
      * 查询用户已关联组织。
      */
     List<UserDeptVO> getDepts(Long userId);
+
+    /**
+     * 更新用户最近登录时间。
+     */
+    void updateLastLoginAt(Long userId, LocalDateTime loginAt);
 }

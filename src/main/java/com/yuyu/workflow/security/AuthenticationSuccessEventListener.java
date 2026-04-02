@@ -1,8 +1,10 @@
 package com.yuyu.workflow.security;
 
-import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
-import com.yuyu.workflow.entity.User;
-import com.yuyu.workflow.mapper.UserMapper;
+import com.yuyu.workflow.security.password.PasswordLoginRequestMetadata;
+import com.yuyu.workflow.service.LoginLogService;
+import com.yuyu.workflow.service.UserService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
 import org.springframework.security.authentication.event.AuthenticationSuccessEvent;
 import org.springframework.stereotype.Component;
@@ -18,13 +20,17 @@ import java.time.LocalDateTime;
 @Component
 public class AuthenticationSuccessEventListener {
 
-    private final UserMapper userMapper;
+    private static final Logger log = LoggerFactory.getLogger(AuthenticationSuccessEventListener.class);
+    private final UserService userService;
+    private final LoginLogService loginLogService;
 
     /**
-     * 注入用户数据访问组件。
+     * 注入登录成功处理依赖。
      */
-    public AuthenticationSuccessEventListener(UserMapper userMapper) {
-        this.userMapper = userMapper;
+    public AuthenticationSuccessEventListener(UserService userService,
+                                              LoginLogService loginLogService) {
+        this.userService = userService;
+        this.loginLogService = loginLogService;
     }
 
     /**
@@ -36,8 +42,26 @@ public class AuthenticationSuccessEventListener {
         if (!(principal instanceof LoginUserDetails loginUser)) {
             return;
         }
-        userMapper.update(null, new LambdaUpdateWrapper<User>()
-                .eq(User::getId, loginUser.getId())
-                .set(User::getLastLoginAt, LocalDateTime.now()));
+        LocalDateTime loginAt = LocalDateTime.now();
+        userService.updateLastLoginAt(loginUser.getId(), loginAt);
+        recordLoginSuccess(loginUser, event);
+    }
+
+    /**
+     * 记录登录成功日志，不影响主认证流程。
+     */
+    private void recordLoginSuccess(LoginUserDetails loginUser, AuthenticationSuccessEvent event) {
+        String clientIp = null;
+        String userAgent = null;
+        Object details = event.getAuthentication().getDetails();
+        if (details instanceof PasswordLoginRequestMetadata metadata) {
+            clientIp = metadata.getClientIp();
+            userAgent = metadata.getUserAgent();
+        }
+        try {
+            loginLogService.recordSuccess(loginUser.getId(), loginUser.getUsername(), clientIp, userAgent);
+        } catch (Exception ex) {
+            log.warn("记录登录成功日志失败, userId={}", loginUser.getId(), ex);
+        }
     }
 }
