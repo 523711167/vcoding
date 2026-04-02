@@ -37,9 +37,9 @@ public class BizApplyCommandServiceImpl implements BizApplyCommandService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public WorkflowBizSubmitVO saveAndSubmit(BizApplySaveAndSubmitETO eto) {
-        BizApply bizApply = bizApplyService.saveDraft(eto);
+        BizApply bizApply = bizApplyService.saveDraft(bizApplyStructMapper.toBizApplySaveDraftETO(eto));
 
-        workflowLaunchService.submit(bizApplyStructMapper.toWorkflowBizSubmitETO(eto));
+        workflowLaunchService.submit(bizApplyStructMapper.toWorkflowBizSubmitETO(eto, bizApply));
 
         BizApply latestBizApply = bizApplyService.getByIdOrThrow(bizApply.getId());
         WorkflowBizSubmitVO vo = new WorkflowBizSubmitVO();

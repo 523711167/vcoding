@@ -513,22 +513,22 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         if (WorkflowNodeInstanceStatusEnum.isPendingApproval(nodeStatus.getCode())) {
             return;
         }
+        // 其余未处理审批人实例统一取消
+        workflowNodeApproverInstanceService.cancelOtherPendingApprovers(workflowNodeInstance.getInstanceId(),
+                workflowNodeInstance.getId(), eto.getApproverInstanceId());
 
         // 4. 节点
         WorkflowNode endNode = workflowNodeService.findEndNode(workflowInstance.getDefinitionId());
         WorkflowNodeInstance endNodeInstance = workflowNodeInstanceService.createOrLoadParallelJoinNodeInstance(endNode,  workflowInstance.getId(), null);
-        // 5.写入审核记录
+        // 5. 记录流转记录
         workflowApprovalRecordService.recordForRoute(eto, workflowNodeInstance, endNodeInstance);
 
-        // 修改 当前节点实例
-        workflowNodeInstanceService.updateNodeInstanceForReject(workflowNodeInstance.getId());
-        // 修改 结束节点实例
-        workflowNodeInstanceService.updateNodeInstanceForEnd(endNodeInstance);
-        // 修改 当前流程实例
-        workflowInstanceService.updateWorkflowInstanceForReject(workflowNodeInstance.getInstanceId(), endNodeInstance);
-        // 其余未处理审批人实例统一取消
-        workflowNodeApproverInstanceService.cancelOtherPendingApprovers(workflowNodeInstance.getInstanceId(),
-                workflowNodeInstance.getId(), eto.getApproverInstanceId());
+        processRouteAfterNodeApproved(
+                context,
+                new AuditRuntimeContext(nodeStatus),
+                workflowNodeInstance,
+                endNodeInstance
+        );
     }
 
 
@@ -826,6 +826,7 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         // 业务修改
         BizApply bizApply = new BizApply();
         bizApply.setId(context.workflowInstance().getBizId());
+        bizApply.setFinishedAt(OperationTimeContext.get());
         bizApply.setBizStatus(BizApplyStatusEnum.toBizApplyStatusEnum(auditedStatus.getCode()).getCode());
         bizApplyService.updateById(bizApply);
     }
