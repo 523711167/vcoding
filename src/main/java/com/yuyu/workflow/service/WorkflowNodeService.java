@@ -15,5 +15,7 @@ public interface WorkflowNodeService extends IService<WorkflowNode> {
 
     WorkflowNode findMatchJoinNode(Long splitDefinitionNodeId);
 
+    WorkflowNode findMatchJoinNode(Long nodeDefinitonNodeId, Long workflowDefinitionId);
+
     WorkflowNode findEndNode(Long workflowDefinitionId);
 }

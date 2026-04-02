@@ -89,6 +89,17 @@ public class WorkflowNodeServiceImpl extends ServiceImpl<WorkflowNodeMapper, Wor
     }
 
     @Override
+    public WorkflowNode findMatchJoinNode(Long splitNodeDefinitonNodeId, Long workflowDefinitionId) {
+        WorkflowNode workflowNode = getOne(
+                Wrappers.<WorkflowNode>lambdaQuery()
+                        .eq(WorkflowNode::getDefinitionId, workflowDefinitionId)
+                        .eq(WorkflowNode::getNodeType, WorkflowNodeTypeEnum.PARALLEL_JOIN.getCode())
+                        .eq(WorkflowNode::getParallelSplitNodeId, splitNodeDefinitonNodeId)
+        );
+        return workflowNode;
+    }
+
+    @Override
     public WorkflowNode findEndNode(Long workflowDefinitionId) {
         WorkflowNode endNode = getOne(
                 Wrappers.<WorkflowNode>lambdaQuery()

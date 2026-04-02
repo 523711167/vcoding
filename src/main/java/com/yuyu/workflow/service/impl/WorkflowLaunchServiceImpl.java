@@ -371,7 +371,11 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
                     context.workflowInstance().getId(),
                     context.currentNodeInstance().getParallelScopeId());
             //  写审批通过记录
-            workflowApprovalRecordService.recordForRoute(context.eto(), currentWorkflowNodeInstance, nextNodeInstance);
+            if (WorkflowNodeTypeEnum.isParallelJoin(nextNodeInstance.getDefinitionNodeType())) {
+                workflowApprovalRecordService.recordForJoinArrive(context.eto(), currentWorkflowNodeInstance, nextNodeInstance);
+            } else {
+                workflowApprovalRecordService.recordForRoute(context.eto(), currentWorkflowNodeInstance, nextNodeInstance);
+            }
             // 流转到下一个节点 / 结束流程
             processRouteAfterNodeApproved(context, new AuditRuntimeContext(statusEnum), currentWorkflowNodeInstance, nextNodeInstance);
         }
@@ -441,7 +445,6 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         }
 
         workflowParallelScopeService.markParallelBranchArrived(parallelScopeId);
-        workflowApprovalRecordService.recordForJoinArrive(context.eto(), currentWorkflowNodeInstance, joinNodeInstance);
 
         if (!allParallelBranchNodesFinished(parallelScopeId)) {
             // 分支未全部结束，不处理后续分支汇合后的判断
@@ -683,18 +686,18 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         Long definitionNodeId = splitNodeInstance.getDefinitionNodeId();
         Long currentWorkflowNodeInstanceId = currentWorkflowNodeInstance.getId();
         List<WorkflowTransition> workflowTransitionList = context.transitionsByFromNodeId().get(definitionNodeId);
+        WorkflowInstance workflowInstance = context.workflowInstance();
 
         workflowNodeInstanceService.updateNodeInstanceForApprove(currentWorkflowNodeInstanceId);
 
-        WorkflowNode matchJoinNode = workflowNodeService.findMatchJoinNode(splitNodeInstance.getDefinitionNodeId());
+        WorkflowNode matchJoinNode = workflowNodeService.findMatchJoinNode(splitNodeInstance.getDefinitionNodeId(), workflowInstance.getDefinitionId());
         WorkflowParallelScope workflowParallelScope = workflowParallelScopeService.createOnParallelSplitEnter(
-                context.workflowInstance(),
+                workflowInstance,
                 context.nodeMap().get(definitionNodeId),
                 matchJoinNode,
                 currentWorkflowNodeInstance.getParallelScopeId(),
                 workflowTransitionList == null ? 0 : workflowTransitionList.size()
         );
-
         workflowNodeInstanceService.update(
                 Wrappers.<WorkflowNodeInstance>lambdaUpdate()
                         .eq(BaseIdEntity::getId, splitNodeInstance.getId())
@@ -704,9 +707,9 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         for (WorkflowTransition workflowTransition : workflowTransitionList) {
             WorkflowNode nextWorkNode = context.nodeMap().get(workflowTransition.getToNodeId());
 
-            WorkflowNodeInstance nextSplitNodeInstance = workflowNodeInstanceService.createOrLoadParallelJoinNodeInstance(nextWorkNode, context.workflowInstance().getId(), workflowParallelScope.getId());
+            WorkflowNodeInstance nextSplitNodeInstance = workflowNodeInstanceService.createOrLoadParallelJoinNodeInstance(nextWorkNode, workflowInstance.getId(), workflowParallelScope.getId());
 
-            workflowApprovalRecordService.recordForSplitTrigger(context.eto(), nextSplitNodeInstance, splitNodeInstance);
+            workflowApprovalRecordService.recordForSplitTrigger(context.eto(), splitNodeInstance, nextSplitNodeInstance);
 
             processRouteAfterNodeApproved(context, new AuditRuntimeContext(WorkflowNodeInstanceStatusEnum.APPROVED), splitNodeInstance, nextSplitNodeInstance);
         }
