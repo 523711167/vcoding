@@ -31,6 +31,9 @@ public class BizApplyDraftVO {
     @Schema(description = "所属组织ID", example = "2")
     private Long deptId;
 
+    @Schema(description = "业务表单JSON", example = "{\"amount\":1000}")
+    private String formData;
+
     @Schema(description = "绑定流程名称快照", example = "员工报销流程")
     private String workflowName;
 }

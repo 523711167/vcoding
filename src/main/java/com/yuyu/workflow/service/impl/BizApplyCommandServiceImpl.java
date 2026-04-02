@@ -1,6 +1,6 @@
 package com.yuyu.workflow.service.impl;
 
-import com.yuyu.workflow.struct.BizApplyCommandStructMapper;
+import com.yuyu.workflow.struct.BizApplyStructMapper;
 import com.yuyu.workflow.entity.BizApply;
 import com.yuyu.workflow.eto.biz.BizApplySaveAndSubmitETO;
 import com.yuyu.workflow.service.BizApplyCommandService;
@@ -18,17 +18,17 @@ public class BizApplyCommandServiceImpl implements BizApplyCommandService {
 
     private final BizApplyService bizApplyService;
     private final WorkflowLaunchService workflowLaunchService;
-    private final BizApplyCommandStructMapper bizApplyCommandStructMapper;
+    private final BizApplyStructMapper bizApplyStructMapper;
 
     /**
      * 注入业务申请命令服务依赖。
      */
     public BizApplyCommandServiceImpl(BizApplyService bizApplyService,
                                       WorkflowLaunchService workflowLaunchService,
-                                      BizApplyCommandStructMapper bizApplyCommandStructMapper) {
+                                      BizApplyStructMapper bizApplyStructMapper) {
         this.bizApplyService = bizApplyService;
         this.workflowLaunchService = workflowLaunchService;
-        this.bizApplyCommandStructMapper = bizApplyCommandStructMapper;
+        this.bizApplyStructMapper = bizApplyStructMapper;
     }
 
     /**
@@ -39,7 +39,7 @@ public class BizApplyCommandServiceImpl implements BizApplyCommandService {
     public WorkflowBizSubmitVO saveAndSubmit(BizApplySaveAndSubmitETO eto) {
         BizApply bizApply = bizApplyService.saveDraft(eto);
 
-        workflowLaunchService.submit(bizApplyCommandStructMapper.toWorkflowBizSubmitETO(eto));
+        workflowLaunchService.submit(bizApplyStructMapper.toWorkflowBizSubmitETO(eto));
 
         BizApply latestBizApply = bizApplyService.getByIdOrThrow(bizApply.getId());
         WorkflowBizSubmitVO vo = new WorkflowBizSubmitVO();

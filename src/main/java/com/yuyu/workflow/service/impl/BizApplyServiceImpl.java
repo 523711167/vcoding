@@ -8,7 +8,7 @@ import com.yuyu.workflow.common.PageVo;
 import com.yuyu.workflow.common.enums.BizApplyStatusEnum;
 import com.yuyu.workflow.common.enums.CommonStatusEnum;
 import com.yuyu.workflow.common.exception.BizException;
-import com.yuyu.workflow.struct.BizApplyCommandStructMapper;
+import com.yuyu.workflow.struct.BizApplyStructMapper;
 import com.yuyu.workflow.entity.BizApply;
 import com.yuyu.workflow.entity.BizDefinition;
 import com.yuyu.workflow.entity.WorkflowDefinition;
@@ -44,7 +44,7 @@ public class BizApplyServiceImpl extends ServiceImpl<BizApplyMapper, BizApply> i
     private final UserMapper userMapper;
     private final BizDefinitionService bizDefinitionService;
     private final WorkflowDefinitionService workflowDefinitionService;
-    private final BizApplyCommandStructMapper bizApplyCommandStructMapper;
+    private final BizApplyStructMapper bizApplyStructMapper;
 
     /**
      * 注入业务申请服务依赖。
@@ -53,12 +53,12 @@ public class BizApplyServiceImpl extends ServiceImpl<BizApplyMapper, BizApply> i
                                UserMapper userMapper,
                                BizDefinitionService bizDefinitionService,
                                WorkflowDefinitionService workflowDefinitionService,
-                               BizApplyCommandStructMapper bizApplyCommandStructMapper) {
+                               BizApplyStructMapper bizApplyStructMapper) {
         this.baseMapper = bizApplyMapper;
         this.userMapper = userMapper;
         this.bizDefinitionService = bizDefinitionService;
         this.workflowDefinitionService = workflowDefinitionService;
-        this.bizApplyCommandStructMapper = bizApplyCommandStructMapper;
+        this.bizApplyStructMapper = bizApplyStructMapper;
     }
 
     @Override
@@ -161,7 +161,7 @@ public class BizApplyServiceImpl extends ServiceImpl<BizApplyMapper, BizApply> i
     public List<BizApplyDraftVO> listDrafts(BizApplyDraftListQTO qto) {
         return baseMapper.selectList(buildDraftQuery(qto.getCurrentUserId(), qto.getBizDefinitionId(), qto.getTitle()))
                 .stream()
-                .map(bizApplyCommandStructMapper::toBizApplyDraftVO)
+                .map(bizApplyStructMapper::toBizApplyDraftVO)
                 .toList();
     }
 
@@ -172,7 +172,7 @@ public class BizApplyServiceImpl extends ServiceImpl<BizApplyMapper, BizApply> i
         if (!BizApplyStatusEnum.isDraft(bizApply.getBizStatus())) {
             throw new BizException("当前业务申请不是草稿状态");
         }
-        return bizApplyCommandStructMapper.toBizApplyDraftVO(bizApply);
+        return bizApplyStructMapper.toBizApplyDraftVO(bizApply);
     }
 
     @Override
@@ -186,7 +186,7 @@ public class BizApplyServiceImpl extends ServiceImpl<BizApplyMapper, BizApply> i
                 page.getSize(),
                 page.getTotal(),
                 page.getRecords().stream()
-                        .map(bizApplyCommandStructMapper::toBizApplyDraftVO)
+                        .map(bizApplyStructMapper::toBizApplyDraftVO)
                         .toList()
         );
     }

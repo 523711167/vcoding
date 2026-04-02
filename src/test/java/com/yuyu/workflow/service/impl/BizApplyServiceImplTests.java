@@ -10,7 +10,7 @@ import com.yuyu.workflow.mapper.BizApplyMapper;
 import com.yuyu.workflow.mapper.UserMapper;
 import com.yuyu.workflow.service.BizDefinitionService;
 import com.yuyu.workflow.service.WorkflowDefinitionService;
-import com.yuyu.workflow.struct.BizApplyCommandStructMapper;
+import com.yuyu.workflow.struct.BizApplyStructMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,7 +42,7 @@ class BizApplyServiceImplTests {
     private WorkflowDefinitionService workflowDefinitionService;
 
     @Mock
-    private BizApplyCommandStructMapper bizApplyCommandStructMapper;
+    private BizApplyStructMapper bizApplyStructMapper;
 
     private BizApplyServiceImpl bizApplyService;
 
@@ -53,7 +53,7 @@ class BizApplyServiceImplTests {
                 userMapper,
                 bizDefinitionService,
                 workflowDefinitionService,
-                bizApplyCommandStructMapper
+                bizApplyStructMapper
         );
     }
 
