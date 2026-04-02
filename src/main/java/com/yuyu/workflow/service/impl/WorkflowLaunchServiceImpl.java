@@ -116,6 +116,14 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         WorkflowAuditETO workflowAuditETO = workflowLaunchStructMapper.toWorkflowAuditETO(eto, startNodeInstance);
         workflowApprovalRecordService.recordForRoute(workflowAuditETO, startNodeInstance, actualStartNodeInstance);
 
+        // 业务修改
+        BizApply bizApply = new BizApply();
+        bizApply.setId(context.bizApply().getId());
+        bizApply.setBizStatus(BizApplyStatusEnum.PENDING.getCode());
+        bizApply.setWorkflowInstanceId(workflowInstance.getId());
+        bizApply.setSubmittedAt(OperationTimeContext.get());
+        bizApplyService.updateById(bizApply);
+
         processRouteAfterNodeApproved(
                 workflowLaunchStructMapper.toAuditContext(
                         workflowAuditETO,
@@ -129,14 +137,6 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
                 startNodeInstance,
                 actualStartNodeInstance
         );
-
-        // 业务修改
-        BizApply bizApply = new BizApply();
-        bizApply.setId(context.bizApply().getId());
-        bizApply.setBizStatus(BizApplyStatusEnum.PENDING.getCode());
-        bizApply.setWorkflowInstanceId(workflowInstance.getId());
-        bizApply.setSubmittedAt(OperationTimeContext.getOrNow());
-        bizApplyService.updateById(bizApply);
     }
 
 
