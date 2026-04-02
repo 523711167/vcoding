@@ -36,10 +36,4 @@ public class WorkflowNode extends BaseAuditEntity {
 
     private String configJson;
 
-    public static WorkflowNode toEnd() {
-        WorkflowNode workflowNode = new WorkflowNode();
-        workflowNode.setNodeType(WorkflowNodeTypeEnum.END.getCode());
-        workflowNode.setName(WorkflowNodeTypeEnum.END.getName());
-        return workflowNode;
-    }
 }

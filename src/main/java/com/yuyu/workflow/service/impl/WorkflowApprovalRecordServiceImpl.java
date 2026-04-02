@@ -11,6 +11,7 @@ import com.yuyu.workflow.eto.workflow.WorkflowAuditETO;
 import com.yuyu.workflow.mapper.WorkflowApprovalRecordMapper;
 import com.yuyu.workflow.mapper.WorkflowNodeMapper;
 import com.yuyu.workflow.service.WorkflowApprovalRecordService;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
@@ -97,8 +98,8 @@ public class WorkflowApprovalRecordServiceImpl extends ServiceImpl<WorkflowAppro
     }
 
     @Override
-    public void recordForReject(WorkflowAuditETO eto, WorkflowNodeInstance workflowNodeInstance, WorkflowNodeInstance toWorkflowNodeInstance) {
-        WorkflowApprovalRecord record = buildApprovalRecord(eto, workflowNodeInstance, toWorkflowNodeInstance, WorkflowApprovalActionEnum.REJECT);
+    public void recordForReject(WorkflowAuditETO eto, WorkflowNodeInstance workflowNodeInstance) {
+        WorkflowApprovalRecord record = buildApprovalRecord(eto, workflowNodeInstance, new WorkflowNodeInstance(), WorkflowApprovalActionEnum.REJECT);
         baseMapper.insert(record);
     }
 
@@ -142,7 +143,7 @@ public class WorkflowApprovalRecordServiceImpl extends ServiceImpl<WorkflowAppro
         record.setAction(workflowApprovalActionEnum.getCode());
         record.setNodeInstanceType(workflowNodeInstance.getDefinitionNodeType());
         record.setNodeInstanceName(workflowNodeInstance.getDefinitionNodeName());
-        record.setComment(workflowApprovalActionEnum.getName());
+        record.setComment(StringUtils.isNotBlank(eto.getComment()) ? eto.getComment() : workflowApprovalActionEnum.getName());
         record.setFromNodeId(workflowNodeInstance.getDefinitionNodeId());
         record.setFromNodeType(workflowNodeInstance.getDefinitionNodeType());
         record.setFromNodeName(workflowNodeInstance.getDefinitionNodeName());

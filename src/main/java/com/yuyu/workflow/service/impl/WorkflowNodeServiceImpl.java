@@ -5,8 +5,10 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yuyu.workflow.common.enums.WorkflowNodeTypeEnum;
 import com.yuyu.workflow.common.exception.BizException;
 import com.yuyu.workflow.entity.WorkflowNode;
+import com.yuyu.workflow.entity.WorkflowParallelScope;
 import com.yuyu.workflow.mapper.WorkflowNodeMapper;
 import com.yuyu.workflow.service.WorkflowNodeService;
+import com.yuyu.workflow.service.WorkflowParallelScopeService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
@@ -24,11 +26,14 @@ import java.util.Objects;
 @Service
 public class WorkflowNodeServiceImpl extends ServiceImpl<WorkflowNodeMapper, WorkflowNode> implements WorkflowNodeService {
 
+    private final WorkflowParallelScopeService workflowParallelScopeService;
+
     /**
      * 注入流程节点服务依赖。
      */
-    public WorkflowNodeServiceImpl(WorkflowNodeMapper workflowNodeMapper) {
+    public WorkflowNodeServiceImpl(WorkflowNodeMapper workflowNodeMapper, WorkflowParallelScopeServiceImpl workflowParallelScopeService) {
         this.baseMapper = workflowNodeMapper;
+        this.workflowParallelScopeService = workflowParallelScopeService;
     }
 
     @Override
@@ -78,15 +83,20 @@ public class WorkflowNodeServiceImpl extends ServiceImpl<WorkflowNodeMapper, Wor
     }
 
     @Override
-    public WorkflowNode findMatchJoinNode(Long splitDefinitionNodeId, Long definitionId) {
-        WorkflowNode joinNode = getOne(
+    public WorkflowNode findMatchJoinNode(Long scopeId) {
+        WorkflowParallelScope workflowParallelScope = workflowParallelScopeService.getById(scopeId);
+        return getByIdOrThrow(workflowParallelScope.getJoinDefinitionNodeId());
+    }
+
+    @Override
+    public WorkflowNode findEndNode(Long workflowDefinitionId) {
+        WorkflowNode endNode = getOne(
                 Wrappers.<WorkflowNode>lambdaQuery()
-                        .eq(WorkflowNode::getDefinitionId, definitionId)
-                        .eq(WorkflowNode::getNodeType, WorkflowNodeTypeEnum.PARALLEL_JOIN.getCode())
-                        .eq(WorkflowNode::getParallelSplitNodeId, splitDefinitionNodeId)
+                        .eq(WorkflowNode::getDefinitionId, workflowDefinitionId)
+                        .eq(WorkflowNode::getNodeType, WorkflowNodeTypeEnum.END.getCode())
                         .last("limit 1")
         );
-        return joinNode;
+        return endNode;
     }
 
     /**

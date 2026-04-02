@@ -157,12 +157,10 @@ public class WorkflowNodeApproverInstanceServiceImpl extends ServiceImpl<Workflo
         update.setStatus(approverEnum.getCode());
         update.setFinishedAt(OperationTimeContext.get());
         update.setComment(comment);
-        int i = baseMapper.update(update, new LambdaQueryWrapper<WorkflowNodeApproverInstance>()
+        baseMapper.update(update, new LambdaQueryWrapper<WorkflowNodeApproverInstance>()
+                .eq(WorkflowNodeApproverInstance::getStatus, WorkflowNodeApproverInstanceStatusEnum.PENDING.getCode())
                 .eq(WorkflowNodeApproverInstance::getNodeInstanceId, nodeInstanceId)
                 .eq(WorkflowNodeApproverInstance::getId, approverInstanceId));
-        if (i == 0) {
-            throw new BizException("审批人实例更新失败");
-        }
     }
 
     @Override

@@ -47,6 +47,6 @@ public class WorkflowNodeInstance extends BaseAuditEntity {
 
 
     public boolean isSpawnParallelSplitNode() {
-        return Objects.nonNull(parallelBranchRootId);
+        return Objects.nonNull(parallelScopeId);
     }
 }

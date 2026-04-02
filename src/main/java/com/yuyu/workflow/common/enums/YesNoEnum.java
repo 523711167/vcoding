@@ -52,4 +52,20 @@ public enum YesNoEnum implements BaseEnum {
     public static String getMsgByCode(String code) {
         return EnumUtils.getMsgByCode(values(), code);
     }
+
+    public static boolean isNo(String code) {
+        return NO.getCode().equals(code);
+    }
+
+    public static boolean isYes(String code) {
+        return YES.getCode().equals(code);
+    }
+
+    public static boolean isNo(Integer id) {
+        return NO.getId().equals(id);
+    }
+
+    public static boolean isYes(Integer id) {
+        return YES.getId().equals(id);
+    }
 }

@@ -13,5 +13,7 @@ public interface WorkflowNodeService extends IService<WorkflowNode> {
      */
     WorkflowNode getByIdOrThrow(Long id);
 
-    WorkflowNode findMatchJoinNode(Long splitDefinitionNodeId, Long definitionId);
+    WorkflowNode findMatchJoinNode(Long splitDefinitionNodeId);
+
+    WorkflowNode findEndNode(Long workflowDefinitionId);
 }
