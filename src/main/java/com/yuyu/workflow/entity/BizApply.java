@@ -17,6 +17,8 @@ public class BizApply extends BaseAuditEntity {
 
     private Long bizDefinitionId;
 
+    private String bizName;
+
     private String title;
 
     private String bizStatus;

@@ -92,6 +92,7 @@ public class BizApplyServiceImpl extends ServiceImpl<BizApplyMapper, BizApply> i
 
         BizApply bizApply = new BizApply();
         bizApply.setBizDefinitionId(bizDefinition.getId());
+        bizApply.setBizName(bizDefinition.getBizName());
         bizApply.setTitle(eto.getTitle());
         bizApply.setBizStatus(BizApplyStatusEnum.DRAFT.getCode());
         bizApply.setApplicantId(eto.getCurrentUserId());
@@ -114,6 +115,7 @@ public class BizApplyServiceImpl extends ServiceImpl<BizApplyMapper, BizApply> i
         BizApply update = new BizApply();
         update.setId(current.getId());
         update.setBizDefinitionId(bizDefinition.getId());
+        update.setBizName(bizDefinition.getBizName());
         update.setTitle(eto.getTitle());
         update.setDeptId(eto.getCurrentPrimaryDeptId());
         update.setFormData(eto.getFormData());

@@ -47,6 +47,32 @@ PREPARE stmt FROM @ddl_sql;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
+-- 变更原因：
+-- 4. tb_biz_apply 冗余业务定义名称 biz_name，避免列表展示时频繁关联业务定义表。
+SET @add_biz_apply_biz_name_sql = (
+    SELECT IF (
+        EXISTS (
+            SELECT 1
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'tb_biz_apply'
+              AND COLUMN_NAME = 'biz_name'
+        ),
+        'SELECT 1',
+        'ALTER TABLE `tb_biz_apply` ADD COLUMN `biz_name` VARCHAR(128) NULL COMMENT ''业务名称（冗余快照）'' AFTER `biz_definition_id`'
+    )
+);
+PREPARE stmt_add_biz_apply_biz_name FROM @add_biz_apply_biz_name_sql;
+EXECUTE stmt_add_biz_apply_biz_name;
+DEALLOCATE PREPARE stmt_add_biz_apply_biz_name;
+
+UPDATE `tb_biz_apply` apply_table
+INNER JOIN `tb_biz_definition` definition_table
+        ON definition_table.`id` = apply_table.`biz_definition_id`
+SET apply_table.`biz_name` = definition_table.`biz_name`
+WHERE (apply_table.`biz_name` IS NULL OR apply_table.`biz_name` = '')
+  AND definition_table.`is_deleted` = 0;
+
 SET @idx_sql = (
     SELECT IF (
         EXISTS (

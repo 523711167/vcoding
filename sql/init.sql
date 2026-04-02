@@ -241,6 +241,7 @@ CREATE TABLE IF NOT EXISTS `tb_biz_definition_role_rel` (
 CREATE TABLE IF NOT EXISTS `tb_biz_apply` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `biz_definition_id` BIGINT NOT NULL COMMENT '业务定义ID',
+  `biz_name` VARCHAR(128) DEFAULT NULL COMMENT '业务名称（冗余快照）',
   `title` VARCHAR(200) NOT NULL COMMENT '申请标题',
   `biz_status` VARCHAR(16) NOT NULL DEFAULT 'DRAFT' COMMENT '业务申请状态：DRAFT=草稿 PENDING=审批中 APPROVED=已通过 REJECTED=已拒绝 CANCELED=已撤回',
   `applicant_id` BIGINT NOT NULL COMMENT '申请人用户ID',

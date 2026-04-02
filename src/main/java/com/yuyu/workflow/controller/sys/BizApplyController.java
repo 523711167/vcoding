@@ -54,7 +54,7 @@ public class BizApplyController {
      * 保存业务申请草稿。
      */
     @Operation(summary = "保存业务申请草稿")
-    @PostMapping("/save")
+    @PostMapping("/draft/save")
     public Resp<BizApplyDraftVO> save(@Valid @RequestBody BizApplySaveDraftETO eto) {
         return Resp.success(bizApplyCommandStructMapper.toBizApplyDraftVO(bizApplyService.saveDraft(eto)));
     }
@@ -63,7 +63,7 @@ public class BizApplyController {
      * 修改业务申请草稿。
      */
     @Operation(summary = "修改业务申请草稿")
-    @PostMapping("/update")
+    @PostMapping("/draft/update")
     public Resp<BizApplyDraftVO> update(@Valid @RequestBody BizApplyUpdateDraftETO eto) {
         return Resp.success(bizApplyCommandStructMapper.toBizApplyDraftVO(bizApplyService.updateDraft(eto)));
     }
