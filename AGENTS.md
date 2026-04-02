@@ -58,10 +58,6 @@
 - `ALL` 分支使用动态 SQL 直接分支处理（跳过权限条件），禁止通过 `OR #{flag}=TRUE` 形式兜底。
 - 需求讨论中的“示例”默认不等于“唯一规则”，实现前必须确认是否为通用规则。
 
-### 查询安全
-- 权限计算中间字段（如 `hasAllData`、`visibleDeptIdList`）仅允许服务端写入，禁止信任前端透传值。
-
-
 ### 删除与 Mapper 规范
 - 删除接口优先支持批量删除，单个删除视为批量删除特例。
 - 所有 `Mapper` 显式提供 `removeById`、`removeByIds`。
@@ -70,9 +66,10 @@
 - 所有的数据库entity必须添加注释
 
 ### 编码规范
-- 新增物理表，生成对应代码必须要生成 service mapper struct entity ，controller是可选择
+- 新增物理表，生成对应代码必须要生成 service mapper struct entity ，controller是可选择, 如果没有明确指明，必须要询问开发者是否是需要生成
 - MapStruct 组件统一命名为 `*StructMapper`。
 - 使用struct的，禁止通过 `@MappingTarget` 直接修改传入对象。
+- 字符串处理规则：空白/裁剪/默认值处理优先使用 `org.apache.commons.lang3.StringUtils`。
 
 ### mapstruct的使用场景
 - 把一层的数据对象转成另一层对象，避免手写大量重复的 set/get
@@ -98,6 +95,7 @@
 - 原设计文档默认视为基线。
 - 新需求、设计调整、范围变更，优先写入 `doc/需求变更/`。
 - 若用户明确要求直接修改设计文档，再按要求处理。
+- 使用 skill 产出需求/设计文档时，必须先提交给用户确认；仅在用户明确“确认通过/可以执行”后，才可进入代码与 SQL 实施阶段。
 
 ## 提交规范
 - 提交信息格式：`type: 变更摘要`
