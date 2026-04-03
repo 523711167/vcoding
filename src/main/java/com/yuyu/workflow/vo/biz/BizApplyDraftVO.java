@@ -3,6 +3,8 @@ package com.yuyu.workflow.vo.biz;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
+import java.time.LocalDateTime;
+
 /**
  * 业务申请草稿返回对象。
  */
@@ -36,4 +38,10 @@ public class BizApplyDraftVO {
 
     @Schema(description = "绑定流程名称快照", example = "员工报销流程")
     private String workflowName;
+
+    @Schema(description = "提交时间")
+    private LocalDateTime submittedAt;
+
+    @Schema(description = "结束时间")
+    private LocalDateTime finishedAt;
 }

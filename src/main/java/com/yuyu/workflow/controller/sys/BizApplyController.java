@@ -118,7 +118,7 @@ public class BizApplyController {
      * 查询当前用户我的发起列表。
      */
     @Operation(summary = "查询当前用户我的发起列表")
-    @GetMapping("/launch/list")
+    @GetMapping("/apply/list")
     public Resp<List<BizApplyDraftVO>> launchList(@Valid @ParameterObject BizApplyLaunchListQTO qto) {
         qto.setBizStatusList(List.of(
                 BizApplyStatusEnum.PENDING.getCode(),
@@ -133,7 +133,7 @@ public class BizApplyController {
      * 分页查询当前用户我的发起列表。
      */
     @Operation(summary = "分页查询当前用户我的发起列表")
-    @GetMapping("/launch/page")
+    @GetMapping("/apply/page")
     public Resp<PageVo<BizApplyDraftVO>> launchPage(@Valid @ParameterObject BizApplyLaunchPageQTO qto) {
         qto.setBizStatusList(List.of(
                 BizApplyStatusEnum.PENDING.getCode(),
@@ -148,7 +148,7 @@ public class BizApplyController {
      * 查询当前用户我的发起详情。
      */
     @Operation(summary = "查询当前用户我的发起详情")
-    @GetMapping("/launch/detail")
+    @GetMapping("/apply/detail")
     public Resp<BizApplyDraftVO> launchDetail(@Valid @ParameterObject BizApplyLaunchIdQTO qto) {
         qto.setBizStatusList(List.of(
                 BizApplyStatusEnum.PENDING.getCode(),
