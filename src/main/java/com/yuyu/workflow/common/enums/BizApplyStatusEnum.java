@@ -1,5 +1,7 @@
 package com.yuyu.workflow.common.enums;
 
+import java.util.List;
+
 /**
  * 业务申请状态枚举。
  */
@@ -9,7 +11,8 @@ public enum BizApplyStatusEnum implements BaseEnum {
     PENDING(1, "PENDING", "审批中"),
     APPROVED(2, "APPROVED", "已通过"),
     REJECTED(3, "REJECTED", "已拒绝"),
-    CANCELED(4, "CANCELED", "已撤回");
+    CANCELED(4, "CANCELED", "已撤回"),
+    INITIATOR_CANCELED(5, "INITIATOR_CANCELED", "已取消");
 
     private final Integer id;
     private final String code;
@@ -65,5 +68,15 @@ public enum BizApplyStatusEnum implements BaseEnum {
         } else {
             return PENDING;
         }
+    }
+
+    public static List<String> toSubmittedStatusCodes() {
+        return List.of(
+                BizApplyStatusEnum.PENDING.getCode(),
+                BizApplyStatusEnum.APPROVED.getCode(),
+                BizApplyStatusEnum.REJECTED.getCode(),
+                BizApplyStatusEnum.CANCELED.getCode(),
+                BizApplyStatusEnum.INITIATOR_CANCELED.getCode()
+        );
     }
 }

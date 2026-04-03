@@ -59,6 +59,11 @@ public interface WorkflowNodeApproverInstanceService extends IService<WorkflowNo
 
     void cancelOtherPendingApprovers(Long instanceId, Long nodeInstanceId, Long approverInstanceId);
 
+    /**
+     * 取消流程时批量关闭待处理审批人实例。
+     */
+    void cancelPendingApproversForInstance(Long instanceId);
+
     void saveApproverInstancesForUser(WorkflowNodeInstance workflowNodeInstance);
 
     void saveApproverInstancesForRole(WorkflowNodeInstance workflowNodeInstance);

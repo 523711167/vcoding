@@ -8,9 +8,11 @@ import com.yuyu.workflow.common.exception.BizException;
 import com.yuyu.workflow.entity.WorkflowApprovalRecord;
 import com.yuyu.workflow.entity.WorkflowNodeInstance;
 import com.yuyu.workflow.eto.workflow.WorkflowAuditETO;
+import com.yuyu.workflow.eto.workflow.WorkflowCancelETO;
 import com.yuyu.workflow.mapper.WorkflowApprovalRecordMapper;
 import com.yuyu.workflow.mapper.WorkflowNodeMapper;
 import com.yuyu.workflow.service.WorkflowApprovalRecordService;
+import com.yuyu.workflow.struct.WorkflowApprovalRecordStructMapper;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,14 +32,18 @@ import java.util.Objects;
 public class WorkflowApprovalRecordServiceImpl extends ServiceImpl<WorkflowApprovalRecordMapper, WorkflowApprovalRecord> implements WorkflowApprovalRecordService {
 
     private final WorkflowNodeMapper workflowNodeMapper;
+    private final WorkflowApprovalRecordStructMapper workflowApprovalRecordStructMapper;
 
     /**
      * 注入审批操作记录服务依赖。
      */
     public WorkflowApprovalRecordServiceImpl(WorkflowApprovalRecordMapper workflowApprovalRecordMapper,
-                                             WorkflowNodeMapper workflowNodeMapper) {
+                                             WorkflowNodeMapper workflowNodeMapper,
+                                             WorkflowApprovalRecordStructMapper workflowApprovalRecordStructMapper,
+    ) {
         this.baseMapper = workflowApprovalRecordMapper;
         this.workflowNodeMapper = workflowNodeMapper;
+        this.workflowApprovalRecordStructMapper = workflowApprovalRecordStructMapper;
     }
 
     @Override
@@ -130,6 +136,12 @@ public class WorkflowApprovalRecordServiceImpl extends ServiceImpl<WorkflowAppro
     @Override
     public void recordForJoinPass(WorkflowAuditETO eto, WorkflowNodeInstance workflowNodeInstance, WorkflowNodeInstance toWorkflowNodeInstance) {
         WorkflowApprovalRecord record = buildApprovalRecord(eto, workflowNodeInstance, toWorkflowNodeInstance, WorkflowApprovalActionEnum.JOIN_PASS);
+        baseMapper.insert(record);
+    }
+
+    @Override
+    public void recordForCancel(WorkflowCancelETO eto, WorkflowNodeInstance workflowNodeInstance) {
+        WorkflowApprovalRecord record = buildApprovalRecord(workflowApprovalRecordStructMapper.toWorkflowAuditETO(eto, workflowNodeInstance), workflowNodeInstance, new WorkflowNodeInstance(), WorkflowApprovalActionEnum.CANCEL);
         baseMapper.insert(record);
     }
 

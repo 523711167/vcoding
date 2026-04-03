@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.yuyu.workflow.entity.WorkflowApprovalRecord;
 import com.yuyu.workflow.entity.WorkflowNodeInstance;
 import com.yuyu.workflow.eto.workflow.WorkflowAuditETO;
+import com.yuyu.workflow.eto.workflow.WorkflowCancelETO;
 
 import java.util.List;
 
@@ -43,5 +44,9 @@ public interface WorkflowApprovalRecordService extends IService<WorkflowApproval
 
     void recordForJoinPass(WorkflowAuditETO eto, WorkflowNodeInstance workflowNodeInstance, WorkflowNodeInstance toWorkflowNodeInstance);
 
+    /**
+     * 发起人取消流程，写入审批记录。
+     */
+    void recordForCancel(WorkflowCancelETO eto, WorkflowNodeInstance workflowNodeInstance);
 
 }

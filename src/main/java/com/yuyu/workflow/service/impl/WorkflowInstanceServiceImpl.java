@@ -111,6 +111,16 @@ public class WorkflowInstanceServiceImpl extends ServiceImpl<WorkflowInstanceMap
     }
 
     @Override
+    public void updateWorkflowInstanceForCancel(Long instanceId) {
+        baseMapper.update(
+                Wrappers.<WorkflowInstance>lambdaUpdate()
+                        .eq(BaseIdEntity::getId, instanceId)
+                        .set(WorkflowInstance::getStatus, WorkflowInstanceStatusEnum.INITIATOR_CANCELED.getCode())
+                        .set(WorkflowInstance::getFinishedAt, OperationTimeContext.get())
+        );
+    }
+
+    @Override
     public WorkflowInstance saveStartIntance(BizApply bizApply, WorkflowDefinition workflowDefinition, UserContextParam userContextParam) {
         WorkflowInstance workflowInstance = new WorkflowInstance();
         workflowInstance.setBizId(bizApply.getId());

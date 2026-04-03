@@ -119,6 +119,22 @@ public class WorkflowNodeInstanceServiceImpl extends ServiceImpl<WorkflowNodeIns
     }
 
     @Override
+    public void updateNodeInstanceForCancel(Long workflowInstanceId) {
+        update(
+                Wrappers.<WorkflowNodeInstance>lambdaUpdate()
+                        .eq(WorkflowNodeInstance::getInstanceId, workflowInstanceId)
+                        .in(
+                                WorkflowNodeInstance::getStatus,
+                                WorkflowNodeInstanceStatusEnum.PENDING.getCode(),
+                                WorkflowNodeInstanceStatusEnum.ACTIVE.getCode(),
+                                WorkflowNodeInstanceStatusEnum.PENDING_APPROVAL.getCode()
+                        )
+                        .set(WorkflowNodeInstance::getStatus, WorkflowNodeInstanceStatusEnum.CANCELED.getCode())
+                        .set(WorkflowNodeInstance::getFinishedAt, OperationTimeContext.get())
+        );
+    }
+
+    @Override
     public void updateNode(Long nodeInstanceId, WorkflowNodeInstanceStatusEnum nodeInstanceEnum) {
         WorkflowNodeInstance workflowNodeInstance = new WorkflowNodeInstance();
         workflowNodeInstance.setId(nodeInstanceId);

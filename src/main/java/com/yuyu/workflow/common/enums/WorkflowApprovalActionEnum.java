@@ -21,7 +21,8 @@ public enum WorkflowApprovalActionEnum implements BaseEnum {
     AUTO_APPROVE(11, "AUTO_APPROVE", "系统自动审核通过"),
     AUTO_REJECT(12, "AUTO_REJECT", "系统自动审批拒绝"),
     TIMEOUT(13, "TIMEOUT", "节点超时自动处理触发记录"),
-    REMIND(14, "REMIND", "节点超时后发送提醒");
+    REMIND(14, "REMIND", "节点超时后发送提醒"),
+    CANCEL(15, "CANCEL", "发起人取消");
 
     private final Integer id;
     private final String code;

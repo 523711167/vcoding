@@ -5,6 +5,7 @@ import com.yuyu.workflow.common.exception.BizException;
 import com.yuyu.workflow.eto.workflow.WorkflowAddSignETO;
 import com.yuyu.workflow.eto.workflow.WorkflowAuditETO;
 import com.yuyu.workflow.eto.workflow.WorkflowBizSubmitETO;
+import com.yuyu.workflow.eto.workflow.WorkflowCancelETO;
 import com.yuyu.workflow.eto.workflow.WorkflowDelegateETO;
 import com.yuyu.workflow.eto.workflow.WorkflowRecallETO;
 import com.yuyu.workflow.eto.workflow.WorkflowTimeoutHandleETO;
@@ -65,6 +66,16 @@ public class WorkflowBizController {
     @PostMapping("/recall")
     public Resp<Void> recall(@Valid @RequestBody WorkflowRecallETO eto) {
         throw notImplemented("撤回流程");
+    }
+
+    /**
+     * 取消运行中的流程实例。
+     */
+    @Operation(summary = "取消流程")
+    @PostMapping("/cancel")
+    public Resp<Void> cancel(@Valid @RequestBody WorkflowCancelETO eto) {
+        workflowLaunchService.cancel(eto);
+        return Resp.success();
     }
 
     /**

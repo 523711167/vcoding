@@ -11,6 +11,7 @@ import com.yuyu.workflow.entity.*;
 import com.yuyu.workflow.entity.base.BaseIdEntity;
 import com.yuyu.workflow.eto.workflow.WorkflowAuditETO;
 import com.yuyu.workflow.eto.workflow.WorkflowBizSubmitETO;
+import com.yuyu.workflow.eto.workflow.WorkflowCancelETO;
 import com.yuyu.workflow.mapper.*;
 import com.yuyu.workflow.service.*;
 import com.yuyu.workflow.struct.WorkflowLaunchStructMapper;
@@ -139,6 +140,76 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         );
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void cancel(WorkflowCancelETO eto) {
+        CancelContext context = loadCancelContext(eto);
+        validateCancel(context);
+
+        workflowInstanceService.updateWorkflowInstanceForCancel(context.workflowInstance().getId());
+        workflowNodeInstanceService.updateNodeInstanceForCancel(context.workflowInstance().getId());
+        workflowNodeApproverInstanceService.cancelPendingApproversForInstance(context.workflowInstance().getId());
+        workflowApprovalRecordService.recordForCancel(eto, context.currentNodeInstance());
+
+        BizApply bizApply = new BizApply();
+        bizApply.setId(context.bizApply().getId());
+        bizApply.setBizStatus(BizApplyStatusEnum.INITIATOR_CANCELED.getCode());
+        bizApply.setFinishedAt(OperationTimeContext.get());
+        bizApplyService.updateById(bizApply);
+    }
+
+    /**
+     * 加载取消流程所需上下文。
+     */
+    private CancelContext loadCancelContext(WorkflowCancelETO eto) {
+        WorkflowInstance workflowInstance = workflowInstanceService.getByIdOrThrow(eto.getInstanceId());
+        BizApply bizApply = bizApplyService.getByIdOrThrow(workflowInstance.getBizId());
+        WorkflowNodeInstance currentNodeInstance = findCurrentCancelNodeInstance(workflowInstance.getId());
+        return new CancelContext(eto, workflowInstance, bizApply, currentNodeInstance);
+    }
+
+    /**
+     * 校验当前用户是否可以取消流程。
+     */
+    private void validateCancel(CancelContext context) {
+        if (!WorkflowInstanceStatusEnum.isRunning(context.workflowInstance().getStatus())) {
+            throw new BizException("流程已结束，不能取消");
+        }
+        if (!Objects.equals(context.workflowInstance().getApplicantId(), context.eto().getCurrentUserId())) {
+            throw new BizException("无权取消该流程");
+        }
+    }
+
+    /**
+     * 查找取消流程时用于记录审批轨迹的当前节点实例。
+     */
+    private WorkflowNodeInstance findCurrentCancelNodeInstance(Long instanceId) {
+        List<WorkflowNodeInstance> activeNodeInstanceList = workflowNodeInstanceService.list(
+                Wrappers.<WorkflowNodeInstance>lambdaQuery()
+                        .eq(WorkflowNodeInstance::getInstanceId, instanceId)
+                        .in(
+                                WorkflowNodeInstance::getStatus,
+                                WorkflowNodeInstanceStatusEnum.PENDING.getCode(),
+                                WorkflowNodeInstanceStatusEnum.ACTIVE.getCode(),
+                                WorkflowNodeInstanceStatusEnum.PENDING_APPROVAL.getCode()
+                        )
+                        .orderByAsc(BaseIdEntity::getId)
+        );
+        if (!activeNodeInstanceList.isEmpty()) {
+            return activeNodeInstanceList.get(0);
+        }
+
+        WorkflowNodeInstance latestNodeInstance = workflowNodeInstanceService.getOne(
+                Wrappers.<WorkflowNodeInstance>lambdaQuery()
+                        .eq(WorkflowNodeInstance::getInstanceId, instanceId)
+                        .orderByDesc(BaseIdEntity::getId)
+                        .last("limit 1")
+        );
+        if (Objects.isNull(latestNodeInstance)) {
+            throw new BizException("流程节点实例不存在");
+        }
+        return latestNodeInstance;
+    }
 
     private SubmitContext loadSubmitContext(WorkflowBizSubmitETO eto) {
 
@@ -913,6 +984,14 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
             List<WorkflowTransition> definitionTransitionList,
             Map<Long, WorkflowNode> nodeMap,
             Map<Long, List<WorkflowTransition>> transitionsByFromNodeId
+    ) {
+    }
+
+    private record CancelContext(
+            WorkflowCancelETO eto,
+            WorkflowInstance workflowInstance,
+            BizApply bizApply,
+            WorkflowNodeInstance currentNodeInstance
     ) {
     }
 

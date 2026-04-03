@@ -29,5 +29,10 @@ public interface WorkflowInstanceService extends IService<WorkflowInstance> {
 
     void updateWorkflowInstanceForSite(Long instanceId, WorkflowNodeInstance workflowNodeInstance);
 
+    /**
+     * 发起人取消流程后更新流程实例。
+     */
+    void updateWorkflowInstanceForCancel(Long instanceId);
+
     WorkflowInstance saveStartIntance(BizApply bizApply, WorkflowDefinition workflowDefinition, UserContextParam userContextParam);
 }

@@ -206,6 +206,21 @@ public class WorkflowNodeApproverInstanceServiceImpl extends ServiceImpl<Workflo
     }
 
     @Override
+    public void cancelPendingApproversForInstance(Long instanceId) {
+        update(
+                Wrappers.<WorkflowNodeApproverInstance>lambdaUpdate()
+                        .eq(WorkflowNodeApproverInstance::getInstanceId, instanceId)
+                        .in(
+                                WorkflowNodeApproverInstance::getStatus,
+                                WorkflowNodeApproverInstanceStatusEnum.PENDING.getCode(),
+                                WorkflowNodeApproverInstanceStatusEnum.WAITING_ADD_SIGN.getCode()
+                        )
+                        .set(WorkflowNodeApproverInstance::getFinishedAt, OperationTimeContext.get())
+                        .set(WorkflowNodeApproverInstance::getStatus, WorkflowNodeApproverInstanceStatusEnum.CANCELED.getCode())
+        );
+    }
+
+    @Override
     public void saveApproverInstancesFordept(WorkflowNodeInstance workflowNodeInstance) {
         String approveMode = workflowNodeInstance.getApproveMode();
         List<User> userList = ((UserMapper) userService.getBaseMapper())

@@ -29,6 +29,8 @@ public interface WorkflowNodeInstanceService extends IService<WorkflowNodeInstan
 
     void updateNodeInstanceForApprove(Long nodeInstanceId);
 
+    void updateNodeInstanceForCancel(Long workflowInstanceId);
+
     void updateNode(Long nodeInstanceId, WorkflowNodeInstanceStatusEnum nodeInstanceEnum);
 
     WorkflowNodeInstance createOrLoadParallelJoinNodeInstance(WorkflowNode nextNode, Long workflowInstanceId, Long scopeId);
