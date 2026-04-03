@@ -95,4 +95,7 @@ public interface BizApplyService extends IService<BizApply> {
      */
     WorkflowQueryVO detailQuery(WorkflowQueryDetailQTO qto);
 
+    void updateForBizStatusCancel(Long bizId);
+
+    void updateForSubmitBiz(Long bizId, Long workflowInstanceId);
 }

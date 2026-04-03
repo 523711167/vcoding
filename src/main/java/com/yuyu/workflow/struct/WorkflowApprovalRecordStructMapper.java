@@ -10,7 +10,10 @@ import org.mapstruct.Mapping;
 @Mapper(config = MapStructConfig.class)
 public interface WorkflowApprovalRecordStructMapper {
 
-
-    @Mapping(source = "nodeInstanceId", target = "workflowNodeInstance.id")
+    @Mapping(target = "instanceId", source = "eto.instanceId")
+    @Mapping(target = "nodeInstanceId", source = "workflowNodeInstance.id")
+    @Mapping(target = "approverInstanceId", ignore = true)
+    @Mapping(target = "action", ignore = true)
+    @Mapping(target = "comment", source = "eto.comment")
     WorkflowAuditETO toWorkflowAuditETO(WorkflowCancelETO eto, WorkflowNodeInstance workflowNodeInstance);
 }

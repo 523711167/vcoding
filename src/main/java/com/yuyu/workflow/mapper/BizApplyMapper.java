@@ -3,11 +3,18 @@ package com.yuyu.workflow.mapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.yuyu.workflow.entity.BizApply;
+import com.yuyu.workflow.qto.biz.BizApplyMineDetailQTO;
+import com.yuyu.workflow.qto.biz.BizApplyMineListQTO;
+import com.yuyu.workflow.qto.biz.BizApplyMinePageQTO;
 import com.yuyu.workflow.qto.workflow.WorkflowQueryDetailQTO;
 import com.yuyu.workflow.qto.workflow.WorkflowQueryListQTO;
 import com.yuyu.workflow.qto.workflow.WorkflowQueryPageQTO;
+import com.yuyu.workflow.vo.biz.BizApplyDraftVO;
 import com.yuyu.workflow.vo.workflow.WorkflowQueryVO;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Result;
+import org.apache.ibatis.annotations.ResultMap;
+import org.apache.ibatis.annotations.Results;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
@@ -42,6 +49,120 @@ public interface BizApplyMapper extends BaseMapper<BizApply> {
     /**
      * 查询查询箱列表。
      */
+    @Select({
+            "<script>",
+            "SELECT",
+            "  ba.id,",
+            "  ba.biz_definition_id,",
+            "  ba.title,",
+            "  ba.biz_status,",
+            "  ba.applicant_id,",
+            "  ba.applicant_name,",
+            "  ba.dept_id,",
+            "  ba.form_data,",
+            "  ba.workflow_name,",
+            "  wi.id AS workflowinstanceid,",
+            "  ba.submitted_at,",
+            "  ba.finished_at",
+            "FROM tb_biz_apply ba",
+            "LEFT JOIN tb_workflow_instance wi ON wi.biz_id = ba.id AND wi.is_deleted = 0",
+            "WHERE ba.is_deleted = 0",
+            "  AND ba.applicant_id = #{qto.currentUserId}",
+            "<if test='qto.bizStatusList != null and qto.bizStatusList.size > 0'>",
+            "  AND ba.biz_status IN",
+            "  <foreach collection='qto.bizStatusList' item='bizStatus' open='(' separator=',' close=')'>",
+            "    #{bizStatus}",
+            "  </foreach>",
+            "</if>",
+            "<if test='qto.bizDefinitionId != null'>",
+            "  AND ba.biz_definition_id = #{qto.bizDefinitionId}",
+            "</if>",
+            "<if test='qto.title != null and qto.title != \"\"'>",
+            "  AND ba.title LIKE CONCAT('%', #{qto.title}, '%')",
+            "</if>",
+            "ORDER BY ba.updated_at DESC, ba.id DESC",
+            "</script>"
+    })
+    @Results(id = "bizApplyDraftVoMap", value = {
+            @Result(column = "workflowinstanceid", property = "workflowInstanceId")
+    })
+    List<BizApplyDraftVO> selectMineApplyList(@Param("qto") BizApplyMineListQTO qto);
+
+    /**
+     * 分页查询当前用户业务申请列表。
+     */
+    @Select({
+            "<script>",
+            "SELECT",
+            "  ba.id,",
+            "  ba.biz_definition_id,",
+            "  ba.title,",
+            "  ba.biz_status,",
+            "  ba.applicant_id,",
+            "  ba.applicant_name,",
+            "  ba.dept_id,",
+            "  ba.form_data,",
+            "  ba.workflow_name,",
+            "  wi.id AS workflowinstanceid,",
+            "  ba.submitted_at,",
+            "  ba.finished_at",
+            "FROM tb_biz_apply ba",
+            "LEFT JOIN tb_workflow_instance wi ON wi.biz_id = ba.id AND wi.is_deleted = 0",
+            "WHERE ba.is_deleted = 0",
+            "  AND ba.applicant_id = #{qto.currentUserId}",
+            "<if test='qto.bizStatusList != null and qto.bizStatusList.size > 0'>",
+            "  AND ba.biz_status IN",
+            "  <foreach collection='qto.bizStatusList' item='bizStatus' open='(' separator=',' close=')'>",
+            "    #{bizStatus}",
+            "  </foreach>",
+            "</if>",
+            "<if test='qto.bizDefinitionId != null'>",
+            "  AND ba.biz_definition_id = #{qto.bizDefinitionId}",
+            "</if>",
+            "<if test='qto.title != null and qto.title != \"\"'>",
+            "  AND ba.title LIKE CONCAT('%', #{qto.title}, '%')",
+            "</if>",
+            "ORDER BY ba.updated_at DESC, ba.id DESC",
+            "</script>"
+    })
+    @ResultMap("bizApplyDraftVoMap")
+    IPage<BizApplyDraftVO> selectMineApplyPage(IPage<BizApplyDraftVO> page, @Param("qto") BizApplyMinePageQTO qto);
+
+    /**
+     * 查询当前用户业务申请详情。
+     */
+    @Select({
+            "<script>",
+            "SELECT",
+            "  ba.id,",
+            "  ba.biz_definition_id,",
+            "  ba.title,",
+            "  ba.biz_status,",
+            "  ba.applicant_id,",
+            "  ba.applicant_name,",
+            "  ba.dept_id,",
+            "  ba.form_data,",
+            "  ba.workflow_name,",
+            "  wi.id AS workflowinstanceid,",
+            "  ba.submitted_at,",
+            "  ba.finished_at",
+            "FROM tb_biz_apply ba",
+            "LEFT JOIN tb_workflow_instance wi ON wi.biz_id = ba.id AND wi.is_deleted = 0",
+            "WHERE ba.is_deleted = 0",
+            "  AND ba.id = #{qto.id}",
+            "  AND ba.applicant_id = #{qto.currentUserId}",
+            "<if test='qto.bizStatusList != null and qto.bizStatusList.size > 0'>",
+            "  AND ba.biz_status IN",
+            "  <foreach collection='qto.bizStatusList' item='bizStatus' open='(' separator=',' close=')'>",
+            "    #{bizStatus}",
+            "  </foreach>",
+            "</if>",
+            "LIMIT 1",
+            "</script>"
+    })
+    @ResultMap("bizApplyDraftVoMap")
+    BizApplyDraftVO selectMineApplyDetail(@Param("qto") BizApplyMineDetailQTO qto);
+
     @Select({
             "<script>",
             "SELECT",

@@ -18,6 +18,7 @@ import com.yuyu.workflow.service.UserService;
 import com.yuyu.workflow.service.WorkflowDefinitionService;
 import com.yuyu.workflow.service.WorkflowParallelScopeService;
 import com.yuyu.workflow.struct.BizApplyStructMapper;
+import com.yuyu.workflow.struct.WorkflowApprovalRecordStructMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -68,6 +69,8 @@ class WorkflowRuntimeServiceImplTests {
     private BizApplyStructMapper bizApplyStructMapper;
     @Mock
     private WorkflowParallelScopeService workflowParallelScopeService;
+    @Mock
+    private WorkflowApprovalRecordStructMapper workflowApprovalRecordStructMapper;
 
     private BizApplyServiceImpl bizApplyService;
     private WorkflowInstanceServiceImpl workflowInstanceService;
@@ -89,7 +92,11 @@ class WorkflowRuntimeServiceImplTests {
                 workflowNodeInstanceMapper,
                 workflowParallelScopeService
         );
-        workflowApprovalRecordService = new WorkflowApprovalRecordServiceImpl(workflowApprovalRecordMapper, workflowNodeMapper);
+        workflowApprovalRecordService = new WorkflowApprovalRecordServiceImpl(
+                workflowApprovalRecordMapper,
+                workflowNodeMapper,
+                workflowApprovalRecordStructMapper
+        );
         workflowNodeApproverInstanceService = new WorkflowNodeApproverInstanceServiceImpl(
                 workflowNodeApproverInstanceMapper,
                 userService

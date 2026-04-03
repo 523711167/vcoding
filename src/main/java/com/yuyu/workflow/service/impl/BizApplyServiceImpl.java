@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yuyu.workflow.common.PageVo;
+import com.yuyu.workflow.common.context.OperationTimeContext;
 import com.yuyu.workflow.common.enums.BizApplyStatusEnum;
 import com.yuyu.workflow.common.enums.CommonStatusEnum;
 import com.yuyu.workflow.common.exception.BizException;
@@ -181,40 +182,27 @@ public class BizApplyServiceImpl extends ServiceImpl<BizApplyMapper, BizApply> i
 
     @Override
     public List<BizApplyDraftVO> listMineApplies(BizApplyMineListQTO qto) {
-        return baseMapper.selectList(buildCurrentUserBizApplyQuery(
-                        qto.getCurrentUserId(),
-                        qto.getBizStatusList(),
-                        qto.getBizDefinitionId(),
-                        qto.getTitle()))
-                .stream()
-                .map(bizApplyStructMapper::toBizApplyDraftVO)
-                .toList();
+        return baseMapper.selectMineApplyList(qto);
     }
 
     @Override
     public BizApplyDraftVO detailMineApply(BizApplyMineDetailQTO qto) {
         BizApply bizApply = getByIdOrThrow(qto.getId());
         assertCurrentUserBizApplyAccess(bizApply, qto.getCurrentUserId(), qto.getBizStatusList());
-        return bizApplyStructMapper.toBizApplyDraftVO(bizApply);
+        return baseMapper.selectMineApplyDetail(qto);
     }
 
     @Override
     public PageVo<BizApplyDraftVO> pageMineApplies(BizApplyMinePageQTO qto) {
-        IPage<BizApply> page = baseMapper.selectPage(
+        IPage<BizApplyDraftVO> page = baseMapper.selectMineApplyPage(
                 new Page<>(qto.getPageNum(), qto.getPageSize()),
-                buildCurrentUserBizApplyQuery(
-                        qto.getCurrentUserId(),
-                        qto.getBizStatusList(),
-                        qto.getBizDefinitionId(),
-                        qto.getTitle())
+                qto
         );
         return PageVo.of(
                 page.getCurrent(),
                 page.getSize(),
                 page.getTotal(),
-                page.getRecords().stream()
-                        .map(bizApplyStructMapper::toBizApplyDraftVO)
-                .toList()
+                page.getRecords()
         );
     }
 
@@ -366,5 +354,24 @@ public class BizApplyServiceImpl extends ServiceImpl<BizApplyMapper, BizApply> i
             }
         }
         throw new BizException("当前业务申请不属于当前查询范围");
+    }
+
+    @Override
+    public void updateForBizStatusCancel(Long bizId) {
+        BizApply bizApply = new BizApply();
+        bizApply.setId(bizId);
+        bizApply.setBizStatus(BizApplyStatusEnum.INITIATOR_CANCELED.getCode());
+        bizApply.setFinishedAt(OperationTimeContext.get());
+        super.updateById(bizApply);
+    }
+
+    @Override
+    public void updateForSubmitBiz(Long bizId, Long workflowInstanceId) {
+        BizApply bizApply = new BizApply();
+        bizApply.setId(bizId);
+        bizApply.setBizStatus(BizApplyStatusEnum.PENDING.getCode());
+        bizApply.setWorkflowInstanceId(workflowInstanceId);
+        bizApply.setSubmittedAt(OperationTimeContext.get());
+        super.updateById(bizApply);
     }
 }

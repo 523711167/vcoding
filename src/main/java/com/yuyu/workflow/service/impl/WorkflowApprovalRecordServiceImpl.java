@@ -39,7 +39,7 @@ public class WorkflowApprovalRecordServiceImpl extends ServiceImpl<WorkflowAppro
      */
     public WorkflowApprovalRecordServiceImpl(WorkflowApprovalRecordMapper workflowApprovalRecordMapper,
                                              WorkflowNodeMapper workflowNodeMapper,
-                                             WorkflowApprovalRecordStructMapper workflowApprovalRecordStructMapper,
+                                             WorkflowApprovalRecordStructMapper workflowApprovalRecordStructMapper
     ) {
         this.baseMapper = workflowApprovalRecordMapper;
         this.workflowNodeMapper = workflowNodeMapper;

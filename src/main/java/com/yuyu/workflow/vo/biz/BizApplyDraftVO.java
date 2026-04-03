@@ -39,6 +39,9 @@ public class BizApplyDraftVO {
     @Schema(description = "绑定流程名称快照", example = "员工报销流程")
     private String workflowName;
 
+    @Schema(description = "流程实例ID", example = "1001")
+    private Long workflowInstanceId;
+
     @Schema(description = "提交时间")
     private LocalDateTime submittedAt;
 

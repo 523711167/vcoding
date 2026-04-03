@@ -3,18 +3,22 @@ package com.yuyu.workflow.service.impl;
 import com.yuyu.workflow.common.enums.BizApplyStatusEnum;
 import com.yuyu.workflow.common.enums.CommonStatusEnum;
 import com.yuyu.workflow.common.exception.BizException;
+import com.yuyu.workflow.common.PageVo;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yuyu.workflow.entity.BizApply;
 import com.yuyu.workflow.entity.BizDefinition;
 import com.yuyu.workflow.eto.biz.BizApplySaveDraftETO;
 import com.yuyu.workflow.qto.biz.BizApplyLaunchIdQTO;
 import com.yuyu.workflow.qto.biz.BizApplyLaunchListQTO;
+import com.yuyu.workflow.qto.biz.BizApplyLaunchPageQTO;
 import com.yuyu.workflow.eto.biz.BizApplyUpdateDraftETO;
 import com.yuyu.workflow.mapper.BizApplyMapper;
 import com.yuyu.workflow.mapper.UserMapper;
 import com.yuyu.workflow.service.BizDefinitionService;
 import com.yuyu.workflow.service.WorkflowDefinitionService;
 import com.yuyu.workflow.struct.BizApplyStructMapper;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.yuyu.workflow.vo.biz.BizApplyDraftVO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -132,17 +136,34 @@ class BizApplyServiceImplTests {
                 BizApplyStatusEnum.PENDING.getCode(),
                 BizApplyStatusEnum.APPROVED.getCode()
         ));
-        when(bizApplyMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(Collections.emptyList());
+        when(bizApplyMapper.selectMineApplyList(qto)).thenReturn(Collections.emptyList());
 
         bizApplyService.listMineApplies(qto);
 
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<LambdaQueryWrapper<BizApply>> captor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
-        verify(bizApplyMapper).selectList(captor.capture());
+        verify(bizApplyMapper).selectMineApplyList(qto);
         assertEquals(List.of(
                 BizApplyStatusEnum.PENDING.getCode(),
                 BizApplyStatusEnum.APPROVED.getCode()
         ), qto.getBizStatusList());
+    }
+
+    /**
+     * 我的发起列表应返回流程实例ID。
+     */
+    @Test
+    void shouldReturnWorkflowInstanceIdForMineApplyList() {
+        BizApplyLaunchListQTO qto = new BizApplyLaunchListQTO();
+        qto.setCurrentUserId(1001L);
+        BizApplyDraftVO vo = new BizApplyDraftVO();
+        vo.setId(31L);
+        vo.setWorkflowInstanceId(5001L);
+
+        when(bizApplyMapper.selectMineApplyList(qto)).thenReturn(List.of(vo));
+
+        List<BizApplyDraftVO> result = bizApplyService.listMineApplies(qto);
+
+        assertEquals(1, result.size());
+        assertEquals(5001L, result.get(0).getWorkflowInstanceId());
     }
 
     /**
@@ -166,6 +187,30 @@ class BizApplyServiceImplTests {
 
         BizException ex = assertThrows(BizException.class, () -> bizApplyService.detailMineApply(qto));
         assertEquals("当前业务申请不属于当前查询范围", ex.getMessage());
+    }
+
+    /**
+     * 我的发起分页应直接返回VO分页结果。
+     */
+    @Test
+    void shouldPageMineAppliesWithWorkflowInstanceId() {
+        BizApplyLaunchPageQTO qto = new BizApplyLaunchPageQTO();
+        qto.setCurrentUserId(1001L);
+        qto.setPageNum(1L);
+        qto.setPageSize(10L);
+
+        BizApplyDraftVO vo = new BizApplyDraftVO();
+        vo.setId(41L);
+        vo.setWorkflowInstanceId(6001L);
+
+        IPage<BizApplyDraftVO> page = new Page<>(1, 10, 1);
+        page.setRecords(List.of(vo));
+        when(bizApplyMapper.selectMineApplyPage(any(Page.class), any(BizApplyLaunchPageQTO.class))).thenReturn(page);
+
+        PageVo<BizApplyDraftVO> result = bizApplyService.pageMineApplies(qto);
+
+        assertEquals(1, result.records().size());
+        assertEquals(6001L, result.records().get(0).getWorkflowInstanceId());
     }
 
     /**
