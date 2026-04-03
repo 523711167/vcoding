@@ -1,4 +1,7 @@
--- 变更原因：新增发起人取消流程能力，保留原撤回语义不变，补充动作与终态注释。
+-- 变更原因：新增发起人取消流程能力，保留原撤回语义不变，补充动作与终态注释，并为业务申请增加取消原因字段。
+
+ALTER TABLE `tb_biz_apply`
+    ADD COLUMN `cancel_reason` VARCHAR(500) NULL COMMENT '发起人取消原因，仅发起人取消流程时有值' AFTER `workflow_instance_id`;
 
 ALTER TABLE `tb_biz_apply`
     MODIFY COLUMN `biz_status` VARCHAR(32) NOT NULL DEFAULT 'DRAFT' COMMENT '业务申请状态：DRAFT=草稿 PENDING=审批中 APPROVED=已通过 REJECTED=已拒绝 CANCELED=已撤回 INITIATOR_CANCELED=已取消';

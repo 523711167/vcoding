@@ -146,7 +146,7 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         workflowNodeApproverInstanceService.cancelPendingApproversForInstance(context.workflowInstance().getId());
         workflowApprovalRecordService.recordForCancel(eto, context.currentNodeInstance());
 
-        bizApplyService.updateForBizStatusCancel(context.bizApply().getId());
+        bizApplyService.updateForBizStatusCancel(context.bizApply().getId(), eto.getComment());
     }
 
     /**

@@ -25,7 +25,6 @@ import com.yuyu.workflow.struct.WorkflowLaunchStructMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -105,10 +104,7 @@ class WorkflowLaunchServiceCancelTests {
         verify(workflowNodeApproverInstanceService).cancelPendingApproversForInstance(1001L);
         verify(workflowApprovalRecordService).recordForCancel(eto, currentNodeInstance);
 
-        ArgumentCaptor<BizApply> bizApplyCaptor = ArgumentCaptor.forClass(BizApply.class);
-        verify(bizApplyService).updateById(bizApplyCaptor.capture());
-        assertEquals(3001L, bizApplyCaptor.getValue().getId());
-        assertEquals(BizApplyStatusEnum.INITIATOR_CANCELED.getCode(), bizApplyCaptor.getValue().getBizStatus());
+        verify(bizApplyService).updateForBizStatusCancel(3001L, "发起人主动取消");
     }
 
     @Test
@@ -143,7 +139,7 @@ class WorkflowLaunchServiceCancelTests {
 
         assertEquals("无权取消该流程", exception.getMessage());
         verify(workflowApprovalRecordService, never()).recordForCancel(any(), any());
-        verify(bizApplyService, never()).updateById(any());
+        verify(bizApplyService, never()).updateForBizStatusCancel(any(), any());
     }
 
     private WorkflowCancelETO buildCancelEto(Long instanceId, Long currentUserId, String comment) {

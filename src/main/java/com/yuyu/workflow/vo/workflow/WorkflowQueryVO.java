@@ -57,6 +57,9 @@ public class WorkflowQueryVO {
     @Schema(description = "业务表单JSON", example = "{\"amount\":1000}")
     private String formData;
 
+    @Schema(description = "取消原因", example = "填错了，重新提交")
+    private String cancelReason;
+
     @Schema(description = "提交流程时间")
     private LocalDateTime submittedAt;
 

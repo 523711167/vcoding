@@ -35,6 +35,8 @@ public class BizApply extends BaseAuditEntity {
 
     private Long workflowInstanceId;
 
+    private String cancelReason;
+
     private LocalDateTime submittedAt;
 
     private LocalDateTime finishedAt;

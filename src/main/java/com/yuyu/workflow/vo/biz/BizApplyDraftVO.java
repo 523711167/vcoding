@@ -42,6 +42,9 @@ public class BizApplyDraftVO {
     @Schema(description = "流程实例ID", example = "1001")
     private Long workflowInstanceId;
 
+    @Schema(description = "取消原因", example = "填错了，重新提交")
+    private String cancelReason;
+
     @Schema(description = "提交时间")
     private LocalDateTime submittedAt;
 

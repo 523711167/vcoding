@@ -357,10 +357,11 @@ public class BizApplyServiceImpl extends ServiceImpl<BizApplyMapper, BizApply> i
     }
 
     @Override
-    public void updateForBizStatusCancel(Long bizId) {
+    public void updateForBizStatusCancel(Long bizId, String cancelReason) {
         BizApply bizApply = new BizApply();
         bizApply.setId(bizId);
         bizApply.setBizStatus(BizApplyStatusEnum.INITIATOR_CANCELED.getCode());
+        bizApply.setCancelReason(cancelReason);
         bizApply.setFinishedAt(OperationTimeContext.get());
         super.updateById(bizApply);
     }

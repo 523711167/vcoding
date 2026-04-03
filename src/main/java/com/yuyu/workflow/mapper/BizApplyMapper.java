@@ -62,6 +62,7 @@ public interface BizApplyMapper extends BaseMapper<BizApply> {
             "  ba.form_data,",
             "  ba.workflow_name,",
             "  wi.id AS workflowinstanceid,",
+            "  ba.cancel_reason,",
             "  ba.submitted_at,",
             "  ba.finished_at",
             "FROM tb_biz_apply ba",
@@ -84,7 +85,8 @@ public interface BizApplyMapper extends BaseMapper<BizApply> {
             "</script>"
     })
     @Results(id = "bizApplyDraftVoMap", value = {
-            @Result(column = "workflowinstanceid", property = "workflowInstanceId")
+            @Result(column = "workflowinstanceid", property = "workflowInstanceId"),
+            @Result(column = "cancel_reason", property = "cancelReason")
     })
     List<BizApplyDraftVO> selectMineApplyList(@Param("qto") BizApplyMineListQTO qto);
 
@@ -104,6 +106,7 @@ public interface BizApplyMapper extends BaseMapper<BizApply> {
             "  ba.form_data,",
             "  ba.workflow_name,",
             "  wi.id AS workflowinstanceid,",
+            "  ba.cancel_reason,",
             "  ba.submitted_at,",
             "  ba.finished_at",
             "FROM tb_biz_apply ba",
@@ -144,6 +147,7 @@ public interface BizApplyMapper extends BaseMapper<BizApply> {
             "  ba.form_data,",
             "  ba.workflow_name,",
             "  wi.id AS workflowinstanceid,",
+            "  ba.cancel_reason,",
             "  ba.submitted_at,",
             "  ba.finished_at",
             "FROM tb_biz_apply ba",
@@ -179,6 +183,7 @@ public interface BizApplyMapper extends BaseMapper<BizApply> {
             "  wi.current_node_name,",
             "  wi.current_node_type,",
             "  ba.form_data,",
+            "  ba.cancel_reason,",
             "  COALESCE(ba.submitted_at, wi.started_at) AS submitted_at,",
             "  ba.finished_at,",
             "  ba.updated_at",
@@ -237,6 +242,7 @@ public interface BizApplyMapper extends BaseMapper<BizApply> {
             "  wi.current_node_name,",
             "  wi.current_node_type,",
             "  ba.form_data,",
+            "  ba.cancel_reason,",
             "  COALESCE(ba.submitted_at, wi.started_at) AS submitted_at,",
             "  ba.finished_at,",
             "  ba.updated_at",
@@ -295,6 +301,7 @@ public interface BizApplyMapper extends BaseMapper<BizApply> {
             "  wi.current_node_name,",
             "  wi.current_node_type,",
             "  ba.form_data,",
+            "  ba.cancel_reason,",
             "  COALESCE(ba.submitted_at, wi.started_at) AS submitted_at,",
             "  ba.finished_at,",
             "  ba.updated_at",

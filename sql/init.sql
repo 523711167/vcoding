@@ -269,6 +269,7 @@ CREATE TABLE IF NOT EXISTS `tb_biz_apply` (
   `form_data` JSON DEFAULT NULL COMMENT '业务申请数据快照',
   `workflow_name` VARCHAR(100) DEFAULT NULL COMMENT '流程名称（冗余快照）',
   `workflow_instance_id` BIGINT DEFAULT NULL COMMENT '关联的审批工作流实例ID',
+  `cancel_reason` VARCHAR(500) DEFAULT NULL COMMENT '发起人取消原因，仅发起人取消流程时有值',
   `submitted_at` DATETIME DEFAULT NULL COMMENT '提交审批时间',
   `finished_at` DATETIME DEFAULT NULL COMMENT '审批完成时间',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
