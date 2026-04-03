@@ -2,6 +2,7 @@ package com.yuyu.workflow.controller.sys;
 
 import com.yuyu.workflow.common.PageVo;
 import com.yuyu.workflow.common.Resp;
+import com.yuyu.workflow.common.enums.BizApplyStatusEnum;
 import com.yuyu.workflow.struct.BizApplyStructMapper;
 import com.yuyu.workflow.eto.biz.BizApplySaveDraftETO;
 import com.yuyu.workflow.eto.biz.BizApplySaveAndSubmitETO;
@@ -9,6 +10,9 @@ import com.yuyu.workflow.eto.biz.BizApplyUpdateDraftETO;
 import com.yuyu.workflow.qto.biz.BizApplyDraftIdQTO;
 import com.yuyu.workflow.qto.biz.BizApplyDraftListQTO;
 import com.yuyu.workflow.qto.biz.BizApplyDraftPageQTO;
+import com.yuyu.workflow.qto.biz.BizApplyLaunchIdQTO;
+import com.yuyu.workflow.qto.biz.BizApplyLaunchListQTO;
+import com.yuyu.workflow.qto.biz.BizApplyLaunchPageQTO;
 import com.yuyu.workflow.qto.workflow.WorkflowQueryDetailQTO;
 import com.yuyu.workflow.qto.workflow.WorkflowQueryListQTO;
 import com.yuyu.workflow.qto.workflow.WorkflowQueryPageQTO;
@@ -27,9 +31,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -88,6 +90,7 @@ public class BizApplyController {
     @Operation(summary = "查询当前用户草稿箱列表")
     @GetMapping("/draft/list")
     public Resp<List<BizApplyDraftVO>> draftList(@Valid @ParameterObject BizApplyDraftListQTO qto) {
+        qto.setBizStatusList(List.of(BizApplyStatusEnum.DRAFT.getCode()));
         return Resp.success(bizApplyService.listDrafts(qto));
     }
 
@@ -97,6 +100,7 @@ public class BizApplyController {
     @Operation(summary = "分页查询当前用户草稿箱列表")
     @GetMapping("/draft/page")
     public Resp<PageVo<BizApplyDraftVO>> draftPage(@Valid @ParameterObject BizApplyDraftPageQTO qto) {
+        qto.setBizStatusList(List.of(BizApplyStatusEnum.DRAFT.getCode()));
         return Resp.success(bizApplyService.pageDrafts(qto));
     }
 
@@ -106,7 +110,53 @@ public class BizApplyController {
     @Operation(summary = "查询当前用户草稿箱详情")
     @GetMapping("/draft/detail")
     public Resp<BizApplyDraftVO> draftDetail(@Valid @ParameterObject BizApplyDraftIdQTO qto) {
+        qto.setBizStatusList(List.of(BizApplyStatusEnum.DRAFT.getCode()));
         return Resp.success(bizApplyService.detailDraft(qto));
+    }
+
+    /**
+     * 查询当前用户我的发起列表。
+     */
+    @Operation(summary = "查询当前用户我的发起列表")
+    @GetMapping("/launch/list")
+    public Resp<List<BizApplyDraftVO>> launchList(@Valid @ParameterObject BizApplyLaunchListQTO qto) {
+        qto.setBizStatusList(List.of(
+                BizApplyStatusEnum.PENDING.getCode(),
+                BizApplyStatusEnum.APPROVED.getCode(),
+                BizApplyStatusEnum.REJECTED.getCode(),
+                BizApplyStatusEnum.CANCELED.getCode()
+        ));
+        return Resp.success(bizApplyService.listMineApplies(qto));
+    }
+
+    /**
+     * 分页查询当前用户我的发起列表。
+     */
+    @Operation(summary = "分页查询当前用户我的发起列表")
+    @GetMapping("/launch/page")
+    public Resp<PageVo<BizApplyDraftVO>> launchPage(@Valid @ParameterObject BizApplyLaunchPageQTO qto) {
+        qto.setBizStatusList(List.of(
+                BizApplyStatusEnum.PENDING.getCode(),
+                BizApplyStatusEnum.APPROVED.getCode(),
+                BizApplyStatusEnum.REJECTED.getCode(),
+                BizApplyStatusEnum.CANCELED.getCode()
+        ));
+        return Resp.success(bizApplyService.pageMineApplies(qto));
+    }
+
+    /**
+     * 查询当前用户我的发起详情。
+     */
+    @Operation(summary = "查询当前用户我的发起详情")
+    @GetMapping("/launch/detail")
+    public Resp<BizApplyDraftVO> launchDetail(@Valid @ParameterObject BizApplyLaunchIdQTO qto) {
+        qto.setBizStatusList(List.of(
+                BizApplyStatusEnum.PENDING.getCode(),
+                BizApplyStatusEnum.APPROVED.getCode(),
+                BizApplyStatusEnum.REJECTED.getCode(),
+                BizApplyStatusEnum.CANCELED.getCode()
+        ));
+        return Resp.success(bizApplyService.detailMineApply(qto));
     }
 
     /**

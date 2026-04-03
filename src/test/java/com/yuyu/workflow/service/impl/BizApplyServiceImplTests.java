@@ -2,15 +2,19 @@ package com.yuyu.workflow.service.impl;
 
 import com.yuyu.workflow.common.enums.BizApplyStatusEnum;
 import com.yuyu.workflow.common.enums.CommonStatusEnum;
+import com.yuyu.workflow.common.exception.BizException;
 import com.yuyu.workflow.entity.BizApply;
 import com.yuyu.workflow.entity.BizDefinition;
 import com.yuyu.workflow.eto.biz.BizApplySaveDraftETO;
+import com.yuyu.workflow.qto.biz.BizApplyLaunchIdQTO;
+import com.yuyu.workflow.qto.biz.BizApplyLaunchListQTO;
 import com.yuyu.workflow.eto.biz.BizApplyUpdateDraftETO;
 import com.yuyu.workflow.mapper.BizApplyMapper;
 import com.yuyu.workflow.mapper.UserMapper;
 import com.yuyu.workflow.service.BizDefinitionService;
 import com.yuyu.workflow.service.WorkflowDefinitionService;
 import com.yuyu.workflow.struct.BizApplyStructMapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,7 +22,11 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Collections;
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -111,6 +119,53 @@ class BizApplyServiceImplTests {
         BizApply updateEntity = captor.getValue();
         assertEquals("费用报销", updateEntity.getBizName());
         assertEquals("费用报销", updated.getBizName());
+    }
+
+    /**
+     * 当前用户业务申请列表应按控制层注入的状态过滤。
+     */
+    @Test
+    void shouldListMineAppliesByInjectedStatus() {
+        BizApplyLaunchListQTO qto = new BizApplyLaunchListQTO();
+        qto.setCurrentUserId(1001L);
+        qto.setBizStatusList(List.of(
+                BizApplyStatusEnum.PENDING.getCode(),
+                BizApplyStatusEnum.APPROVED.getCode()
+        ));
+        when(bizApplyMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(Collections.emptyList());
+
+        bizApplyService.listMineApplies(qto);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaQueryWrapper<BizApply>> captor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(bizApplyMapper).selectList(captor.capture());
+        assertEquals(List.of(
+                BizApplyStatusEnum.PENDING.getCode(),
+                BizApplyStatusEnum.APPROVED.getCode()
+        ), qto.getBizStatusList());
+    }
+
+    /**
+     * 当前用户业务申请详情状态不匹配时应拦截。
+     */
+    @Test
+    void shouldThrowWhenMineApplyStatusDoesNotMatch() {
+        BizApplyLaunchIdQTO qto = new BizApplyLaunchIdQTO();
+        qto.setId(31L);
+        qto.setCurrentUserId(1001L);
+        qto.setBizStatusList(List.of(
+                BizApplyStatusEnum.PENDING.getCode(),
+                BizApplyStatusEnum.REJECTED.getCode())
+        );
+
+        BizApply bizApply = new BizApply();
+        bizApply.setId(31L);
+        bizApply.setApplicantId(1001L);
+        bizApply.setBizStatus(BizApplyStatusEnum.APPROVED.getCode());
+        when(bizApplyMapper.selectById(31L)).thenReturn(bizApply);
+
+        BizException ex = assertThrows(BizException.class, () -> bizApplyService.detailMineApply(qto));
+        assertEquals("当前业务申请不属于当前查询范围", ex.getMessage());
     }
 
     /**

@@ -5,10 +5,10 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 /**
- * 业务申请草稿分页查询参数。
+ * 我的发起分页查询参数。
  */
 @Data
 @EqualsAndHashCode(callSuper = true)
-@Schema(description = "业务申请草稿分页查询参数")
-public class BizApplyDraftPageQTO extends BizApplyMinePageQTO {
+@Schema(description = "我的发起分页查询参数")
+public class BizApplyLaunchPageQTO extends BizApplyMinePageQTO {
 }

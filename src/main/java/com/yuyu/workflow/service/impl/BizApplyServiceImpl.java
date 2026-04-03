@@ -19,6 +19,9 @@ import com.yuyu.workflow.mapper.UserMapper;
 import com.yuyu.workflow.qto.biz.BizApplyDraftIdQTO;
 import com.yuyu.workflow.qto.biz.BizApplyDraftListQTO;
 import com.yuyu.workflow.qto.biz.BizApplyDraftPageQTO;
+import com.yuyu.workflow.qto.biz.BizApplyMineDetailQTO;
+import com.yuyu.workflow.qto.biz.BizApplyMineListQTO;
+import com.yuyu.workflow.qto.biz.BizApplyMinePageQTO;
 import com.yuyu.workflow.qto.workflow.WorkflowQueryDetailQTO;
 import com.yuyu.workflow.qto.workflow.WorkflowQueryListQTO;
 import com.yuyu.workflow.qto.workflow.WorkflowQueryPageQTO;
@@ -163,27 +166,47 @@ public class BizApplyServiceImpl extends ServiceImpl<BizApplyMapper, BizApply> i
 
     @Override
     public List<BizApplyDraftVO> listDrafts(BizApplyDraftListQTO qto) {
-        return baseMapper.selectList(buildDraftQuery(qto.getCurrentUserId(), qto.getBizDefinitionId(), qto.getTitle()))
+        return listMineApplies(qto);
+    }
+
+    @Override
+    public BizApplyDraftVO detailDraft(BizApplyDraftIdQTO qto) {
+        return detailMineApply(qto);
+    }
+
+    @Override
+    public PageVo<BizApplyDraftVO> pageDrafts(BizApplyDraftPageQTO qto) {
+        return pageMineApplies(qto);
+    }
+
+    @Override
+    public List<BizApplyDraftVO> listMineApplies(BizApplyMineListQTO qto) {
+        return baseMapper.selectList(buildCurrentUserBizApplyQuery(
+                        qto.getCurrentUserId(),
+                        qto.getBizStatusList(),
+                        qto.getBizDefinitionId(),
+                        qto.getTitle()))
                 .stream()
                 .map(bizApplyStructMapper::toBizApplyDraftVO)
                 .toList();
     }
 
     @Override
-    public BizApplyDraftVO detailDraft(BizApplyDraftIdQTO qto) {
+    public BizApplyDraftVO detailMineApply(BizApplyMineDetailQTO qto) {
         BizApply bizApply = getByIdOrThrow(qto.getId());
-        assertDraftOwner(bizApply, qto.getCurrentUserId());
-        if (!BizApplyStatusEnum.isDraft(bizApply.getBizStatus())) {
-            throw new BizException("当前业务申请不是草稿状态");
-        }
+        assertCurrentUserBizApplyAccess(bizApply, qto.getCurrentUserId(), qto.getBizStatusList());
         return bizApplyStructMapper.toBizApplyDraftVO(bizApply);
     }
 
     @Override
-    public PageVo<BizApplyDraftVO> pageDrafts(BizApplyDraftPageQTO qto) {
+    public PageVo<BizApplyDraftVO> pageMineApplies(BizApplyMinePageQTO qto) {
         IPage<BizApply> page = baseMapper.selectPage(
                 new Page<>(qto.getPageNum(), qto.getPageSize()),
-                buildDraftQuery(qto.getCurrentUserId(), qto.getBizDefinitionId(), qto.getTitle())
+                buildCurrentUserBizApplyQuery(
+                        qto.getCurrentUserId(),
+                        qto.getBizStatusList(),
+                        qto.getBizDefinitionId(),
+                        qto.getTitle())
         );
         return PageVo.of(
                 page.getCurrent(),
@@ -311,17 +334,37 @@ public class BizApplyServiceImpl extends ServiceImpl<BizApplyMapper, BizApply> i
     }
 
     /**
-     * 构造当前用户草稿箱查询条件。
+     * 构造当前用户业务申请查询条件。
      */
-    private LambdaQueryWrapper<BizApply> buildDraftQuery(Long currentUserId, Long bizDefinitionId, String title) {
+    private LambdaQueryWrapper<BizApply> buildCurrentUserBizApplyQuery(Long currentUserId,
+                                                                       List<String> bizStatusList,
+                                                                       Long bizDefinitionId,
+                                                                       String title) {
         if (Objects.isNull(currentUserId)) {
             throw new BizException("当前用户不能为空");
         }
         return new LambdaQueryWrapper<BizApply>()
                 .eq(BizApply::getApplicantId, currentUserId)
-                .eq(BizApply::getBizStatus, BizApplyStatusEnum.DRAFT.getCode())
+                .in(!CollectionUtils.isEmpty(bizStatusList), BizApply::getBizStatus, bizStatusList)
                 .eq(Objects.nonNull(bizDefinitionId), BizApply::getBizDefinitionId, bizDefinitionId)
                 .like(StringUtils.isNotBlank(title), BizApply::getTitle, title)
                 .orderByDesc(BizApply::getUpdatedAt, BizApply::getId);
+    }
+
+    /**
+     * 校验当前用户业务申请访问权限。
+     */
+    private void assertCurrentUserBizApplyAccess(BizApply bizApply, Long currentUserId, List<String> bizStatusList) {
+        assertDraftOwner(bizApply, currentUserId);
+        if (CollectionUtils.isEmpty(bizStatusList) || bizStatusList.contains(bizApply.getBizStatus())) {
+            return;
+        }
+        if (bizStatusList.size() == 1) {
+            String statusName = BizApplyStatusEnum.getMsgByCode(bizStatusList.get(0));
+            if (StringUtils.isNotBlank(statusName)) {
+                throw new BizException("当前业务申请不是" + statusName + "状态");
+            }
+        }
+        throw new BizException("当前业务申请不属于当前查询范围");
     }
 }

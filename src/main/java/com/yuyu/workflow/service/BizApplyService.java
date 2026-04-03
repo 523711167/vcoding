@@ -9,6 +9,9 @@ import com.yuyu.workflow.eto.biz.BizApplyUpdateDraftETO;
 import com.yuyu.workflow.qto.biz.BizApplyDraftIdQTO;
 import com.yuyu.workflow.qto.biz.BizApplyDraftListQTO;
 import com.yuyu.workflow.qto.biz.BizApplyDraftPageQTO;
+import com.yuyu.workflow.qto.biz.BizApplyMineDetailQTO;
+import com.yuyu.workflow.qto.biz.BizApplyMineListQTO;
+import com.yuyu.workflow.qto.biz.BizApplyMinePageQTO;
 import com.yuyu.workflow.qto.workflow.WorkflowQueryDetailQTO;
 import com.yuyu.workflow.qto.workflow.WorkflowQueryListQTO;
 import com.yuyu.workflow.qto.workflow.WorkflowQueryPageQTO;
@@ -46,6 +49,21 @@ public interface BizApplyService extends IService<BizApply> {
      * 按流程实例主键集合查询业务申请。
      */
     List<BizApply> listByWorkflowInstanceIds(List<Long> workflowInstanceIdList);
+
+    /**
+     * 查询当前用户业务申请列表。
+     */
+    List<BizApplyDraftVO> listMineApplies(BizApplyMineListQTO qto);
+
+    /**
+     * 查询当前用户业务申请详情。
+     */
+    BizApplyDraftVO detailMineApply(BizApplyMineDetailQTO qto);
+
+    /**
+     * 分页查询当前用户业务申请列表。
+     */
+    PageVo<BizApplyDraftVO> pageMineApplies(BizApplyMinePageQTO qto);
 
     /**
      * 查询当前用户草稿箱列表。

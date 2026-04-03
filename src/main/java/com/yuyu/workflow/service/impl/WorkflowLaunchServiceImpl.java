@@ -416,7 +416,7 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         WorkflowNode matchJoinNode = workflowNodeService.findMatchJoinNode(workflowNodeInstance.getParallelScopeId());
         WorkflowNodeInstance joinNodeInstance = workflowNodeInstanceService.createOrLoadParallelJoinNodeInstance(matchJoinNode, workflowInstance.getId(), workflowNodeInstance.getParallelScopeId());
 
-        workflowApprovalRecordService.recordForRoute(eto, workflowNodeInstance, joinNodeInstance);
+        workflowApprovalRecordService.recordForJoinPass(eto, workflowNodeInstance, joinNodeInstance);
 
         // 其余未处理审批人实例统一取消
         workflowNodeApproverInstanceService.cancelOtherPendingApprovers(workflowNodeInstance.getInstanceId(),
@@ -469,7 +469,7 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
                 nextWorkflowNode = workflowNodeService.findEndNode(workflowInstance.getDefinitionId());
             }
             WorkflowNodeInstance nextNodeInstance = workflowNodeInstanceService.createOrLoadParallelJoinNodeInstance(nextWorkflowNode, workflowInstance.getId(), null);
-            workflowApprovalRecordService.recordForRoute(context.eto(), joinNodeInstance, nextNodeInstance);
+            workflowApprovalRecordService.recordForJoinPass(context.eto(), joinNodeInstance, nextNodeInstance);
             processRouteAfterNodeApproved(context, new AuditRuntimeContext(WorkflowNodeInstanceStatusEnum.REJECTED),
                     joinNodeInstance, nextNodeInstance);
             return;
