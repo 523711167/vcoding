@@ -15,6 +15,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -43,6 +44,7 @@ public class DeptController {
     /**
      * 新增部门。
      */
+    @PreAuthorize("hasAuthority('sys:dept:create')")
     @Operation(summary = "新增部门")
     @PostMapping("/create")
     public Resp<DeptVO> create(@Valid @RequestBody DeptCreateETO eto) {
@@ -52,6 +54,7 @@ public class DeptController {
     /**
      * 修改部门。
      */
+    @PreAuthorize("hasAuthority('sys:dept:update')")
     @Operation(summary = "修改部门")
     @PostMapping("/update")
     public Resp<DeptVO> update(@Valid @RequestBody DeptUpdateETO eto) {
@@ -61,6 +64,7 @@ public class DeptController {
     /**
      * 移动部门。
      */
+    @PreAuthorize("hasAuthority('sys:dept:move')")
     @Operation(summary = "移动部门")
     @PostMapping("/move")
     public Resp<Void> move(@Valid @RequestBody DeptMoveETO eto) {
@@ -71,6 +75,7 @@ public class DeptController {
     /**
      * 删除部门。
      */
+    @PreAuthorize("hasAuthority('sys:dept:delete')")
     @Operation(summary = "删除部门")
     @PostMapping("/delete")
     public Resp<Void> delete(@Valid @RequestBody BaseIdETO eto) {
@@ -81,6 +86,7 @@ public class DeptController {
     /**
      * 查询部门树。
      */
+    @PreAuthorize("hasAuthority('sys:dept:tree')")
     @Operation(summary = "查询部门树")
     @GetMapping("/tree")
     public Resp<List<DeptTreeVO>> tree(@Valid @ParameterObject DeptTreeQTO qto) {
@@ -90,6 +96,7 @@ public class DeptController {
     /**
      * 查询部门详情。
      */
+    @PreAuthorize("hasAuthority('sys:dept:detail')")
     @Operation(summary = "查询部门详情")
     @GetMapping("/detail")
     public Resp<DeptVO> detail(@Valid @ParameterObject DeptIdQTO qto) {
@@ -99,6 +106,7 @@ public class DeptController {
     /**
      * 查询部门下用户。
      */
+    @PreAuthorize("hasAuthority('sys:dept:users')")
     @Operation(summary = "查询部门下用户")
     @GetMapping("/users")
     public Resp<List<UserSimpleVO>> getUsers(@Valid @ParameterObject DeptIdQTO qto) {
