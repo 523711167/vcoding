@@ -8,6 +8,7 @@ import com.yuyu.workflow.entity.UserDeptRel;
 import com.yuyu.workflow.entity.UserDeptRelExpand;
 import com.yuyu.workflow.entity.UserRole;
 import com.yuyu.workflow.entity.UserRoleDeptExpand;
+import com.yuyu.workflow.qto.workflow.WorkflowTodoDetailQTO;
 import com.yuyu.workflow.qto.workflow.WorkflowQueryListQTO;
 import com.yuyu.workflow.qto.workflow.WorkflowTodoListQTO;
 import com.yuyu.workflow.qto.workflow.WorkflowTodoPageQTO;
@@ -164,6 +165,49 @@ class WorkflowBizQueryServiceImplTests {
         PageVo<WorkflowTodoVO> page = workflowBizQueryService.todoPage(qto);
         assertEquals(0L, page.total());
         assertTrue(page.records().isEmpty());
+    }
+
+    /**
+     * 已办列表应返回状态文案并透传查询条件。
+     */
+    @Test
+    void shouldReturnProcessedListWithStatusMessage() {
+        WorkflowTodoListQTO qto = new WorkflowTodoListQTO();
+        qto.setCurrentUserId(1L);
+        qto.setBizDefinitionId(1L);
+        qto.setTitle("报销");
+
+        WorkflowTodoVO processed = new WorkflowTodoVO();
+        processed.setApproverInstanceId(1002L);
+        processed.setApproverStatus("APPROVED");
+        when(workflowNodeApproverInstanceService.listProcessed(eq(qto)))
+                .thenReturn(List.of(processed));
+        WorkflowTodoVO converted = new WorkflowTodoVO();
+        converted.setApproverInstanceId(1002L);
+        converted.setApproverStatusMsg("已通过");
+        when(workflowTodoStructMapper.toTargetList(List.of(processed))).thenReturn(List.of(converted));
+
+        List<WorkflowTodoVO> result = workflowBizQueryService.processedList(qto);
+
+        assertEquals(1, result.size());
+        assertEquals(1002L, result.get(0).getApproverInstanceId());
+        assertEquals("已通过", result.get(0).getApproverStatusMsg());
+        verify(workflowNodeApproverInstanceService).listProcessed(eq(qto));
+    }
+
+    /**
+     * 已办详情不存在时应抛异常。
+     */
+    @Test
+    void shouldThrowWhenProcessedDetailMissing() {
+        WorkflowTodoDetailQTO qto = new WorkflowTodoDetailQTO();
+        qto.setCurrentUserId(1L);
+        qto.setApproverInstanceId(1003L);
+
+        when(workflowNodeApproverInstanceService.detailProcessed(eq(qto))).thenReturn(null);
+
+        BizException ex = assertThrows(BizException.class, () -> workflowBizQueryService.processedDetail(qto));
+        assertEquals("已办记录不存在", ex.getMessage());
     }
 
     /**

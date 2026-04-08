@@ -270,6 +270,22 @@ public class WorkflowNodeApproverInstanceServiceImpl extends ServiceImpl<Workflo
         return baseMapper.selectTodoDetail(qto);
     }
 
+    @Override
+    public List<WorkflowTodoVO> listProcessed(WorkflowTodoListQTO qto) {
+        return baseMapper.selectProcessedList(qto);
+    }
+
+    @Override
+    public IPage<WorkflowTodoVO> pageProcessed(IPage<WorkflowTodoVO> page,
+                                               WorkflowTodoPageQTO qto) {
+        return baseMapper.selectProcessedPage(page, qto);
+    }
+
+    @Override
+    public WorkflowTodoVO detailProcessed(WorkflowTodoDetailQTO qto) {
+        return baseMapper.selectProcessedDetail(qto);
+    }
+
     private void saveUserList(WorkflowNodeInstance workflowNodeInstance, List<User> userList, String approveMode) {
         List<User> deduplicatedUserList = userList.stream()
                 .filter(Objects::nonNull)

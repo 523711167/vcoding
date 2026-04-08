@@ -84,6 +84,7 @@ public class BizApplyController {
         return Resp.success(bizApplyStructMapper.toBizApplyDraftVO(bizApplyService.updateDraft(eto)));
     }
 
+    // ===========草稿箱================
     /**
      * 查询当前用户草稿箱列表。
      */
@@ -114,6 +115,7 @@ public class BizApplyController {
         return Resp.success(bizApplyService.detailDraft(qto));
     }
 
+    // ===========我的发起================
     /**
      * 查询当前用户我的发起列表。
      */
@@ -144,6 +146,7 @@ public class BizApplyController {
         return Resp.success(bizApplyService.detailMineApply(qto));
     }
 
+    // ===========待办箱================
     /**
      * 查询当前用户代办箱列表。
      */
@@ -171,6 +174,35 @@ public class BizApplyController {
         return Resp.success(workflowBizQueryService.todoDetail(qto));
     }
 
+    // ===========已办箱================
+    /**
+     * 查询当前用户已办箱列表。
+     */
+    @Operation(summary = "查询当前用户已办箱列表")
+    @GetMapping("/processed/list")
+    public Resp<List<WorkflowTodoVO>> processedList(@Valid @ParameterObject WorkflowTodoListQTO qto) {
+        return Resp.success(workflowBizQueryService.processedList(qto));
+    }
+
+    /**
+     * 分页查询当前用户已办箱列表。
+     */
+    @Operation(summary = "分页查询当前用户已办箱列表")
+    @GetMapping("/processed/page")
+    public Resp<PageVo<WorkflowTodoVO>> processedPage(@Valid @ParameterObject WorkflowTodoPageQTO qto) {
+        return Resp.success(workflowBizQueryService.processedPage(qto));
+    }
+
+    /**
+     * 查询当前用户已办箱详情。
+     */
+    @Operation(summary = "查询当前用户已办箱详情")
+    @GetMapping("/processed/detail")
+    public Resp<WorkflowTodoVO> processedDetail(@Valid @ParameterObject WorkflowTodoDetailQTO qto) {
+        return Resp.success(workflowBizQueryService.processedDetail(qto));
+    }
+
+    // ===========查询箱================
     /**
      * 查询当前用户查询箱列表。
      */

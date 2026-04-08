@@ -33,6 +33,21 @@ public interface WorkflowBizQueryService {
     WorkflowTodoVO todoDetail(WorkflowTodoDetailQTO qto);
 
     /**
+     * 查询当前用户已办箱列表。
+     */
+    List<WorkflowTodoVO> processedList(WorkflowTodoListQTO qto);
+
+    /**
+     * 分页查询当前用户已办箱列表。
+     */
+    PageVo<WorkflowTodoVO> processedPage(WorkflowTodoPageQTO qto);
+
+    /**
+     * 查询当前用户已办箱详情。
+     */
+    WorkflowTodoVO processedDetail(WorkflowTodoDetailQTO qto);
+
+    /**
      * 查询当前用户查询箱列表。
      */
     List<WorkflowQueryVO> queryList(WorkflowQueryListQTO qto);

@@ -105,6 +105,35 @@ public class WorkflowBizQueryServiceImpl implements WorkflowBizQueryService {
     }
 
     @Override
+    public List<WorkflowTodoVO> processedList(WorkflowTodoListQTO qto) {
+        requireCurrentUserId(qto.getCurrentUserId());
+        List<WorkflowTodoVO> result = workflowNodeApproverInstanceService.listProcessed(qto);
+        return workflowTodoStructMapper.toTargetList(result);
+    }
+
+    @Override
+    public PageVo<WorkflowTodoVO> processedPage(WorkflowTodoPageQTO qto) {
+        requireCurrentUserId(qto.getCurrentUserId());
+        long pageNum = resolvePageNum(qto.getPageNum());
+        long pageSize = resolvePageSize(qto.getPageSize());
+        IPage<WorkflowTodoVO> page = new Page<>(pageNum, pageSize);
+
+        IPage<WorkflowTodoVO> resultPage = workflowNodeApproverInstanceService.pageProcessed(page, qto);
+        List<WorkflowTodoVO> records = workflowTodoStructMapper.toTargetList(resultPage.getRecords());
+        return PageVo.of(resultPage.getCurrent(), resultPage.getSize(), resultPage.getTotal(), records);
+    }
+
+    @Override
+    public WorkflowTodoVO processedDetail(WorkflowTodoDetailQTO qto) {
+        requireCurrentUserId(qto.getCurrentUserId());
+        WorkflowTodoVO result = workflowNodeApproverInstanceService.detailProcessed(qto);
+        if (Objects.isNull(result)) {
+            throw new BizException("已办记录不存在");
+        }
+        return workflowTodoStructMapper.toTarget(result);
+    }
+
+    @Override
     public List<WorkflowQueryVO> queryList(WorkflowQueryListQTO qto) {
         Long currentUserId = requireCurrentUserId(qto.getCurrentUserId());
         QueryPermission permission = resolveQueryPermission(currentUserId);

@@ -59,4 +59,7 @@ public class WorkflowTodoVO {
 
     @Schema(description = "进入代办箱时间")
     private LocalDateTime todoAt;
+
+    @Schema(description = "处理完成时间")
+    private LocalDateTime processedAt;
 }

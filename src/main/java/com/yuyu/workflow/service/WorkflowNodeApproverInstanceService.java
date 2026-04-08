@@ -85,4 +85,19 @@ public interface WorkflowNodeApproverInstanceService extends IService<WorkflowNo
      */
     WorkflowTodoVO detailTodo(WorkflowTodoDetailQTO qto);
 
+    /**
+     * 查询已办箱列表。
+     */
+    List<WorkflowTodoVO> listProcessed(WorkflowTodoListQTO qto);
+
+    /**
+     * 查询已办箱分页。
+     */
+    IPage<WorkflowTodoVO> pageProcessed(IPage<WorkflowTodoVO> page, WorkflowTodoPageQTO qto);
+
+    /**
+     * 查询已办箱详情。
+     */
+    WorkflowTodoVO detailProcessed(WorkflowTodoDetailQTO qto);
+
 }

@@ -150,4 +150,120 @@ public interface WorkflowNodeApproverInstanceMapper extends BaseMapper<WorkflowN
             "</script>"
     })
     WorkflowTodoVO selectTodoDetail(@Param("qto") WorkflowTodoDetailQTO qto);
+
+    /**
+     * 查询已办箱列表。
+     */
+    @Select({
+            "<script>",
+            "SELECT",
+            "  a.id AS approver_instance_id,",
+            "  a.node_instance_id,",
+            "  a.instance_id AS workflow_instance_id,",
+            "  ba.id AS biz_apply_id,",
+            "  ba.biz_definition_id,",
+            "  ba.biz_name,",
+            "  COALESCE(ba.title, wi.title) AS title,",
+            "  COALESCE(ba.applicant_id, wi.applicant_id) AS applicant_id,",
+            "  COALESCE(ba.applicant_name, wi.applicant_name) AS applicant_name,",
+            "  COALESCE(ba.form_data, wi.form_data) AS form_data,",
+            "  a.node_name,",
+            "  a.node_type,",
+            "  a.status AS approver_status,",
+            "  wi.started_at,",
+            "  a.created_at AS todo_at,",
+            "  a.finished_at AS processed_at",
+            "FROM tb_workflow_node_approver_instance a",
+            "LEFT JOIN tb_workflow_instance wi ON wi.id = a.instance_id AND wi.is_deleted = 0",
+            "LEFT JOIN tb_biz_apply ba ON ba.id = wi.biz_id AND ba.is_deleted = 0",
+            "WHERE a.approver_id = #{qto.currentUserId}",
+            "  AND a.status IN ('APPROVED', 'REJECTED', 'DELEGATED')",
+            "<if test='qto.bizApplyId != null'>",
+            "  AND ba.id = #{qto.bizApplyId}",
+            "</if>",
+            "<if test='qto.bizDefinitionId != null'>",
+            "  AND ba.biz_definition_id = #{qto.bizDefinitionId}",
+            "</if>",
+            "<if test='qto.title != null and qto.title != \"\"'>",
+            "  AND ba.title LIKE CONCAT('%', #{qto.title}, '%')",
+            "</if>",
+            "ORDER BY a.finished_at DESC, a.id DESC",
+            "</script>"
+    })
+    List<WorkflowTodoVO> selectProcessedList(@Param("qto") WorkflowTodoListQTO qto);
+
+    /**
+     * 查询已办箱分页记录。
+     */
+    @Select({
+            "<script>",
+            "SELECT",
+            "  a.id AS approver_instance_id,",
+            "  a.node_instance_id,",
+            "  a.instance_id AS workflow_instance_id,",
+            "  ba.id AS biz_apply_id,",
+            "  ba.biz_definition_id,",
+            "  ba.biz_name,",
+            "  COALESCE(ba.title, wi.title) AS title,",
+            "  COALESCE(ba.applicant_id, wi.applicant_id) AS applicant_id,",
+            "  COALESCE(ba.applicant_name, wi.applicant_name) AS applicant_name,",
+            "  COALESCE(ba.form_data, wi.form_data) AS form_data,",
+            "  a.node_name,",
+            "  a.node_type,",
+            "  a.status AS approver_status,",
+            "  wi.started_at,",
+            "  a.created_at AS todo_at,",
+            "  a.finished_at AS processed_at",
+            "FROM tb_workflow_node_approver_instance a",
+            "LEFT JOIN tb_workflow_instance wi ON wi.id = a.instance_id AND wi.is_deleted = 0",
+            "LEFT JOIN tb_biz_apply ba ON ba.id = wi.biz_id AND ba.is_deleted = 0",
+            "WHERE a.approver_id = #{qto.currentUserId}",
+            "  AND a.status IN ('APPROVED', 'REJECTED', 'DELEGATED')",
+            "<if test='qto.bizApplyId != null'>",
+            "  AND ba.id = #{qto.bizApplyId}",
+            "</if>",
+            "<if test='qto.bizDefinitionId != null'>",
+            "  AND ba.biz_definition_id = #{qto.bizDefinitionId}",
+            "</if>",
+            "<if test='qto.title != null and qto.title != \"\"'>",
+            "  AND ba.title LIKE CONCAT('%', #{qto.title}, '%')",
+            "</if>",
+            "ORDER BY a.finished_at DESC, a.id DESC",
+            "</script>"
+    })
+    IPage<WorkflowTodoVO> selectProcessedPage(IPage<WorkflowTodoVO> page,
+                                              @Param("qto") WorkflowTodoPageQTO qto);
+
+    /**
+     * 查询已办箱详情。
+     */
+    @Select({
+            "<script>",
+            "SELECT",
+            "  a.id AS approver_instance_id,",
+            "  a.node_instance_id,",
+            "  a.instance_id AS workflow_instance_id,",
+            "  ba.id AS biz_apply_id,",
+            "  ba.biz_definition_id,",
+            "  ba.biz_name,",
+            "  COALESCE(ba.title, wi.title) AS title,",
+            "  COALESCE(ba.applicant_id, wi.applicant_id) AS applicant_id,",
+            "  COALESCE(ba.applicant_name, wi.applicant_name) AS applicant_name,",
+            "  COALESCE(ba.form_data, wi.form_data) AS form_data,",
+            "  a.node_name,",
+            "  a.node_type,",
+            "  a.status AS approver_status,",
+            "  wi.started_at,",
+            "  a.created_at AS todo_at,",
+            "  a.finished_at AS processed_at",
+            "FROM tb_workflow_node_approver_instance a",
+            "LEFT JOIN tb_workflow_instance wi ON wi.id = a.instance_id AND wi.is_deleted = 0",
+            "LEFT JOIN tb_biz_apply ba ON ba.id = wi.biz_id AND ba.is_deleted = 0",
+            "WHERE a.approver_id = #{qto.currentUserId}",
+            "  AND a.id = #{qto.approverInstanceId}",
+            "  AND a.status IN ('APPROVED', 'REJECTED', 'DELEGATED')",
+            "LIMIT 1",
+            "</script>"
+    })
+    WorkflowTodoVO selectProcessedDetail(@Param("qto") WorkflowTodoDetailQTO qto);
 }
