@@ -9,6 +9,7 @@ import com.yuyu.workflow.common.exception.BizException;
 import com.yuyu.workflow.common.util.ObjectMapperUtils;
 import com.yuyu.workflow.entity.*;
 import com.yuyu.workflow.entity.base.BaseIdEntity;
+import com.yuyu.workflow.eto.workflow.WorkflowAddSignETO;
 import com.yuyu.workflow.eto.workflow.WorkflowAuditETO;
 import com.yuyu.workflow.eto.workflow.WorkflowBizSubmitETO;
 import com.yuyu.workflow.eto.workflow.WorkflowCancelETO;
@@ -23,6 +24,7 @@ import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -168,6 +170,24 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         );
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void addSign(WorkflowAddSignETO eto) {
+        AddSignContext context = loadAddSignContext(eto);
+        validateAddSign(context);
+
+        workflowNodeApproverInstanceService.saveApproverInstancesForSign(
+                context.currentApproverInstance(),
+                context.addSignUserList(),
+                eto.getComment()
+        );
+        workflowApprovalRecordService.recordForAddSign(
+                eto,
+                context.currentNodeInstance(),
+                context.addSignUserList()
+        );
+    }
+
     /**
      * 加载取消流程所需上下文。
      */
@@ -192,6 +212,22 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         );
         User delegateUser = userMapper.selectById(eto.getDelegateToUserId());
         return new DelegateContext(eto, workflowInstance, currentNodeInstance, currentApproverInstance, approverInstanceList, delegateUser);
+    }
+
+    /**
+     * 加载加签流程所需上下文。
+     */
+    private AddSignContext loadAddSignContext(WorkflowAddSignETO eto) {
+        WorkflowInstance workflowInstance = workflowInstanceService.getByIdOrThrow(eto.getInstanceId());
+        WorkflowNodeInstance currentNodeInstance = workflowNodeInstanceService.getById(eto.getNodeInstanceId());
+        WorkflowNodeApproverInstance currentApproverInstance = workflowNodeApproverInstanceService.getById(eto.getApproverInstanceId());
+        List<WorkflowNodeApproverInstance> approverInstanceList = workflowNodeApproverInstanceService.list(
+                Wrappers.<WorkflowNodeApproverInstance>lambdaQuery()
+                        .eq(WorkflowNodeApproverInstance::getNodeInstanceId, eto.getNodeInstanceId())
+                        .orderByAsc(WorkflowNodeApproverInstance::getSortOrder, WorkflowNodeApproverInstance::getId)
+        );
+        List<User> addSignUserList = loadUsersPreserveOrder(eto.getAddSignUserIds());
+        return new AddSignContext(eto, workflowInstance, currentNodeInstance, currentApproverInstance, approverInstanceList, addSignUserList);
     }
 
     /**
@@ -252,6 +288,88 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         if (existsInCurrentNodeChain) {
             throw new BizException("转交目标用户已在当前节点审批链中");
         }
+    }
+
+    /**
+     * 校验当前用户是否可以发起加签。
+     */
+    private void validateAddSign(AddSignContext context) {
+        if (!WorkflowInstanceStatusEnum.isRunning(context.workflowInstance().getStatus())) {
+            throw new BizException("流程不在运行中");
+        }
+        if (Objects.isNull(context.currentNodeInstance())) {
+            throw new BizException("节点实例不存在");
+        }
+        if (WorkflowNodeTypeEnum.isParallelJoin(context.currentNodeInstance().getDefinitionNodeType())) {
+            throw new BizException("当前节点不支持加签");
+        }
+        if (!Objects.equals(context.currentNodeInstance().getInstanceId(), context.workflowInstance().getId())) {
+            throw new BizException("节点实例不属于当前流程实例");
+        }
+        if (!WorkflowNodeInstanceStatusEnum.isActive(context.currentNodeInstance().getStatus())) {
+            throw new BizException("当前节点不在进行中");
+        }
+        if (Objects.isNull(context.currentApproverInstance())) {
+            throw new BizException("审批人实例不存在");
+        }
+        if (!Objects.equals(context.currentApproverInstance().getNodeInstanceId(), context.currentNodeInstance().getId())) {
+            throw new BizException("审批人实例不属于当前节点");
+        }
+        if (!Objects.equals(context.currentApproverInstance().getApproverId(), context.eto().getCurrentUserId())) {
+            throw new BizException("无权加签该节点");
+        }
+        if (!WorkflowNodeApproverInstanceStatusEnum.isPending(context.currentApproverInstance().getStatus())) {
+            throw new BizException("当前审批任务不在待处理状态");
+        }
+        if (!YesNoEnum.isYes(context.currentApproverInstance().getIsActive())) {
+            throw new BizException("当前审批人未激活");
+        }
+        if (context.eto().getAddSignUserIds().stream().anyMatch(Objects::isNull)) {
+            throw new BizException("加签用户不能为空");
+        }
+        if (new LinkedHashSet<>(context.eto().getAddSignUserIds()).size() != context.eto().getAddSignUserIds().size()) {
+            throw new BizException("加签用户不能重复");
+        }
+        if (context.addSignUserList().size() != context.eto().getAddSignUserIds().size()) {
+            throw new BizException("存在无效的加签用户");
+        }
+        boolean containsSelf = context.addSignUserList().stream()
+                .anyMatch(user -> Objects.equals(user.getId(), context.eto().getCurrentUserId()));
+        if (containsSelf) {
+            throw new BizException("不能给自己加签");
+        }
+        boolean hasDisabledUser = context.addSignUserList().stream()
+                .anyMatch(user -> !CommonStatusEnum.ENABLED.getId().equals(user.getStatus()));
+        if (hasDisabledUser) {
+            throw new BizException("加签目标用户已停用");
+        }
+        Set<Long> existedApproverIdSet = context.approverInstanceList().stream()
+                .map(WorkflowNodeApproverInstance::getApproverId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        boolean existsInCurrentNodeChain = context.addSignUserList().stream()
+                .map(User::getId)
+                .anyMatch(existedApproverIdSet::contains);
+        if (existsInCurrentNodeChain) {
+            throw new BizException("加签目标用户已在当前节点审批链中");
+        }
+    }
+
+    private List<User> loadUsersPreserveOrder(List<Long> userIdList) {
+        if (CollectionUtils.isEmpty(userIdList)) {
+            return Collections.emptyList();
+        }
+        List<User> userList = new ArrayList<>();
+        for (Long userId : userIdList) {
+            if (Objects.isNull(userId)) {
+                continue;
+            }
+            User user = userMapper.selectById(userId);
+            if (Objects.nonNull(user)) {
+                userList.add(user);
+            }
+        }
+        return userList;
     }
 
     /**
@@ -378,6 +496,15 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
     @Transactional(rollbackFor = Exception.class)
     public void audit(WorkflowAuditETO eto) {
         AuditContext context = loadAuditContext(eto);
+
+        if (isAddSignApprover(context.currentApproverInstance())) {
+            if (WorkflowAuditActionEnum.isReject(eto.getAction())) {
+                handleAddSignReject(context);
+                return;
+            }
+            handleAddSignApprove(context);
+            return;
+        }
 
         if (WorkflowAuditActionEnum.isReject(eto.getAction())) {
             handleReject(context);
@@ -537,6 +664,45 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
 
         // 处理串行拒绝逻辑
         handleSerialReject(context);
+    }
+
+    private void handleAddSignApprove(AuditContext context) {
+        WorkflowNodeInstance workflowNodeInstance = context.currentNodeInstance();
+        WorkflowAuditETO eto = context.eto();
+
+        workflowNodeApproverInstanceService.updateNodeApproverForApprove(
+                workflowNodeInstance.getId(),
+                eto.getComment(),
+                eto.getApproverInstanceId()
+        );
+        workflowApprovalRecordService.recordForApprove(eto, workflowNodeInstance);
+
+        boolean activatedNextAddSignApprover = workflowNodeApproverInstanceService.activateNextAddSignApprover(context.currentApproverInstance());
+        if (activatedNextAddSignApprover) {
+            return;
+        }
+
+        workflowNodeApproverInstanceService.updateNodeApproverForAfterAddSign(
+                context.currentApproverInstance().getSourceApproverInstanceId()
+        );
+    }
+
+    private void handleAddSignReject(AuditContext context) {
+        WorkflowNodeInstance workflowNodeInstance = context.currentNodeInstance();
+        WorkflowAuditETO eto = context.eto();
+
+        workflowNodeApproverInstanceService.updateNodeApproverForReject(
+                workflowNodeInstance.getId(),
+                eto.getComment(),
+                eto.getApproverInstanceId()
+        );
+        workflowApprovalRecordService.recordForReject(eto, workflowNodeInstance);
+        workflowNodeApproverInstanceService.cancelPendingAddSignApprovers(
+                context.currentApproverInstance().getSourceApproverInstanceId(),
+                context.currentApproverInstance().getNodeInstanceId()
+        );
+
+        
     }
 
     private void handleParallelReject(AuditContext context) {
@@ -998,6 +1164,13 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         workflowInstanceService.updateWorkflowInstanceForSite(context.workflowInstance().getId(), nextNodeInstance);
     }
 
+    private boolean isAddSignApprover(WorkflowNodeApproverInstance approverInstance) {
+        return Objects.equals(
+                WorkflowNodeApproverRelationTypeEnum.ADD_SIGN.getCode(),
+                approverInstance.getRelationType()
+        );
+    }
+
     private void saveApproverNode(WorkflowNodeInstance nextNodeInstance) {
         List<WorkflowNodeApprover> approverConfigs = workflowNodeApproverMapper.selectList(
                 new LambdaQueryWrapper<WorkflowNodeApprover>()
@@ -1076,6 +1249,16 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
             WorkflowNodeApproverInstance currentApproverInstance,
             List<WorkflowNodeApproverInstance> approverInstanceList,
             User delegateUser
+    ) {
+    }
+
+    private record AddSignContext(
+            WorkflowAddSignETO eto,
+            WorkflowInstance workflowInstance,
+            WorkflowNodeInstance currentNodeInstance,
+            WorkflowNodeApproverInstance currentApproverInstance,
+            List<WorkflowNodeApproverInstance> approverInstanceList,
+            List<User> addSignUserList
     ) {
     }
 

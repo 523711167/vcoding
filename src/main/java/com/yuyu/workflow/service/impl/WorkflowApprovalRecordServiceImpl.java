@@ -8,6 +8,7 @@ import com.yuyu.workflow.common.exception.BizException;
 import com.yuyu.workflow.entity.WorkflowApprovalRecord;
 import com.yuyu.workflow.entity.User;
 import com.yuyu.workflow.entity.WorkflowNodeInstance;
+import com.yuyu.workflow.eto.workflow.WorkflowAddSignETO;
 import com.yuyu.workflow.eto.workflow.WorkflowAuditETO;
 import com.yuyu.workflow.eto.workflow.WorkflowCancelETO;
 import com.yuyu.workflow.eto.workflow.WorkflowDelegateETO;
@@ -26,6 +27,7 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * 审批操作记录服务实现。
@@ -171,6 +173,30 @@ public class WorkflowApprovalRecordServiceImpl extends ServiceImpl<WorkflowAppro
         baseMapper.insert(record);
     }
 
+    @Override
+    public void recordForAddSign(WorkflowAddSignETO eto, WorkflowNodeInstance workflowNodeInstance, List<User> addSignUsers) {
+        WorkflowApprovalRecord record = new WorkflowApprovalRecord();
+        record.setInstanceId(eto.getInstanceId());
+        record.setNodeInstanceId(eto.getNodeInstanceId());
+        record.setOperatorId(eto.getCurrentUserId());
+        record.setOperatorName(eto.getCurrentUsername());
+        record.setAction(WorkflowApprovalActionEnum.ADD_SIGN.getCode());
+        record.setNodeInstanceType(workflowNodeInstance.getDefinitionNodeType());
+        record.setNodeInstanceName(workflowNodeInstance.getDefinitionNodeName());
+        record.setComment(StringUtils.isNotBlank(eto.getComment())
+                ? eto.getComment()
+                : WorkflowApprovalActionEnum.ADD_SIGN.getName());
+        record.setFromNodeId(workflowNodeInstance.getDefinitionNodeId());
+        record.setFromNodeType(workflowNodeInstance.getDefinitionNodeType());
+        record.setFromNodeName(workflowNodeInstance.getDefinitionNodeName());
+        record.setToNodeId(workflowNodeInstance.getDefinitionNodeId());
+        record.setToNodeType(workflowNodeInstance.getDefinitionNodeType());
+        record.setToNodeName(workflowNodeInstance.getDefinitionNodeName());
+        record.setExtraData(buildAddSignExtraData(addSignUsers));
+        record.setOperatedAt(OperationTimeContext.get());
+        baseMapper.insert(record);
+    }
+
     private static WorkflowApprovalRecord buildApprovalRecord(WorkflowAuditETO eto, WorkflowNodeInstance workflowNodeInstance,
                                                               WorkflowNodeInstance toWorkflowNodeInstance, WorkflowApprovalActionEnum workflowApprovalActionEnum) {
         WorkflowApprovalRecord record = new WorkflowApprovalRecord();
@@ -202,6 +228,15 @@ public class WorkflowApprovalRecordServiceImpl extends ServiceImpl<WorkflowAppro
                 + "\",\"delegateToName\":\""
                 + escapeJson(delegateName)
                 + "\"}";
+    }
+
+    private String buildAddSignExtraData(List<User> addSignUsers) {
+        return "{\"addSignUserIds\":["
+                + addSignUsers.stream()
+                .map(User::getId)
+                .map(String::valueOf)
+                .collect(Collectors.joining(","))
+                + "]}";
     }
 
     private String escapeJson(String value) {

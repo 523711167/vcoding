@@ -94,7 +94,8 @@ public class WorkflowBizController {
     @Operation(summary = "流程加签")
     @PostMapping("/add-sign")
     public Resp<Void> addSign(@Valid @RequestBody WorkflowAddSignETO eto) {
-        throw notImplemented("流程加签");
+        workflowLaunchService.addSign(eto);
+        return Resp.success();
     }
 
     /**

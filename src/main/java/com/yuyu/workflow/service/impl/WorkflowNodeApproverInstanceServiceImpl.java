@@ -8,6 +8,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yuyu.workflow.common.context.OperationTimeContext;
 import com.yuyu.workflow.common.enums.CommonStatusEnum;
 import com.yuyu.workflow.common.enums.WorkflowApproveModeEnum;
+import com.yuyu.workflow.common.enums.WorkflowNodeApproverRelationTypeEnum;
 import com.yuyu.workflow.common.enums.WorkflowNodeApproverInstanceStatusEnum;
 import com.yuyu.workflow.common.enums.WorkflowNodeInstanceStatusEnum;
 import com.yuyu.workflow.common.enums.YesNoEnum;
@@ -32,6 +33,7 @@ import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
 
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /**
@@ -200,6 +202,7 @@ public class WorkflowNodeApproverInstanceServiceImpl extends ServiceImpl<Workflo
                 Wrappers.<WorkflowNodeApproverInstance>lambdaUpdate()
                         .eq(WorkflowNodeApproverInstance::getInstanceId, instanceId)
                         .eq(WorkflowNodeApproverInstance::getNodeInstanceId, nodeInstanceId)
+                        .eq(WorkflowNodeApproverInstance::getRelationType, WorkflowNodeApproverRelationTypeEnum.ORIGINAL.getCode())
                         .ne(WorkflowNodeApproverInstance::getId, approverInstanceId)
                         .eq(WorkflowNodeApproverInstance::getStatus, WorkflowNodeApproverInstanceStatusEnum.PENDING.getCode())
                         .set(WorkflowNodeApproverInstance::getFinishedAt, OperationTimeContext.get())
@@ -240,6 +243,7 @@ public class WorkflowNodeApproverInstanceServiceImpl extends ServiceImpl<Workflo
         currentApproverInstance.setComment(comment);
         currentApproverInstance.setDelegateTo(delegateUser.getId());
         currentApproverInstance.setDelegateToName(resolveUserDisplayName(delegateUser));
+        currentApproverInstance.setIsActive(YesNoEnum.NO.getId());
         updateById(currentApproverInstance);
 
         WorkflowNodeApproverInstance delegatedApproverInstance = new WorkflowNodeApproverInstance();
@@ -256,6 +260,121 @@ public class WorkflowNodeApproverInstanceServiceImpl extends ServiceImpl<Workflo
         delegatedApproverInstance.setIsActive(YesNoEnum.YES.getId());
         delegatedApproverInstance.setCreatedAt(OperationTimeContext.get());
         save(delegatedApproverInstance);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void saveApproverInstancesForSign(WorkflowNodeApproverInstance sourceApproverInstance, List<User> addSignUsers, String comment) {
+        if (Objects.isNull(sourceApproverInstance) || Objects.isNull(sourceApproverInstance.getId())) {
+            throw new BizException("来源审批人实例不能为空");
+        }
+        if (CollectionUtils.isEmpty(addSignUsers)) {
+            throw new BizException("加签用户不能为空");
+        }
+
+        sourceApproverInstance.setStatus(WorkflowNodeApproverInstanceStatusEnum.WAITING_ADD_SIGN.getCode());
+        sourceApproverInstance.setIsActive(YesNoEnum.NO.getId());
+        sourceApproverInstance.setComment(comment);
+        updateById(sourceApproverInstance);
+
+        List<User> deduplicatedUsers = addSignUsers.stream()
+                .filter(Objects::nonNull)
+                .filter(item -> Objects.nonNull(item.getId()))
+                .collect(Collectors.toMap(
+                        User::getId,
+                        item -> item,
+                        (left, right) -> left,
+                        LinkedHashMap::new
+                ))
+                .values()
+                .stream()
+                .toList();
+
+        List<WorkflowNodeApproverInstance> addSignApproverList = IntStream.range(0, deduplicatedUsers.size())
+                .mapToObj(index -> {
+                    User addSignUser = deduplicatedUsers.get(index);
+                    WorkflowNodeApproverInstance approverInstance = new WorkflowNodeApproverInstance();
+                    approverInstance.setNodeInstanceId(sourceApproverInstance.getNodeInstanceId());
+                    approverInstance.setInstanceId(sourceApproverInstance.getInstanceId());
+                    approverInstance.setApproverId(addSignUser.getId());
+                    approverInstance.setApproverName(resolveUserDisplayName(addSignUser));
+                    approverInstance.setNodeName(sourceApproverInstance.getNodeName());
+                    approverInstance.setNodeType(sourceApproverInstance.getNodeType());
+                    approverInstance.setRelationType(WorkflowNodeApproverRelationTypeEnum.ADD_SIGN.getCode());
+                    approverInstance.setSourceApproverInstanceId(sourceApproverInstance.getId());
+                    approverInstance.setSortOrder(index + 1);
+                    approverInstance.setStatus(WorkflowNodeApproverInstanceStatusEnum.PENDING.getCode());
+                    approverInstance.setIsActive(index == 0 ? YesNoEnum.YES.getId() : YesNoEnum.NO.getId());
+                    approverInstance.setCreatedAt(OperationTimeContext.get());
+                    return approverInstance;
+                })
+                .toList();
+        saveBatch(addSignApproverList);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean activateNextAddSignApprover(WorkflowNodeApproverInstance currentAddSignApprover) {
+        if (Objects.isNull(currentAddSignApprover) || Objects.isNull(currentAddSignApprover.getSourceApproverInstanceId())) {
+            throw new BizException("当前加签审批人链路不完整");
+        }
+        List<WorkflowNodeApproverInstance> addSignApproverList = list(
+                Wrappers.<WorkflowNodeApproverInstance>lambdaQuery()
+                        .eq(WorkflowNodeApproverInstance::getSourceApproverInstanceId, currentAddSignApprover.getSourceApproverInstanceId())
+                        .eq(WorkflowNodeApproverInstance::getRelationType, WorkflowNodeApproverRelationTypeEnum.ADD_SIGN.getCode())
+                        .eq(WorkflowNodeApproverInstance::getStatus, WorkflowNodeApproverInstanceStatusEnum.PENDING.getCode())
+                        .gt(WorkflowNodeApproverInstance::getSortOrder, currentAddSignApprover.getSortOrder())
+                        .orderByAsc(WorkflowNodeApproverInstance::getSortOrder, WorkflowNodeApproverInstance::getId)
+        );
+        if (CollectionUtils.isEmpty(addSignApproverList)) {
+            return false;
+        }
+        WorkflowNodeApproverInstance nextAddSignApprover = addSignApproverList.get(0);
+        update(
+                Wrappers.<WorkflowNodeApproverInstance>lambdaUpdate()
+                        .eq(WorkflowNodeApproverInstance::getId, nextAddSignApprover.getId())
+                        .set(WorkflowNodeApproverInstance::getIsActive, YesNoEnum.YES.getId())
+        );
+        return true;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateNodeApproverForAfterAddSign(Long sourceApproverInstanceId) {
+        WorkflowNodeApproverInstance sourceApproverInstance = getById(sourceApproverInstanceId);
+        if (Objects.isNull(sourceApproverInstance)) {
+            throw new BizException("来源审批人实例不存在");
+        }
+        sourceApproverInstance.setStatus(WorkflowNodeApproverInstanceStatusEnum.PENDING.getCode());
+        updateById(sourceApproverInstance);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void cancelPendingAddSignApprovers(Long sourceApproverInstanceId, Long excludeApproverInstanceId) {
+        update(
+                Wrappers.<WorkflowNodeApproverInstance>lambdaUpdate()
+                        .eq(WorkflowNodeApproverInstance::getSourceApproverInstanceId, sourceApproverInstanceId)
+                        .eq(WorkflowNodeApproverInstance::getRelationType, WorkflowNodeApproverRelationTypeEnum.ADD_SIGN.getCode())
+                        .eq(WorkflowNodeApproverInstance::getStatus, WorkflowNodeApproverInstanceStatusEnum.PENDING.getCode())
+                        .ne(WorkflowNodeApproverInstance::getId, excludeApproverInstanceId)
+                        .set(WorkflowNodeApproverInstance::getStatus, WorkflowNodeApproverInstanceStatusEnum.CANCELED.getCode())
+                        .set(WorkflowNodeApproverInstance::getIsActive, YesNoEnum.YES.getId())
+                        .set(WorkflowNodeApproverInstance::getFinishedAt, OperationTimeContext.get())
+        );
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void cancelWaitingAddSignApprovers(Long nodeInstanceId) {
+        update(
+                Wrappers.<WorkflowNodeApproverInstance>lambdaUpdate()
+                        .eq(WorkflowNodeApproverInstance::getNodeInstanceId, nodeInstanceId)
+                        .eq(WorkflowNodeApproverInstance::getStatus, WorkflowNodeApproverInstanceStatusEnum.WAITING_ADD_SIGN.getCode())
+                        .set(WorkflowNodeApproverInstance::getStatus, WorkflowNodeApproverInstanceStatusEnum.CANCELED.getCode())
+                        .set(WorkflowNodeApproverInstance::getIsActive, YesNoEnum.YES.getId())
+                        .set(WorkflowNodeApproverInstance::getFinishedAt, OperationTimeContext.get())
+        );
     }
 
     @Override

@@ -70,6 +70,31 @@ public interface WorkflowNodeApproverInstanceService extends IService<WorkflowNo
      */
     void saveApproverInstancesForDelegate(WorkflowNodeApproverInstance currentApproverInstance, User delegateUser, String comment);
 
+    /**
+     * 挂起当前审批人并创建加签审批链。
+     */
+    void saveApproverInstancesForSign(WorkflowNodeApproverInstance sourceApproverInstance, List<User> addSignUsers, String comment);
+
+    /**
+     * 激活下一位加签审批人。
+     */
+    boolean activateNextAddSignApprover(WorkflowNodeApproverInstance currentAddSignApprover);
+
+    /**
+     * 加签链全部通过后恢复来源审批人。
+     */
+    void updateNodeApproverForAfterAddSign(Long sourceApproverInstanceId);
+
+    /**
+     * 取消同一加签链下尚未完成的加签审批人。
+     */
+    void cancelPendingAddSignApprovers(Long sourceApproverInstanceId, Long excludeApproverInstanceId);
+
+    /**
+     * 取消节点内挂起中的来源审批人。
+     */
+    void cancelWaitingAddSignApprovers(Long nodeInstanceId);
+
     void saveApproverInstancesForUser(WorkflowNodeInstance workflowNodeInstance);
 
     void saveApproverInstancesForRole(WorkflowNodeInstance workflowNodeInstance);

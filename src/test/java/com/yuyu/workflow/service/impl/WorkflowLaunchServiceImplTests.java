@@ -10,8 +10,12 @@ import com.yuyu.workflow.entity.WorkflowNode;
 import com.yuyu.workflow.entity.WorkflowNodeApproverInstance;
 import com.yuyu.workflow.entity.WorkflowNodeInstance;
 import com.yuyu.workflow.entity.WorkflowTransition;
+import com.yuyu.workflow.eto.workflow.WorkflowAddSignETO;
+import com.yuyu.workflow.eto.workflow.WorkflowAuditETO;
 import com.yuyu.workflow.eto.workflow.WorkflowDelegateETO;
 import com.yuyu.workflow.mapper.UserMapper;
+import com.yuyu.workflow.mapper.WorkflowNodeMapper;
+import com.yuyu.workflow.mapper.WorkflowTransitionMapper;
 import com.yuyu.workflow.service.WorkflowApprovalRecordService;
 import com.yuyu.workflow.service.WorkflowInstanceService;
 import com.yuyu.workflow.service.WorkflowNodeService;
@@ -49,6 +53,10 @@ class WorkflowLaunchServiceImplTests {
     private WorkflowNodeApproverInstanceService workflowNodeApproverInstanceService;
     private WorkflowApprovalRecordService workflowApprovalRecordService;
     private UserMapper userMapper;
+    private WorkflowNodeMapper workflowNodeMapper;
+    private WorkflowTransitionMapper workflowTransitionMapper;
+    private WorkflowNodeService workflowNodeService;
+    private WorkflowTransitionService workflowTransitionService;
     private Method findMatchConditionNodeMethod;
     private Constructor<?> auditContextConstructor;
 
@@ -60,14 +68,18 @@ class WorkflowLaunchServiceImplTests {
         workflowNodeApproverInstanceService = mock(WorkflowNodeApproverInstanceService.class);
         workflowApprovalRecordService = mock(WorkflowApprovalRecordService.class);
         userMapper = mock(UserMapper.class);
+        workflowNodeMapper = mock(WorkflowNodeMapper.class);
+        workflowTransitionMapper = mock(WorkflowTransitionMapper.class);
+        workflowNodeService = mock(WorkflowNodeService.class);
+        workflowTransitionService = mock(WorkflowTransitionService.class);
         workflowLaunchService = new WorkflowLaunchServiceImpl(
                 null,
                 workflowInstanceService,
                 workflowNodeInstanceService,
                 workflowNodeApproverInstanceService,
                 workflowApprovalRecordService,
-                null,
-                null,
+                workflowNodeMapper,
+                workflowTransitionMapper,
                 null,
                 userMapper,
                 null,
@@ -77,8 +89,8 @@ class WorkflowLaunchServiceImplTests {
                 mock(WorkflowDefinitionService.class),
                 mock(WorkflowParallelScopeService.class),
                 mock(WorkflowLaunchStructMapper.class),
-                mock(WorkflowNodeService.class),
-                mock(WorkflowTransitionService.class)
+                workflowNodeService,
+                workflowTransitionService
         );
 
         Class<?> auditContextClass =
@@ -258,6 +270,164 @@ class WorkflowLaunchServiceImplTests {
         BizException exception = assertThrows(BizException.class, () -> workflowLaunchService.delegate(eto));
 
         assertEquals("转交目标用户已在当前节点审批链中", exception.getMessage());
+    }
+
+    @Test
+    void shouldAddSignWorkflowTask() {
+        WorkflowAddSignETO eto = new WorkflowAddSignETO();
+        eto.setInstanceId(1001L);
+        eto.setNodeInstanceId(2001L);
+        eto.setApproverInstanceId(3001L);
+        eto.setAddSignUserIds(List.of(9L, 10L));
+        eto.setCurrentUserId(1L);
+        eto.setComment("请协同确认");
+
+        WorkflowInstance workflowInstance = new WorkflowInstance();
+        workflowInstance.setId(1001L);
+        workflowInstance.setStatus("RUNNING");
+
+        WorkflowNodeInstance nodeInstance = new WorkflowNodeInstance();
+        nodeInstance.setId(2001L);
+        nodeInstance.setInstanceId(1001L);
+        nodeInstance.setStatus("ACTIVE");
+        nodeInstance.setDefinitionNodeType("APPROVAL");
+
+        WorkflowNodeApproverInstance approverInstance = new WorkflowNodeApproverInstance();
+        approverInstance.setId(3001L);
+        approverInstance.setNodeInstanceId(2001L);
+        approverInstance.setApproverId(1L);
+        approverInstance.setStatus("PENDING");
+        approverInstance.setIsActive(1);
+
+        User userA = new User();
+        userA.setId(9L);
+        userA.setStatus(1);
+
+        User userB = new User();
+        userB.setId(10L);
+        userB.setStatus(1);
+
+        when(workflowInstanceService.getByIdOrThrow(1001L)).thenReturn(workflowInstance);
+        when(workflowNodeInstanceService.getById(2001L)).thenReturn(nodeInstance);
+        when(workflowNodeApproverInstanceService.getById(3001L)).thenReturn(approverInstance);
+        when(workflowNodeApproverInstanceService.list(org.mockito.ArgumentMatchers.<Wrapper<WorkflowNodeApproverInstance>>any()))
+                .thenReturn(List.of(approverInstance));
+        when(userMapper.selectById(9L)).thenReturn(userA);
+        when(userMapper.selectById(10L)).thenReturn(userB);
+
+        workflowLaunchService.addSign(eto);
+
+        verify(workflowNodeApproverInstanceService).saveApproverInstancesForSign(approverInstance, List.of(userA, userB), "请协同确认");
+        verify(workflowApprovalRecordService).recordForAddSign(eto, nodeInstance, List.of(userA, userB));
+    }
+
+    @Test
+    void shouldRejectAddSignWhenTargetAlreadyInCurrentNodeChain() {
+        WorkflowAddSignETO eto = new WorkflowAddSignETO();
+        eto.setInstanceId(1001L);
+        eto.setNodeInstanceId(2001L);
+        eto.setApproverInstanceId(3001L);
+        eto.setAddSignUserIds(List.of(9L));
+        eto.setCurrentUserId(1L);
+
+        WorkflowInstance workflowInstance = new WorkflowInstance();
+        workflowInstance.setId(1001L);
+        workflowInstance.setStatus("RUNNING");
+
+        WorkflowNodeInstance nodeInstance = new WorkflowNodeInstance();
+        nodeInstance.setId(2001L);
+        nodeInstance.setInstanceId(1001L);
+        nodeInstance.setStatus("ACTIVE");
+        nodeInstance.setDefinitionNodeType("APPROVAL");
+
+        WorkflowNodeApproverInstance currentApproverInstance = new WorkflowNodeApproverInstance();
+        currentApproverInstance.setId(3001L);
+        currentApproverInstance.setNodeInstanceId(2001L);
+        currentApproverInstance.setApproverId(1L);
+        currentApproverInstance.setStatus("PENDING");
+        currentApproverInstance.setIsActive(1);
+
+        WorkflowNodeApproverInstance existingTargetApprover = new WorkflowNodeApproverInstance();
+        existingTargetApprover.setId(3002L);
+        existingTargetApprover.setNodeInstanceId(2001L);
+        existingTargetApprover.setApproverId(9L);
+
+        User userA = new User();
+        userA.setId(9L);
+        userA.setStatus(1);
+
+        when(workflowInstanceService.getByIdOrThrow(1001L)).thenReturn(workflowInstance);
+        when(workflowNodeInstanceService.getById(2001L)).thenReturn(nodeInstance);
+        when(workflowNodeApproverInstanceService.getById(3001L)).thenReturn(currentApproverInstance);
+        when(workflowNodeApproverInstanceService.list(org.mockito.ArgumentMatchers.<Wrapper<WorkflowNodeApproverInstance>>any()))
+                .thenReturn(List.of(currentApproverInstance, existingTargetApprover));
+        when(userMapper.selectById(9L)).thenReturn(userA);
+
+        BizException exception = assertThrows(BizException.class, () -> workflowLaunchService.addSign(eto));
+
+        assertEquals("加签目标用户已在当前节点审批链中", exception.getMessage());
+    }
+
+    @Test
+    void shouldRestoreSourceApproverWhenLastAddSignApproverApproves() {
+        WorkflowAuditETO eto = new WorkflowAuditETO();
+        eto.setInstanceId(1001L);
+        eto.setNodeInstanceId(2001L);
+        eto.setApproverInstanceId(3002L);
+        eto.setCurrentUserId(9L);
+        eto.setCurrentUsername("zhangsan");
+        eto.setAction("APPROVE");
+        eto.setComment("同意");
+
+        WorkflowInstance workflowInstance = new WorkflowInstance();
+        workflowInstance.setId(1001L);
+        workflowInstance.setStatus("RUNNING");
+
+        WorkflowNodeInstance nodeInstance = new WorkflowNodeInstance();
+        nodeInstance.setId(2001L);
+        nodeInstance.setInstanceId(1001L);
+        nodeInstance.setStatus("ACTIVE");
+        nodeInstance.setDefinitionNodeId(88L);
+        nodeInstance.setDefinitionNodeName("直属领导审批");
+        nodeInstance.setDefinitionNodeType("APPROVAL");
+
+        WorkflowNodeApproverInstance addSignApprover = new WorkflowNodeApproverInstance();
+        addSignApprover.setId(3002L);
+        addSignApprover.setNodeInstanceId(2001L);
+        addSignApprover.setApproverId(9L);
+        addSignApprover.setStatus("PENDING");
+        addSignApprover.setIsActive(1);
+        addSignApprover.setRelationType("ADD_SIGN");
+        addSignApprover.setSourceApproverInstanceId(3001L);
+        addSignApprover.setSortOrder(1);
+
+        WorkflowNode definitionNode = new WorkflowNode();
+        definitionNode.setId(88L);
+        definitionNode.setDefinitionId(500L);
+
+        WorkflowNode nextNode = new WorkflowNode();
+        nextNode.setId(99L);
+
+        WorkflowTransition transition = new WorkflowTransition();
+        transition.setId(1L);
+        transition.setFromNodeId(88L);
+        transition.setToNodeId(99L);
+
+        when(workflowInstanceService.getById(1001L)).thenReturn(workflowInstance);
+        when(workflowNodeInstanceService.getById(2001L)).thenReturn(nodeInstance);
+        when(workflowNodeApproverInstanceService.getById(3002L)).thenReturn(addSignApprover);
+        when(workflowNodeApproverInstanceService.list(org.mockito.ArgumentMatchers.<Wrapper<WorkflowNodeApproverInstance>>any()))
+                .thenReturn(List.of(addSignApprover));
+        when(workflowNodeMapper.selectById(88L)).thenReturn(definitionNode);
+        when(workflowTransitionMapper.selectList(any())).thenReturn(List.of(transition), List.of(transition));
+        when(workflowNodeMapper.selectList(any())).thenReturn(List.of(definitionNode, nextNode));
+        when(workflowNodeApproverInstanceService.activateNextAddSignApprover(addSignApprover)).thenReturn(false);
+
+        workflowLaunchService.audit(eto);
+
+        verify(workflowNodeApproverInstanceService).updateNodeApproverForApprove(2001L, "同意", 3002L);
+        verify(workflowApprovalRecordService).recordForApprove(eto, nodeInstance);
+        verify(workflowNodeApproverInstanceService).updateNodeApproverForAfterAddSign(3001L);
     }
 
     private Object buildAuditContext(String formData,

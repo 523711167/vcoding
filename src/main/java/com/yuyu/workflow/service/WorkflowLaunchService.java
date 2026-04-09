@@ -1,6 +1,7 @@
 package com.yuyu.workflow.service;
 
 import com.yuyu.workflow.eto.workflow.WorkflowAuditETO;
+import com.yuyu.workflow.eto.workflow.WorkflowAddSignETO;
 import com.yuyu.workflow.eto.workflow.WorkflowBizSubmitETO;
 import com.yuyu.workflow.eto.workflow.WorkflowCancelETO;
 import com.yuyu.workflow.eto.workflow.WorkflowDelegateETO;
@@ -37,4 +38,9 @@ public interface WorkflowLaunchService {
      * 当前审批人将待办转交给其他用户。
      */
     void delegate(WorkflowDelegateETO eto);
+
+    /**
+     * 当前审批人发起前加签。
+     */
+    void addSign(WorkflowAddSignETO eto);
 }

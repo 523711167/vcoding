@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.yuyu.workflow.entity.WorkflowApprovalRecord;
 import com.yuyu.workflow.entity.User;
 import com.yuyu.workflow.entity.WorkflowNodeInstance;
+import com.yuyu.workflow.eto.workflow.WorkflowAddSignETO;
 import com.yuyu.workflow.eto.workflow.WorkflowAuditETO;
 import com.yuyu.workflow.eto.workflow.WorkflowCancelETO;
 import com.yuyu.workflow.eto.workflow.WorkflowDelegateETO;
@@ -55,5 +56,10 @@ public interface WorkflowApprovalRecordService extends IService<WorkflowApproval
      * 审批人转交任务，写入审批记录。
      */
     void recordForDelegate(WorkflowDelegateETO eto, WorkflowNodeInstance workflowNodeInstance, User delegateUser);
+
+    /**
+     * 审批人发起加签，写入审批记录。
+     */
+    void recordForAddSign(WorkflowAddSignETO eto, WorkflowNodeInstance workflowNodeInstance, List<User> addSignUsers);
 
 }

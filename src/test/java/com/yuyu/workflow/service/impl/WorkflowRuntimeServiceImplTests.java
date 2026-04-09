@@ -11,6 +11,7 @@ import com.yuyu.workflow.entity.WorkflowApprovalRecord;
 import com.yuyu.workflow.entity.WorkflowInstance;
 import com.yuyu.workflow.entity.WorkflowNodeApproverInstance;
 import com.yuyu.workflow.entity.WorkflowNodeInstance;
+import com.yuyu.workflow.eto.workflow.WorkflowAddSignETO;
 import com.yuyu.workflow.eto.workflow.WorkflowDelegateETO;
 import com.yuyu.workflow.mapper.BizApplyMapper;
 import com.yuyu.workflow.mapper.UserMapper;
@@ -204,6 +205,55 @@ class WorkflowRuntimeServiceImplTests {
     }
 
     @Test
+    void shouldCreateAddSignApproverTasksAndSuspendSourceApprover() {
+        WorkflowNodeApproverInstance sourceApproverInstance = new WorkflowNodeApproverInstance();
+        sourceApproverInstance.setId(1L);
+        sourceApproverInstance.setNodeInstanceId(11L);
+        sourceApproverInstance.setInstanceId(21L);
+        sourceApproverInstance.setNodeName("直属领导审批");
+        sourceApproverInstance.setNodeType("APPROVAL");
+        sourceApproverInstance.setStatus(WorkflowNodeApproverInstanceStatusEnum.PENDING.getCode());
+        sourceApproverInstance.setIsActive(YesNoEnum.YES.getId());
+
+        User userA = new User();
+        userA.setId(9L);
+        userA.setUsername("zhangsan");
+        userA.setRealName("张三");
+
+        User userB = new User();
+        userB.setId(10L);
+        userB.setUsername("lisi");
+        userB.setRealName("李四");
+
+        when(workflowNodeApproverInstanceMapper.updateById(any(WorkflowNodeApproverInstance.class))).thenReturn(1);
+        when(workflowNodeApproverInstanceMapper.insert(any(WorkflowNodeApproverInstance.class))).thenReturn(1);
+
+        workflowNodeApproverInstanceService.saveApproverInstancesForSign(
+                sourceApproverInstance,
+                List.of(userA, userB),
+                "请协同确认"
+        );
+
+        ArgumentCaptor<WorkflowNodeApproverInstance> updateCaptor = ArgumentCaptor.forClass(WorkflowNodeApproverInstance.class);
+        ArgumentCaptor<WorkflowNodeApproverInstance> insertCaptor = ArgumentCaptor.forClass(WorkflowNodeApproverInstance.class);
+        verify(workflowNodeApproverInstanceMapper).updateById(updateCaptor.capture());
+        verify(workflowNodeApproverInstanceMapper, times(2)).insert(insertCaptor.capture());
+
+        WorkflowNodeApproverInstance updatedInstance = updateCaptor.getValue();
+        assertEquals(WorkflowNodeApproverInstanceStatusEnum.WAITING_ADD_SIGN.getCode(), updatedInstance.getStatus());
+        assertEquals(YesNoEnum.NO.getId(), updatedInstance.getIsActive());
+        assertEquals("请协同确认", updatedInstance.getComment());
+
+        List<WorkflowNodeApproverInstance> createdInstances = insertCaptor.getAllValues();
+        assertEquals(9L, createdInstances.get(0).getApproverId());
+        assertEquals("ADD_SIGN", createdInstances.get(0).getRelationType());
+        assertEquals(1L, createdInstances.get(0).getSourceApproverInstanceId());
+        assertEquals(YesNoEnum.YES.getId(), createdInstances.get(0).getIsActive());
+        assertEquals(10L, createdInstances.get(1).getApproverId());
+        assertEquals(YesNoEnum.NO.getId(), createdInstances.get(1).getIsActive());
+    }
+
+    @Test
     void shouldRecordDelegateApprovalAction() {
         WorkflowDelegateETO eto = new WorkflowDelegateETO();
         eto.setInstanceId(1001L);
@@ -235,5 +285,38 @@ class WorkflowRuntimeServiceImplTests {
         assertEquals(88L, record.getToNodeId());
         assertEquals("转给张三处理", record.getComment());
         assertEquals("{\"delegateToUserId\":9,\"delegateToUsername\":\"zhangsan\",\"delegateToName\":\"张三\"}", record.getExtraData());
+    }
+
+    @Test
+    void shouldRecordAddSignApprovalAction() {
+        WorkflowAddSignETO eto = new WorkflowAddSignETO();
+        eto.setInstanceId(1001L);
+        eto.setNodeInstanceId(2001L);
+        eto.setApproverInstanceId(3001L);
+        eto.setCurrentUserId(1L);
+        eto.setCurrentUsername("admin");
+        eto.setComment("请协同确认");
+        eto.setAddSignUserIds(List.of(9L, 10L));
+
+        WorkflowNodeInstance workflowNodeInstance = new WorkflowNodeInstance();
+        workflowNodeInstance.setDefinitionNodeId(88L);
+        workflowNodeInstance.setDefinitionNodeName("直属领导审批");
+        workflowNodeInstance.setDefinitionNodeType("APPROVAL");
+
+        User userA = new User();
+        userA.setId(9L);
+        User userB = new User();
+        userB.setId(10L);
+
+        when(workflowApprovalRecordMapper.insert(any(WorkflowApprovalRecord.class))).thenReturn(1);
+
+        workflowApprovalRecordService.recordForAddSign(eto, workflowNodeInstance, List.of(userA, userB));
+
+        ArgumentCaptor<WorkflowApprovalRecord> captor = ArgumentCaptor.forClass(WorkflowApprovalRecord.class);
+        verify(workflowApprovalRecordMapper).insert(captor.capture());
+        WorkflowApprovalRecord record = captor.getValue();
+        assertEquals(WorkflowApprovalActionEnum.ADD_SIGN.getCode(), record.getAction());
+        assertEquals("请协同确认", record.getComment());
+        assertEquals("{\"addSignUserIds\":[9,10]}", record.getExtraData());
     }
 }
