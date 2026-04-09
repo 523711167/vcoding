@@ -1,12 +1,22 @@
 package com.yuyu.workflow.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.yuyu.workflow.common.exception.BizException;
 import com.yuyu.workflow.common.util.ObjectMapperUtils;
 import com.yuyu.workflow.config.JacksonConfig;
+import com.yuyu.workflow.entity.User;
 import com.yuyu.workflow.entity.WorkflowInstance;
 import com.yuyu.workflow.entity.WorkflowNode;
+import com.yuyu.workflow.entity.WorkflowNodeApproverInstance;
+import com.yuyu.workflow.entity.WorkflowNodeInstance;
 import com.yuyu.workflow.entity.WorkflowTransition;
+import com.yuyu.workflow.eto.workflow.WorkflowDelegateETO;
+import com.yuyu.workflow.mapper.UserMapper;
+import com.yuyu.workflow.service.WorkflowApprovalRecordService;
+import com.yuyu.workflow.service.WorkflowInstanceService;
 import com.yuyu.workflow.service.WorkflowNodeService;
+import com.yuyu.workflow.service.WorkflowNodeApproverInstanceService;
+import com.yuyu.workflow.service.WorkflowNodeInstanceService;
 import com.yuyu.workflow.service.WorkflowDefinitionService;
 import com.yuyu.workflow.service.WorkflowLaunchService;
 import com.yuyu.workflow.service.WorkflowParallelScopeService;
@@ -23,7 +33,10 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * 工作流发起服务测试。
@@ -31,22 +44,32 @@ import static org.mockito.Mockito.mock;
 class WorkflowLaunchServiceImplTests {
 
     private WorkflowLaunchService workflowLaunchService;
+    private WorkflowInstanceService workflowInstanceService;
+    private WorkflowNodeInstanceService workflowNodeInstanceService;
+    private WorkflowNodeApproverInstanceService workflowNodeApproverInstanceService;
+    private WorkflowApprovalRecordService workflowApprovalRecordService;
+    private UserMapper userMapper;
     private Method findMatchConditionNodeMethod;
     private Constructor<?> auditContextConstructor;
 
     @BeforeEach
     void setUp() throws Exception {
         ObjectMapperUtils objectMapperUtils = new ObjectMapperUtils(new JacksonConfig().objectMapper());
+        workflowInstanceService = mock(WorkflowInstanceService.class);
+        workflowNodeInstanceService = mock(WorkflowNodeInstanceService.class);
+        workflowNodeApproverInstanceService = mock(WorkflowNodeApproverInstanceService.class);
+        workflowApprovalRecordService = mock(WorkflowApprovalRecordService.class);
+        userMapper = mock(UserMapper.class);
         workflowLaunchService = new WorkflowLaunchServiceImpl(
                 null,
+                workflowInstanceService,
+                workflowNodeInstanceService,
+                workflowNodeApproverInstanceService,
+                workflowApprovalRecordService,
                 null,
                 null,
                 null,
-                null,
-                null,
-                null,
-                null,
-                null,
+                userMapper,
                 null,
                 null,
                 objectMapperUtils,
@@ -139,6 +162,102 @@ class WorkflowLaunchServiceImplTests {
         Throwable target = throwable.getCause() == null ? throwable : throwable.getCause();
         assertEquals(BizException.class, target.getClass());
         assertEquals("条件节点未匹配到分支且未配置默认分支", target.getMessage());
+    }
+
+    @Test
+    void shouldDelegateWorkflowTaskToAnotherUser() {
+        WorkflowDelegateETO eto = new WorkflowDelegateETO();
+        eto.setInstanceId(1001L);
+        eto.setNodeInstanceId(2001L);
+        eto.setApproverInstanceId(3001L);
+        eto.setDelegateToUserId(9L);
+        eto.setCurrentUserId(1L);
+        eto.setCurrentUsername("admin");
+        eto.setComment("请帮忙处理");
+
+        WorkflowInstance workflowInstance = new WorkflowInstance();
+        workflowInstance.setId(1001L);
+        workflowInstance.setStatus("RUNNING");
+
+        WorkflowNodeInstance nodeInstance = new WorkflowNodeInstance();
+        nodeInstance.setId(2001L);
+        nodeInstance.setInstanceId(1001L);
+        nodeInstance.setStatus("ACTIVE");
+        nodeInstance.setDefinitionNodeId(88L);
+        nodeInstance.setDefinitionNodeName("直属领导审批");
+        nodeInstance.setDefinitionNodeType("APPROVAL");
+
+        WorkflowNodeApproverInstance approverInstance = new WorkflowNodeApproverInstance();
+        approverInstance.setId(3001L);
+        approverInstance.setNodeInstanceId(2001L);
+        approverInstance.setApproverId(1L);
+        approverInstance.setStatus("PENDING");
+        approverInstance.setIsActive(1);
+
+        User delegateUser = new User();
+        delegateUser.setId(9L);
+        delegateUser.setUsername("zhangsan");
+        delegateUser.setRealName("张三");
+        delegateUser.setStatus(1);
+
+        when(workflowInstanceService.getByIdOrThrow(1001L)).thenReturn(workflowInstance);
+        when(workflowNodeInstanceService.getById(2001L)).thenReturn(nodeInstance);
+        when(workflowNodeApproverInstanceService.getById(3001L)).thenReturn(approverInstance);
+        when(workflowNodeApproverInstanceService.list(org.mockito.ArgumentMatchers.<Wrapper<WorkflowNodeApproverInstance>>any()))
+                .thenReturn(List.of(approverInstance));
+        when(userMapper.selectById(9L)).thenReturn(delegateUser);
+
+        workflowLaunchService.delegate(eto);
+
+        verify(workflowNodeApproverInstanceService).saveApproverInstancesForDelegate(approverInstance, delegateUser, "请帮忙处理");
+        verify(workflowApprovalRecordService).recordForDelegate(eto, nodeInstance, delegateUser);
+    }
+
+    @Test
+    void shouldRejectDelegateWhenTargetAlreadyInCurrentNodeChain() {
+        WorkflowDelegateETO eto = new WorkflowDelegateETO();
+        eto.setInstanceId(1001L);
+        eto.setNodeInstanceId(2001L);
+        eto.setApproverInstanceId(3001L);
+        eto.setDelegateToUserId(9L);
+        eto.setCurrentUserId(1L);
+
+        WorkflowInstance workflowInstance = new WorkflowInstance();
+        workflowInstance.setId(1001L);
+        workflowInstance.setStatus("RUNNING");
+
+        WorkflowNodeInstance nodeInstance = new WorkflowNodeInstance();
+        nodeInstance.setId(2001L);
+        nodeInstance.setInstanceId(1001L);
+        nodeInstance.setStatus("ACTIVE");
+
+        WorkflowNodeApproverInstance currentApproverInstance = new WorkflowNodeApproverInstance();
+        currentApproverInstance.setId(3001L);
+        currentApproverInstance.setNodeInstanceId(2001L);
+        currentApproverInstance.setApproverId(1L);
+        currentApproverInstance.setStatus("PENDING");
+        currentApproverInstance.setIsActive(1);
+
+        WorkflowNodeApproverInstance existingTargetApprover = new WorkflowNodeApproverInstance();
+        existingTargetApprover.setId(3002L);
+        existingTargetApprover.setNodeInstanceId(2001L);
+        existingTargetApprover.setApproverId(9L);
+
+        User delegateUser = new User();
+        delegateUser.setId(9L);
+        delegateUser.setUsername("zhangsan");
+        delegateUser.setStatus(1);
+
+        when(workflowInstanceService.getByIdOrThrow(1001L)).thenReturn(workflowInstance);
+        when(workflowNodeInstanceService.getById(2001L)).thenReturn(nodeInstance);
+        when(workflowNodeApproverInstanceService.getById(3001L)).thenReturn(currentApproverInstance);
+        when(workflowNodeApproverInstanceService.list(org.mockito.ArgumentMatchers.<Wrapper<WorkflowNodeApproverInstance>>any()))
+                .thenReturn(List.of(currentApproverInstance, existingTargetApprover));
+        when(userMapper.selectById(9L)).thenReturn(delegateUser);
+
+        BizException exception = assertThrows(BizException.class, () -> workflowLaunchService.delegate(eto));
+
+        assertEquals("转交目标用户已在当前节点审批链中", exception.getMessage());
     }
 
     private Object buildAuditContext(String formData,

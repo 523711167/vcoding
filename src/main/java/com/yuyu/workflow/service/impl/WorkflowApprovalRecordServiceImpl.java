@@ -6,9 +6,11 @@ import com.yuyu.workflow.common.context.OperationTimeContext;
 import com.yuyu.workflow.common.enums.WorkflowApprovalActionEnum;
 import com.yuyu.workflow.common.exception.BizException;
 import com.yuyu.workflow.entity.WorkflowApprovalRecord;
+import com.yuyu.workflow.entity.User;
 import com.yuyu.workflow.entity.WorkflowNodeInstance;
 import com.yuyu.workflow.eto.workflow.WorkflowAuditETO;
 import com.yuyu.workflow.eto.workflow.WorkflowCancelETO;
+import com.yuyu.workflow.eto.workflow.WorkflowDelegateETO;
 import com.yuyu.workflow.mapper.WorkflowApprovalRecordMapper;
 import com.yuyu.workflow.mapper.WorkflowNodeMapper;
 import com.yuyu.workflow.service.WorkflowApprovalRecordService;
@@ -145,6 +147,30 @@ public class WorkflowApprovalRecordServiceImpl extends ServiceImpl<WorkflowAppro
         baseMapper.insert(record);
     }
 
+    @Override
+    public void recordForDelegate(WorkflowDelegateETO eto, WorkflowNodeInstance workflowNodeInstance, User delegateUser) {
+        WorkflowApprovalRecord record = new WorkflowApprovalRecord();
+        record.setInstanceId(eto.getInstanceId());
+        record.setNodeInstanceId(eto.getNodeInstanceId());
+        record.setOperatorId(eto.getCurrentUserId());
+        record.setOperatorName(eto.getCurrentUsername());
+        record.setAction(WorkflowApprovalActionEnum.DELEGATE.getCode());
+        record.setNodeInstanceType(workflowNodeInstance.getDefinitionNodeType());
+        record.setNodeInstanceName(workflowNodeInstance.getDefinitionNodeName());
+        record.setComment(StringUtils.isNotBlank(eto.getComment())
+                ? eto.getComment()
+                : WorkflowApprovalActionEnum.DELEGATE.getName());
+        record.setFromNodeId(workflowNodeInstance.getDefinitionNodeId());
+        record.setFromNodeType(workflowNodeInstance.getDefinitionNodeType());
+        record.setFromNodeName(workflowNodeInstance.getDefinitionNodeName());
+        record.setToNodeId(workflowNodeInstance.getDefinitionNodeId());
+        record.setToNodeType(workflowNodeInstance.getDefinitionNodeType());
+        record.setToNodeName(workflowNodeInstance.getDefinitionNodeName());
+        record.setExtraData(buildDelegateExtraData(delegateUser));
+        record.setOperatedAt(OperationTimeContext.get());
+        baseMapper.insert(record);
+    }
+
     private static WorkflowApprovalRecord buildApprovalRecord(WorkflowAuditETO eto, WorkflowNodeInstance workflowNodeInstance,
                                                               WorkflowNodeInstance toWorkflowNodeInstance, WorkflowApprovalActionEnum workflowApprovalActionEnum) {
         WorkflowApprovalRecord record = new WorkflowApprovalRecord();
@@ -165,6 +191,26 @@ public class WorkflowApprovalRecordServiceImpl extends ServiceImpl<WorkflowAppro
         record.setExtraData(null);
         record.setOperatedAt(OperationTimeContext.get());
         return record;
+    }
+
+    private String buildDelegateExtraData(User delegateUser) {
+        String delegateName = StringUtils.defaultIfBlank(delegateUser.getRealName(), delegateUser.getUsername());
+        return "{\"delegateToUserId\":"
+                + delegateUser.getId()
+                + ",\"delegateToUsername\":\""
+                + escapeJson(delegateUser.getUsername())
+                + "\",\"delegateToName\":\""
+                + escapeJson(delegateName)
+                + "\"}";
+    }
+
+    private String escapeJson(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"");
     }
 
     /**

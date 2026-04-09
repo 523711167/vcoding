@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yuyu.workflow.common.context.OperationTimeContext;
+import com.yuyu.workflow.common.enums.CommonStatusEnum;
 import com.yuyu.workflow.common.enums.WorkflowApproveModeEnum;
 import com.yuyu.workflow.common.enums.WorkflowNodeApproverInstanceStatusEnum;
 import com.yuyu.workflow.common.enums.WorkflowNodeInstanceStatusEnum;
@@ -24,6 +25,7 @@ import com.yuyu.workflow.service.UserService;
 import com.yuyu.workflow.service.WorkflowNodeApproverDeptExpandService;
 import com.yuyu.workflow.service.WorkflowNodeApproverInstanceService;
 import com.yuyu.workflow.vo.workflow.WorkflowTodoVO;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
@@ -221,6 +223,42 @@ public class WorkflowNodeApproverInstanceServiceImpl extends ServiceImpl<Workflo
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void saveApproverInstancesForDelegate(WorkflowNodeApproverInstance currentApproverInstance, User delegateUser, String comment) {
+        if (Objects.isNull(currentApproverInstance) || Objects.isNull(currentApproverInstance.getId())) {
+            throw new BizException("当前审批人实例不能为空");
+        }
+        if (Objects.isNull(delegateUser) || Objects.isNull(delegateUser.getId())) {
+            throw new BizException("转交目标用户不能为空");
+        }
+        if (!CommonStatusEnum.ENABLED.getId().equals(delegateUser.getStatus())) {
+            throw new BizException("转交目标用户已停用");
+        }
+
+        currentApproverInstance.setStatus(WorkflowNodeApproverInstanceStatusEnum.DELEGATED.getCode());
+        currentApproverInstance.setFinishedAt(OperationTimeContext.get());
+        currentApproverInstance.setComment(comment);
+        currentApproverInstance.setDelegateTo(delegateUser.getId());
+        currentApproverInstance.setDelegateToName(resolveUserDisplayName(delegateUser));
+        updateById(currentApproverInstance);
+
+        WorkflowNodeApproverInstance delegatedApproverInstance = new WorkflowNodeApproverInstance();
+        delegatedApproverInstance.setNodeInstanceId(currentApproverInstance.getNodeInstanceId());
+        delegatedApproverInstance.setInstanceId(currentApproverInstance.getInstanceId());
+        delegatedApproverInstance.setApproverId(delegateUser.getId());
+        delegatedApproverInstance.setApproverName(resolveUserDisplayName(delegateUser));
+        delegatedApproverInstance.setNodeName(currentApproverInstance.getNodeName());
+        delegatedApproverInstance.setNodeType(currentApproverInstance.getNodeType());
+        delegatedApproverInstance.setRelationType(currentApproverInstance.getRelationType());
+        delegatedApproverInstance.setSourceApproverInstanceId(currentApproverInstance.getSourceApproverInstanceId());
+        delegatedApproverInstance.setSortOrder(currentApproverInstance.getSortOrder());
+        delegatedApproverInstance.setStatus(WorkflowNodeApproverInstanceStatusEnum.PENDING.getCode());
+        delegatedApproverInstance.setIsActive(YesNoEnum.YES.getId());
+        delegatedApproverInstance.setCreatedAt(OperationTimeContext.get());
+        save(delegatedApproverInstance);
+    }
+
+    @Override
     public void saveApproverInstancesFordept(WorkflowNodeInstance workflowNodeInstance) {
         String approveMode = workflowNodeInstance.getApproveMode();
         List<User> userList = ((UserMapper) userService.getBaseMapper())
@@ -323,6 +361,10 @@ public class WorkflowNodeApproverInstanceServiceImpl extends ServiceImpl<Workflo
                         .toList();
 
         super.saveBatch(nodeApproverInstanceList);
+    }
+
+    private String resolveUserDisplayName(User user) {
+        return StringUtils.defaultIfBlank(user.getRealName(), user.getUsername());
     }
 
     /**

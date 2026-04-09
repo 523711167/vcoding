@@ -12,6 +12,7 @@ import com.yuyu.workflow.entity.base.BaseIdEntity;
 import com.yuyu.workflow.eto.workflow.WorkflowAuditETO;
 import com.yuyu.workflow.eto.workflow.WorkflowBizSubmitETO;
 import com.yuyu.workflow.eto.workflow.WorkflowCancelETO;
+import com.yuyu.workflow.eto.workflow.WorkflowDelegateETO;
 import com.yuyu.workflow.mapper.*;
 import com.yuyu.workflow.service.*;
 import com.yuyu.workflow.struct.WorkflowLaunchStructMapper;
@@ -149,6 +150,24 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         bizApplyService.updateForBizStatusCancel(context.bizApply().getId(), eto.getComment());
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void delegate(WorkflowDelegateETO eto) {
+        DelegateContext context = loadDelegateContext(eto);
+        validateDelegate(context);
+
+        workflowNodeApproverInstanceService.saveApproverInstancesForDelegate(
+                context.currentApproverInstance(),
+                context.delegateUser(),
+                eto.getComment()
+        );
+        workflowApprovalRecordService.recordForDelegate(
+                eto,
+                context.currentNodeInstance(),
+                context.delegateUser()
+        );
+    }
+
     /**
      * 加载取消流程所需上下文。
      */
@@ -160,6 +179,22 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
     }
 
     /**
+     * 加载转交流程所需上下文。
+     */
+    private DelegateContext loadDelegateContext(WorkflowDelegateETO eto) {
+        WorkflowInstance workflowInstance = workflowInstanceService.getByIdOrThrow(eto.getInstanceId());
+        WorkflowNodeInstance currentNodeInstance = workflowNodeInstanceService.getById(eto.getNodeInstanceId());
+        WorkflowNodeApproverInstance currentApproverInstance = workflowNodeApproverInstanceService.getById(eto.getApproverInstanceId());
+        List<WorkflowNodeApproverInstance> approverInstanceList = workflowNodeApproverInstanceService.list(
+                Wrappers.<WorkflowNodeApproverInstance>lambdaQuery()
+                        .eq(WorkflowNodeApproverInstance::getNodeInstanceId, eto.getNodeInstanceId())
+                        .orderByAsc(WorkflowNodeApproverInstance::getSortOrder, WorkflowNodeApproverInstance::getId)
+        );
+        User delegateUser = userMapper.selectById(eto.getDelegateToUserId());
+        return new DelegateContext(eto, workflowInstance, currentNodeInstance, currentApproverInstance, approverInstanceList, delegateUser);
+    }
+
+    /**
      * 校验当前用户是否可以取消流程。
      */
     private void validateCancel(CancelContext context) {
@@ -168,6 +203,54 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
         }
         if (!Objects.equals(context.workflowInstance().getApplicantId(), context.eto().getCurrentUserId())) {
             throw new BizException("无权取消该流程");
+        }
+    }
+
+    /**
+     * 校验当前用户是否可以转交审批任务。
+     */
+    private void validateDelegate(DelegateContext context) {
+        if (!WorkflowInstanceStatusEnum.isRunning(context.workflowInstance().getStatus())) {
+            throw new BizException("流程不在运行中");
+        }
+        if (Objects.isNull(context.currentNodeInstance())) {
+            throw new BizException("节点实例不存在");
+        }
+        if (!Objects.equals(context.currentNodeInstance().getInstanceId(), context.workflowInstance().getId())) {
+            throw new BizException("节点实例不属于当前流程实例");
+        }
+        if (!WorkflowNodeInstanceStatusEnum.isActive(context.currentNodeInstance().getStatus())) {
+            throw new BizException("当前节点不在进行中");
+        }
+        if (Objects.isNull(context.currentApproverInstance())) {
+            throw new BizException("审批人实例不存在");
+        }
+        if (!Objects.equals(context.currentApproverInstance().getNodeInstanceId(), context.currentNodeInstance().getId())) {
+            throw new BizException("审批人实例不属于当前节点");
+        }
+        if (!Objects.equals(context.currentApproverInstance().getApproverId(), context.eto().getCurrentUserId())) {
+            throw new BizException("无权转交该节点");
+        }
+        if (!WorkflowNodeApproverInstanceStatusEnum.isPending(context.currentApproverInstance().getStatus())) {
+            throw new BizException("当前审批任务不在待处理状态");
+        }
+        if (!YesNoEnum.isYes(context.currentApproverInstance().getIsActive())) {
+            throw new BizException("当前审批人未激活");
+        }
+        if (Objects.isNull(context.delegateUser())) {
+            throw new BizException("转交目标用户不存在");
+        }
+        if (!CommonStatusEnum.ENABLED.getId().equals(context.delegateUser().getStatus())) {
+            throw new BizException("转交目标用户已停用");
+        }
+        if (Objects.equals(context.delegateUser().getId(), context.eto().getCurrentUserId())) {
+            throw new BizException("不能转交给自己");
+        }
+        boolean existsInCurrentNodeChain = context.approverInstanceList().stream()
+                .filter(item -> !Objects.equals(item.getId(), context.currentApproverInstance().getId()))
+                .anyMatch(item -> Objects.equals(item.getApproverId(), context.delegateUser().getId()));
+        if (existsInCurrentNodeChain) {
+            throw new BizException("转交目标用户已在当前节点审批链中");
         }
     }
 
@@ -983,6 +1066,16 @@ public class WorkflowLaunchServiceImpl implements WorkflowLaunchService {
             WorkflowInstance workflowInstance,
             BizApply bizApply,
             WorkflowNodeInstance currentNodeInstance
+    ) {
+    }
+
+    private record DelegateContext(
+            WorkflowDelegateETO eto,
+            WorkflowInstance workflowInstance,
+            WorkflowNodeInstance currentNodeInstance,
+            WorkflowNodeApproverInstance currentApproverInstance,
+            List<WorkflowNodeApproverInstance> approverInstanceList,
+            User delegateUser
     ) {
     }
 

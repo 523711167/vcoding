@@ -6,6 +6,7 @@ import com.yuyu.workflow.common.enums.WorkflowNodeApproverInstanceStatusEnum;
 import com.yuyu.workflow.common.enums.WorkflowNodeInstanceStatusEnum;
 import com.yuyu.workflow.entity.WorkflowNodeApproverInstance;
 import com.yuyu.workflow.entity.WorkflowNodeInstance;
+import com.yuyu.workflow.entity.User;
 import com.yuyu.workflow.eto.workflow.WorkflowRejectAuditETO;
 import com.yuyu.workflow.qto.workflow.WorkflowTodoDetailQTO;
 import com.yuyu.workflow.qto.workflow.WorkflowTodoListQTO;
@@ -63,6 +64,11 @@ public interface WorkflowNodeApproverInstanceService extends IService<WorkflowNo
      * 取消流程时批量关闭待处理审批人实例。
      */
     void cancelPendingApproversForInstance(Long instanceId);
+
+    /**
+     * 将当前审批人实例转交给目标用户。
+     */
+    void saveApproverInstancesForDelegate(WorkflowNodeApproverInstance currentApproverInstance, User delegateUser, String comment);
 
     void saveApproverInstancesForUser(WorkflowNodeInstance workflowNodeInstance);
 

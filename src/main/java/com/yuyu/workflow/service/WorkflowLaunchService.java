@@ -3,6 +3,7 @@ package com.yuyu.workflow.service;
 import com.yuyu.workflow.eto.workflow.WorkflowAuditETO;
 import com.yuyu.workflow.eto.workflow.WorkflowBizSubmitETO;
 import com.yuyu.workflow.eto.workflow.WorkflowCancelETO;
+import com.yuyu.workflow.eto.workflow.WorkflowDelegateETO;
 
 /**
  * 工作流发起服务。
@@ -31,4 +32,9 @@ public interface WorkflowLaunchService {
      * 发起人取消运行中的流程实例。
      */
     void cancel(WorkflowCancelETO eto);
+
+    /**
+     * 当前审批人将待办转交给其他用户。
+     */
+    void delegate(WorkflowDelegateETO eto);
 }

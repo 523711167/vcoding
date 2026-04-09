@@ -2,9 +2,11 @@ package com.yuyu.workflow.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.yuyu.workflow.entity.WorkflowApprovalRecord;
+import com.yuyu.workflow.entity.User;
 import com.yuyu.workflow.entity.WorkflowNodeInstance;
 import com.yuyu.workflow.eto.workflow.WorkflowAuditETO;
 import com.yuyu.workflow.eto.workflow.WorkflowCancelETO;
+import com.yuyu.workflow.eto.workflow.WorkflowDelegateETO;
 
 import java.util.List;
 
@@ -48,5 +50,10 @@ public interface WorkflowApprovalRecordService extends IService<WorkflowApproval
      * 发起人取消流程，写入审批记录。
      */
     void recordForCancel(WorkflowCancelETO eto, WorkflowNodeInstance workflowNodeInstance);
+
+    /**
+     * 审批人转交任务，写入审批记录。
+     */
+    void recordForDelegate(WorkflowDelegateETO eto, WorkflowNodeInstance workflowNodeInstance, User delegateUser);
 
 }

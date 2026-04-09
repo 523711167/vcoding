@@ -84,7 +84,8 @@ public class WorkflowBizController {
     @Operation(summary = "转交流程")
     @PostMapping("/delegate")
     public Resp<Void> delegate(@Valid @RequestBody WorkflowDelegateETO eto) {
-        throw notImplemented("转交流程");
+        workflowLaunchService.delegate(eto);
+        return Resp.success();
     }
 
     /**

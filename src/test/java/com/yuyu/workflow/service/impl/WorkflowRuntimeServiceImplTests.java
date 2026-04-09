@@ -1,11 +1,17 @@
 package com.yuyu.workflow.service.impl;
 
+import com.yuyu.workflow.common.enums.CommonStatusEnum;
+import com.yuyu.workflow.common.enums.WorkflowApprovalActionEnum;
+import com.yuyu.workflow.common.enums.WorkflowNodeApproverInstanceStatusEnum;
+import com.yuyu.workflow.common.enums.YesNoEnum;
 import com.yuyu.workflow.common.exception.BizException;
 import com.yuyu.workflow.entity.BizApply;
+import com.yuyu.workflow.entity.User;
 import com.yuyu.workflow.entity.WorkflowApprovalRecord;
 import com.yuyu.workflow.entity.WorkflowInstance;
 import com.yuyu.workflow.entity.WorkflowNodeApproverInstance;
 import com.yuyu.workflow.entity.WorkflowNodeInstance;
+import com.yuyu.workflow.eto.workflow.WorkflowDelegateETO;
 import com.yuyu.workflow.mapper.BizApplyMapper;
 import com.yuyu.workflow.mapper.UserMapper;
 import com.yuyu.workflow.mapper.WorkflowApprovalRecordMapper;
@@ -22,6 +28,7 @@ import com.yuyu.workflow.struct.WorkflowApprovalRecordStructMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -148,5 +155,85 @@ class WorkflowRuntimeServiceImplTests {
         workflowApprovalRecordService.saveBatch(List.of(new WorkflowApprovalRecord(), new WorkflowApprovalRecord()));
 
         verify(workflowApprovalRecordMapper, times(2)).insert(any(WorkflowApprovalRecord.class));
+    }
+
+    @Test
+    void shouldDelegateApproverTaskByUpdatingCurrentAndCreatingNewApprover() {
+        WorkflowNodeApproverInstance currentApproverInstance = new WorkflowNodeApproverInstance();
+        currentApproverInstance.setId(1L);
+        currentApproverInstance.setNodeInstanceId(11L);
+        currentApproverInstance.setInstanceId(21L);
+        currentApproverInstance.setNodeName("直属领导审批");
+        currentApproverInstance.setNodeType("APPROVAL");
+        currentApproverInstance.setSortOrder(1);
+        currentApproverInstance.setRelationType("ORIGINAL");
+        currentApproverInstance.setStatus(WorkflowNodeApproverInstanceStatusEnum.PENDING.getCode());
+        currentApproverInstance.setIsActive(YesNoEnum.YES.getId());
+
+        User delegateUser = new User();
+        delegateUser.setId(9L);
+        delegateUser.setUsername("zhangsan");
+        delegateUser.setRealName("张三");
+        delegateUser.setStatus(CommonStatusEnum.ENABLED.getId());
+
+        when(workflowNodeApproverInstanceMapper.updateById(any(WorkflowNodeApproverInstance.class))).thenReturn(1);
+        when(workflowNodeApproverInstanceMapper.insert(any(WorkflowNodeApproverInstance.class))).thenReturn(1);
+
+        workflowNodeApproverInstanceService.saveApproverInstancesForDelegate(currentApproverInstance, delegateUser, "请帮忙处理");
+
+        ArgumentCaptor<WorkflowNodeApproverInstance> updateCaptor = ArgumentCaptor.forClass(WorkflowNodeApproverInstance.class);
+        ArgumentCaptor<WorkflowNodeApproverInstance> insertCaptor = ArgumentCaptor.forClass(WorkflowNodeApproverInstance.class);
+        verify(workflowNodeApproverInstanceMapper).updateById(updateCaptor.capture());
+        verify(workflowNodeApproverInstanceMapper).insert(insertCaptor.capture());
+
+        WorkflowNodeApproverInstance updatedInstance = updateCaptor.getValue();
+        assertEquals(WorkflowNodeApproverInstanceStatusEnum.DELEGATED.getCode(), updatedInstance.getStatus());
+        assertEquals(YesNoEnum.NO.getId(), updatedInstance.getIsActive());
+        assertEquals(9L, updatedInstance.getDelegateTo());
+        assertEquals("张三", updatedInstance.getDelegateToName());
+        assertEquals("请帮忙处理", updatedInstance.getComment());
+
+        WorkflowNodeApproverInstance createdInstance = insertCaptor.getValue();
+        assertEquals(11L, createdInstance.getNodeInstanceId());
+        assertEquals(21L, createdInstance.getInstanceId());
+        assertEquals(9L, createdInstance.getApproverId());
+        assertEquals("张三", createdInstance.getApproverName());
+        assertEquals(1, createdInstance.getSortOrder());
+        assertEquals(WorkflowNodeApproverInstanceStatusEnum.PENDING.getCode(), createdInstance.getStatus());
+        assertEquals(YesNoEnum.YES.getId(), createdInstance.getIsActive());
+    }
+
+    @Test
+    void shouldRecordDelegateApprovalAction() {
+        WorkflowDelegateETO eto = new WorkflowDelegateETO();
+        eto.setInstanceId(1001L);
+        eto.setNodeInstanceId(2001L);
+        eto.setApproverInstanceId(3001L);
+        eto.setCurrentUserId(1L);
+        eto.setCurrentUsername("admin");
+        eto.setComment("转给张三处理");
+
+        WorkflowNodeInstance workflowNodeInstance = new WorkflowNodeInstance();
+        workflowNodeInstance.setDefinitionNodeId(88L);
+        workflowNodeInstance.setDefinitionNodeName("直属领导审批");
+        workflowNodeInstance.setDefinitionNodeType("APPROVAL");
+
+        User delegateUser = new User();
+        delegateUser.setId(9L);
+        delegateUser.setUsername("zhangsan");
+        delegateUser.setRealName("张三");
+
+        when(workflowApprovalRecordMapper.insert(any(WorkflowApprovalRecord.class))).thenReturn(1);
+
+        workflowApprovalRecordService.recordForDelegate(eto, workflowNodeInstance, delegateUser);
+
+        ArgumentCaptor<WorkflowApprovalRecord> captor = ArgumentCaptor.forClass(WorkflowApprovalRecord.class);
+        verify(workflowApprovalRecordMapper).insert(captor.capture());
+        WorkflowApprovalRecord record = captor.getValue();
+        assertEquals(WorkflowApprovalActionEnum.DELEGATE.getCode(), record.getAction());
+        assertEquals(88L, record.getFromNodeId());
+        assertEquals(88L, record.getToNodeId());
+        assertEquals("转给张三处理", record.getComment());
+        assertEquals("{\"delegateToUserId\":9,\"delegateToUsername\":\"zhangsan\",\"delegateToName\":\"张三\"}", record.getExtraData());
     }
 }
