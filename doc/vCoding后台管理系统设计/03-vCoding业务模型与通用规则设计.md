@@ -117,6 +117,17 @@
 - 删除前需检查历史业务申请和发起权限引用。
 - 改绑流程仅影响新提交单据，不影响历史实例。
 
+### 5.3 工作台查询与展示口径
+
+- 工作台统一包含草稿箱、我的发起、代办箱、已办箱、查询箱五类视图。
+- 代办箱以 `tb_workflow_node_approver_instance` 为主表，筛选当前用户、`status=PENDING`、`is_active=1` 的审批人实例。
+- 已办箱以 `tb_workflow_node_approver_instance` 为主表，筛选当前用户、`status IN (APPROVED, REJECTED, DELEGATED)` 的审批人实例。
+- 已办箱统一按 `finished_at DESC, id DESC` 排序，并复用 `bizApplyId`、`bizDefinitionId`、`title` 作为 `list/page/detail` 过滤条件。
+- 已办箱返回结构复用代办箱字段，并补充 `processedAt` 表示审批人实例处理完成时间；`todoAt` 继续表示进入待办时间。
+- 查询箱按“创建人组织范围 + 查看人最大数据权限范围”的组合口径判断可见性，不直接按申请单 `dept_id` 过滤。
+- 代办箱、已办箱、查询箱的 `list/page/detail` 在各自模块内必须保持查询条件、排序和字段结构一致。
+- 审批任务可见性优先按“当前用户是否为任务参与者”判断，代办箱和已办箱不应被普通数据权限误拦截。
+
 ## 6. 字典设计
 
 核心表：

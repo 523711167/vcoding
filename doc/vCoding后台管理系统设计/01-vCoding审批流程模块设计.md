@@ -114,6 +114,9 @@
 - `tb_workflow_node_instance.parallel_branch_root_id`：记录当前节点实例所属最近一层并行拆分节点实例 ID，非并行分支为空。
 - `tb_workflow_node_approver_instance.finished_at`：统一表达审批人实例完成时间。
 - `tb_workflow_node_approver_instance.delegate_to_name`：冗余转交目标用户姓名。
+- `tb_workflow_node_approver_instance.relation_type`：区分原始审批人和加签审批人，当前口径支持 `ORIGINAL`、`ADD_SIGN`。
+- `tb_workflow_node_approver_instance.source_approver_instance_id`：加签审批人指向其来源审批人实例。
+- 审批人实例状态补充 `WAITING_ADD_SIGN`，用于标记来源审批人在加签链处理期间的挂起状态。
 - `tb_workflow_approval_record` 需要冗余 `node_instance_*`、`from_node_*`、`to_node_*` 三组节点名称和类型字段。
 
 ## 7. 发布与版本机制
@@ -223,6 +226,16 @@
 - `AUTO_REJECT`
 - `TIMEOUT`
 - `REMIND`
+
+加签规则补充：
+- 当前版本仅支持“前加签”，加签审批人仍归属当前活动节点，不新增节点实例。
+- 发起人必须是当前审批人实例对应用户本人，且该审批人实例满足 `status=PENDING`、`is_active=1`。
+- 发起成功后，来源审批人实例更新为 `WAITING_ADD_SIGN` 且 `is_active=0`。
+- 新增的加签审批人实例统一写入当前节点，标记 `relation_type=ADD_SIGN`、`source_approver_instance_id=来源审批人实例ID`。
+- 多个加签人按传入顺序顺签，首位立即激活，其余先置为未激活。
+- 加签链全部通过后，来源审批人恢复为 `PENDING` 且 `is_active=1`，节点继续等待来源审批人最终审批。
+- 任一加签人拒绝后，当前节点直接按拒绝处理，其余未完成加签审批人和处于 `WAITING_ADD_SIGN` 的来源审批人统一取消。
+- 发起加签时需写入一条 `ADD_SIGN` 审批记录，`comment` 保存加签说明，`extra_data` 保存本次加签用户 ID 列表。
 
 ### 12.2 通知触发点
 
